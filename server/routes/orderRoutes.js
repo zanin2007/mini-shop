@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { createOrder, getOrders } = require('../controllers/orderController');
 
-// 임시 빈 라우트 (4주차에 구현 예정)
-router.get('/', authenticateToken, (req, res) => {
-  res.json([]);
-});
+router.post('/', authenticateToken, createOrder);
+router.get('/', authenticateToken, getOrders);
 
 module.exports = router;
