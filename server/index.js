@@ -3,6 +3,9 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 
+// DB 초기화
+const initializeDatabase = require('./config/initDB');
+
 // 라우트 불러오기
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
@@ -18,7 +21,7 @@ const PORT = process.env.PORT || 5000;
 
 // 미들웨어
 app.use(cors({
-  origin: 'http://localhost:5173', // Vite 기본 포트
+  origin: true, // 개발 환경: 모든 origin 허용
   credentials: true
 }));
 app.use(express.json());
@@ -37,6 +40,14 @@ app.get('/', (req, res) => {
   res.json({ message: 'Mini Shop API Server' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// DB 초기화 후 서버 시작
+initializeDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('DB 초기화 실패:', err);
+    process.exit(1);
+  });
