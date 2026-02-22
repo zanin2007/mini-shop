@@ -40,6 +40,7 @@ function Layout() {
             {user ? (
               <>
                 <span className="user-info">{user.nickname}님</span>
+                <Link to="/products/new">상품 등록</Link>
                 <Link to="/cart">장바구니</Link>
                 <Link to="/mypage">마이페이지</Link>
                 <button onClick={handleLogout} className="logout-btn">
