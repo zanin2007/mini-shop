@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/instance';
 import './AuthPages.css';
@@ -10,6 +10,12 @@ function LoginPage() {
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (localStorage.getItem('token')) {
+      navigate('/', { replace: true });
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
