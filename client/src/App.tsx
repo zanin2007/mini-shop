@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
-import MainPage from './pages/MainPage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import ProductDetailPage from './pages/ProductDetailPage';
-import ProductRegisterPage from './pages/ProductRegisterPage';
-import CartPage from './pages/CartPage';
-import CheckoutPage from './pages/CheckoutPage';
-import MyPage from './pages/MyPage';
+import MainPage from './pages/Main/MainPage';
+import LoginPage from './pages/Auth/LoginPage';
+import SignupPage from './pages/Auth/SignupPage';
+import ProductDetailPage from './pages/Product/ProductDetailPage';
+import ProductRegisterPage from './pages/Product/ProductRegisterPage';
+import CartPage from './pages/Cart/CartPage';
+import CheckoutPage from './pages/Checkout/CheckoutPage';
+import MyPage from './pages/MyPage/MyPage';
 import './App.css';
 
 function App() {

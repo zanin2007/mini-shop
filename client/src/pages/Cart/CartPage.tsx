@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/instance';
+import api from '../../api/instance';
 import './CartPage.css';
 
 interface CartItem {

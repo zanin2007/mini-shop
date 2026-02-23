@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/instance';
+import { AxiosError } from 'axios';
+import api from '../../api/instance';
 import './AuthPages.css';
 
-function SignupPage() {
+function LoginPage() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: '',
-    nickname: '',
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -30,29 +29,25 @@ function SignupPage() {
     e.preventDefault();
     setError('');
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return;
-    }
-
     try {
-      await api.post('/auth/signup', {
-        email: formData.email,
-        password: formData.password,
-        nickname: formData.nickname,
-      });
+      const response = await api.post('/auth/login', formData);
 
-      alert('회원가입이 완료되었습니다!');
-      navigate('/login');
-    } catch (err: any) {
-      setError(err.response?.data?.message || '회원가입에 실패했습니다.');
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+
+      alert('로그인 성공!');
+      window.location.href = '/'; // 페이지 새로고침으로 레이아웃 업데이트
+    } catch (err) {
+      if (err instanceof AxiosError) {
+        setError(err.response?.data?.message || '로그인에 실패했습니다.');
+      }
     }
   };
 
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h2>회원가입</h2>
+        <h2>로그인</h2>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>이메일</label>
@@ -66,17 +61,6 @@ function SignupPage() {
             />
           </div>
           <div className="form-group">
-            <label>닉네임</label>
-            <input
-              type="text"
-              name="nickname"
-              value={formData.nickname}
-              onChange={handleChange}
-              required
-              placeholder="닉네임"
-            />
-          </div>
-          <div className="form-group">
             <label>비밀번호</label>
             <input
               type="password"
@@ -87,28 +71,17 @@ function SignupPage() {
               placeholder="비밀번호"
             />
           </div>
-          <div className="form-group">
-            <label>비밀번호 확인</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              placeholder="비밀번호 확인"
-            />
-          </div>
           {error && <div className="error-message">{error}</div>}
           <button type="submit" className="submit-btn">
-            회원가입
+            로그인
           </button>
         </form>
         <p className="auth-link">
-          이미 계정이 있으신가요? <Link to="/login">로그인</Link>
+          계정이 없으신가요? <Link to="/signup">회원가입</Link>
         </p>
       </div>
     </div>
   );
 }
 
-export default SignupPage;
+export default LoginPage;

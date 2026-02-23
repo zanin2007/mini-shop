@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api/instance';
-import type { Product } from '../types';
+import api from '../../api/instance';
+import type { Product } from '../../types';
 import './MainPage.css';
 
 function MainPage() {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/instance';
-import type { Order, User } from '../types';
+import api from '../../api/instance';
+import type { Order, User } from '../../types';
 import './MyPage.css';
 
 function MyPage() {

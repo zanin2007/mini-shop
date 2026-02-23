@@ -60,8 +60,8 @@ products       →  상품 정보
 cart_items     →  장바구니 (users ↔ products)
 orders         →  주문 (users에 속함)
 order_items    →  주문 상세 (orders ↔ products)
-reviews        →  리뷰 (users ↔ products)  [미구현]
-wishlists      →  찜 목록 (users ↔ products) [미구현]
+reviews        →  리뷰 (users ↔ products)  [미구현][테이블 완료]
+wishlists      →  찜 목록 (users ↔ products) [미구현][테이블 완료]
 ```
 
 ### 팁

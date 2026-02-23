@@ -34,13 +34,15 @@ async function initializeDatabase() {
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS products (
       id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT,
       name VARCHAR(255) NOT NULL,
       description TEXT,
       price INT NOT NULL,
       stock INT NOT NULL DEFAULT 0,
       image_url VARCHAR(500),
       category VARCHAR(100),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
   console.log('products 테이블 확인 완료');
