@@ -64,7 +64,7 @@ exports.login = async (req, res) => {
 
     // JWT 토큰 생성
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -75,7 +75,8 @@ exports.login = async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        nickname: user.nickname
+        nickname: user.nickname,
+        role: user.role
       }
     });
   } catch (error) {

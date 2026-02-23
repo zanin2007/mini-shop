@@ -109,3 +109,19 @@
 .auth-link a:hover {
   text-decoration: underline;
 }
+
+/* ===== 모바일 ===== */
+@media (max-width: 768px) {
+  .auth-container {
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+
+  .auth-box {
+    padding: 1.5rem;
+  }
+
+  .auth-box h2 {
+    font-size: 1.4rem;
+  }
+}

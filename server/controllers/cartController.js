@@ -4,7 +4,7 @@ const db = require('../config/db');
 exports.getCart = async (req, res) => {
   try {
     const [items] = await db.execute(
-      `SELECT c.id, c.quantity, c.product_id,
+      `SELECT c.id, c.quantity, c.product_id, c.is_selected,
               p.name, p.price, p.image_url, p.stock
        FROM cart_items c
        JOIN products p ON c.product_id = p.id
@@ -81,6 +81,36 @@ exports.removeFromCart = async (req, res) => {
     res.json({ message: '상품이 삭제되었습니다.' });
   } catch (error) {
     console.error('Remove from cart error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 장바구니 아이템 선택/해제 토글
+exports.toggleSelect = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.execute(
+      'UPDATE cart_items SET is_selected = NOT is_selected WHERE id = ? AND user_id = ?',
+      [id, req.user.userId]
+    );
+    res.json({ message: '선택 상태가 변경되었습니다.' });
+  } catch (error) {
+    console.error('Toggle select error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 장바구니 전체 선택/해제
+exports.toggleSelectAll = async (req, res) => {
+  try {
+    const { is_selected } = req.body;
+    await db.execute(
+      'UPDATE cart_items SET is_selected = ? WHERE user_id = ?',
+      [is_selected, req.user.userId]
+    );
+    res.json({ message: '전체 선택 상태가 변경되었습니다.' });
+  } catch (error) {
+    console.error('Toggle select all error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
 };

@@ -89,6 +89,71 @@
   font-size: 1rem;
 }
 
+/* ===== 배송 정보 ===== */
+.delivery-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.delivery-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.delivery-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.delivery-field input {
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: #fafafa;
+  transition: all 0.2s;
+}
+
+.delivery-field input:focus {
+  outline: none;
+  border-color: #111;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+/* ===== 쿠폰 ===== */
+.coupon-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #333;
+  background: #fafafa;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.coupon-select:focus {
+  outline: none;
+  border-color: #111;
+  background: white;
+}
+
+.no-coupons {
+  color: #999;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.payment-discount {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 /* ===== 결제 정보 ===== */
 .checkout-payment {
   background: white;
@@ -149,4 +214,46 @@
 .order-btn:disabled {
   background: #999;
   cursor: not-allowed;
+}
+
+/* ===== 모바일 ===== */
+@media (max-width: 768px) {
+  .checkout-page {
+    padding: 0 1rem;
+  }
+
+  .checkout-title {
+    font-size: 1.3rem;
+  }
+
+  .checkout-section,
+  .checkout-payment {
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+
+  .checkout-item {
+    gap: 0.75rem;
+  }
+
+  .checkout-item-image {
+    width: 48px;
+    height: 48px;
+  }
+
+  .checkout-item-name {
+    font-size: 0.85rem;
+  }
+
+  .checkout-item-subtotal {
+    font-size: 0.9rem;
+  }
+
+  .payment-total strong {
+    font-size: 1.25rem;
+  }
+
+  .order-btn {
+    font-size: 1rem;
+  }
 }

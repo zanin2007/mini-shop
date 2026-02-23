@@ -68,11 +68,30 @@
 }
 
 .order-status {
-  background: #e8f5e9;
-  color: #2e7d32;
   padding: 0.2rem 0.6rem;
   border-radius: 12px;
   font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-pending {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.status-shipped {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-delivered {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-completed {
+  background: #f3e5f5;
+  color: #7b1fa2;
 }
 
 .order-date {
@@ -128,4 +147,271 @@
 .order-total strong {
   color: #e53935;
   font-size: 1.1rem;
+}
+
+.order-discount {
+  display: block;
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ===== 배송 상태 진행 바 ===== */
+.delivery-progress {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 0;
+  border-top: 1px solid #f0f0f0;
+  position: relative;
+}
+
+.delivery-progress::before {
+  content: '';
+  position: absolute;
+  top: calc(1rem + 6px);
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: #e0e0e0;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  position: relative;
+}
+
+.progress-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #e0e0e0;
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.progress-step.active .progress-dot {
+  background: #111;
+  box-shadow: 0 0 0 1px #111;
+}
+
+.progress-step span {
+  font-size: 0.7rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.progress-step.active span {
+  color: #111;
+  font-weight: 700;
+}
+
+/* ===== 배송 정보 ===== */
+.delivery-info {
+  display: flex;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.delivery-info span:first-child {
+  font-weight: 600;
+  color: #333;
+}
+
+/* ===== 탭 ===== */
+.mypage-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.mypage-tab {
+  padding: 0.6rem 1.25rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 20px;
+  background: white;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mypage-tab:hover {
+  border-color: #111;
+  color: #111;
+}
+
+.mypage-tab.active {
+  background: #111;
+  color: white;
+  border-color: #111;
+}
+
+.tab-badge {
+  background: #dc2626;
+  color: white;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.mypage-tab.active .tab-badge {
+  background: white;
+  color: #111;
+}
+
+/* ===== 쿠폰 ===== */
+.coupon-claim {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.coupon-claim input {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: #fafafa;
+  transition: border-color 0.2s;
+}
+
+.coupon-claim input:focus {
+  outline: none;
+  border-color: #111;
+  background: white;
+}
+
+.coupon-claim button {
+  padding: 0.65rem 1.25rem;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.coupon-claim button:hover {
+  background: #333;
+}
+
+.coupon-subtitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 0.75rem;
+}
+
+.coupon-subtitle.used {
+  color: #999;
+  margin-top: 1.5rem;
+}
+
+.coupon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.coupon-card {
+  padding: 1rem 1.25rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  border-left: 4px solid #111;
+  background: white;
+}
+
+.coupon-card.used {
+  opacity: 0.5;
+  border-left-color: #ccc;
+}
+
+.coupon-discount-label {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #111;
+  margin-bottom: 0.25rem;
+}
+
+.coupon-code-label {
+  font-size: 0.8rem;
+  color: #888;
+  font-family: monospace;
+  letter-spacing: 1px;
+}
+
+.coupon-condition {
+  font-size: 0.8rem;
+  color: #e65100;
+  margin-top: 0.25rem;
+}
+
+.coupon-expiry {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.25rem;
+}
+
+/* ===== 모바일 ===== */
+@media (max-width: 768px) {
+  .mypage {
+    padding: 1rem;
+  }
+
+  .mypage-title {
+    font-size: 1.4rem;
+  }
+
+  .mypage-section {
+    padding: 1rem;
+  }
+
+  .order-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .order-date {
+    margin-left: 0;
+    width: 100%;
+    font-size: 0.8rem;
+  }
+
+  .order-item {
+    gap: 0.5rem;
+  }
+
+  .order-item img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .item-name {
+    font-size: 0.85rem;
+  }
+
+  .item-qty,
+  .item-price {
+    font-size: 0.8rem;
+  }
 }

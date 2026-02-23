@@ -6,15 +6,33 @@ import './MainPage.css';
 
 function MainPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
 
   useEffect(() => {
+    fetchCategories();
     fetchProducts();
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchCategories = async () => {
     try {
-      const response = await api.get('/products');
+      const response = await api.get('/products/categories');
+      setCategories(response.data);
+    } catch (error) {
+      console.error('카테고리 조회 실패:', error);
+    }
+  };
+
+  const fetchProducts = async (searchValue = '', category = '') => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchValue) params.append('search', searchValue);
+      if (category) params.append('category', category);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const response = await api.get(`/products${query}`);
       setProducts(response.data);
     } catch (error) {
       console.error('상품 조회 실패:', error);
@@ -23,9 +41,15 @@ function MainPage() {
     }
   };
 
-  if (loading) {
-    return <div className="loading">로딩 중...</div>;
-  }
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchProducts(search, selectedCategory);
+  };
+
+  const handleCategoryClick = (category: string) => {
+    setSelectedCategory(category);
+    fetchProducts(search, category);
+  };
 
   return (
     <div className="main-page">
@@ -35,28 +59,67 @@ function MainPage() {
           <p>최신 의류 상품을 만나보세요</p>
         </section>
 
-        <section className="products-section">
-          <h3>전체 상품</h3>
-          <div className="products-grid">
-            {products.map((product) => (
-              <Link
-                to={`/products/${product.id}`}
-                key={product.id}
-                className="product-card"
+        {/* 검색 & 필터 */}
+        <section className="search-section">
+          <form className="search-bar" onSubmit={handleSearch}>
+            <input
+              type="text"
+              placeholder="상품명 검색..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button type="submit">검색</button>
+          </form>
+          <div className="category-filters">
+            <button
+              className={`category-btn ${selectedCategory === '' ? 'active' : ''}`}
+              onClick={() => handleCategoryClick('')}
+            >
+              전체
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                className={`category-btn ${selectedCategory === cat ? 'active' : ''}`}
+                onClick={() => handleCategoryClick(cat)}
               >
-                <div className="product-image">
-                  <img src={product.image_url} alt={product.name} />
-                </div>
-                <div className="product-info">
-                  <h4>{product.name}</h4>
-                  <p className="product-category">{product.category}</p>
-                  <p className="product-price">
-                    {product.price.toLocaleString()}원
-                  </p>
-                </div>
-              </Link>
+                {cat}
+              </button>
             ))}
           </div>
+        </section>
+
+        <section className="products-section">
+          <h3>
+            {selectedCategory || '전체'} 상품
+            <span className="product-count">{products.length}개</span>
+          </h3>
+          {loading ? (
+            <div className="loading">로딩 중...</div>
+          ) : products.length === 0 ? (
+            <div className="empty-products">검색 결과가 없습니다.</div>
+          ) : (
+            <div className="products-grid">
+              {products.map((product) => (
+                <Link
+                  to={`/products/${product.id}`}
+                  key={product.id}
+                  className="product-card"
+                >
+                  <div className="product-image">
+                    <img src={product.image_url} alt={product.name} />
+                  </div>
+                  <div className="product-info">
+                    <h4>{product.name}</h4>
+                    <p className="product-category">{product.category}</p>
+                    <p className="product-price">
+                      {product.price.toLocaleString()}원
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>

@@ -42,6 +42,79 @@
   position: relative;
 }
 
+/* ===== 검색 & 필터 ===== */
+.search-section {
+  margin-bottom: 2rem;
+}
+
+.search-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: #fafafa;
+  transition: all 0.2s;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #111;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.search-bar button {
+  padding: 0.75rem 1.5rem;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-bar button:hover {
+  background: #333;
+}
+
+.category-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.category-btn {
+  padding: 0.5rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 20px;
+  background: white;
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.category-btn:hover {
+  border-color: #111;
+  color: #111;
+}
+
+.category-btn.active {
+  background: #111;
+  color: white;
+  border-color: #111;
+}
+
 /* ===== 상품 섹션 ===== */
 .products-section h3 {
   font-size: 1.5rem;
@@ -119,10 +192,89 @@
   margin: 0;
 }
 
+.product-count {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #999;
+  margin-left: 0.5rem;
+}
+
+.empty-products {
+  text-align: center;
+  padding: 4rem;
+  color: #999;
+  font-size: 1rem;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #eee;
+}
+
 /* ===== 로딩 ===== */
 .loading {
   text-align: center;
   padding: 6rem;
   font-size: 1rem;
   color: #999;
+}
+
+/* ===== 모바일 ===== */
+@media (max-width: 768px) {
+  .main-page .container {
+    padding: 0 1rem;
+  }
+
+  .hero {
+    padding: 2.5rem 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 12px;
+  }
+
+  .hero h2 {
+    font-size: 1.75rem;
+  }
+
+  .hero p {
+    font-size: 0.95rem;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .product-image {
+    height: 180px;
+  }
+
+  .product-info {
+    padding: 0.75rem;
+  }
+
+  .product-info h4 {
+    font-size: 0.85rem;
+  }
+
+  .product-price {
+    font-size: 1rem;
+  }
+
+  .product-category {
+    font-size: 0.7rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .search-bar input {
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .search-bar button {
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .category-btn {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
+  }
 }

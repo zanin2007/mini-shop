@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { getProductReviews, createReview, deleteReview, checkPurchased } = require('../controllers/reviewController');
 
-// 임시 빈 라우트 (6주차에 구현 예정)
-router.get('/', authenticateToken, (req, res) => {
-  res.json([]);
-});
+router.get('/product/:productId', getProductReviews);
+router.get('/check/:productId', authenticateToken, checkPurchased);
+router.post('/', authenticateToken, createReview);
+router.delete('/:id', authenticateToken, deleteReview);
 
 module.exports = router;

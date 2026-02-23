@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
-import type { Product } from '../../types';
+import type { Product, Review } from '../../types';
 import './ProductDetailPage.css';
 
 function ProductDetailPage() {
@@ -10,9 +10,15 @@ function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [canReview, setCanReview] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' });
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   useEffect(() => {
     fetchProduct();
+    fetchReviews();
+    checkCanReview();
   }, [id]);
 
   const fetchProduct = async () => {
@@ -23,6 +29,45 @@ function ProductDetailPage() {
       console.error('상품 조회 실패:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const response = await api.get(`/reviews/product/${id}`);
+      setReviews(response.data);
+    } catch (error) {
+      console.error('리뷰 조회 실패:', error);
+    }
+  };
+
+  const checkCanReview = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const response = await api.get(`/reviews/check/${id}`);
+      setCanReview(response.data.purchased && !response.data.reviewed);
+    } catch {
+      setCanReview(false);
+    }
+  };
+
+  const currentUser = (() => {
+    const data = localStorage.getItem('user');
+    return data ? JSON.parse(data) : null;
+  })();
+
+  const isOwner = currentUser && product?.user_id === currentUser.id;
+
+  const handleDelete = async () => {
+    if (!window.confirm('정말 이 상품을 삭제하시겠습니까?')) return;
+    try {
+      await api.delete(`/products/${id}`);
+      alert('상품이 삭제되었습니다.');
+      navigate('/');
+    } catch (error) {
+      console.error('상품 삭제 실패:', error);
+      alert('삭제에 실패했습니다.');
     }
   };
 
@@ -45,6 +90,44 @@ function ProductDetailPage() {
     }
   };
 
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewForm.content.trim()) {
+      alert('리뷰 내용을 입력해주세요.');
+      return;
+    }
+    try {
+      await api.post('/reviews', {
+        productId: Number(id),
+        rating: reviewForm.rating,
+        content: reviewForm.content,
+      });
+      alert('리뷰가 등록되었습니다.');
+      setShowReviewForm(false);
+      setReviewForm({ rating: 5, content: '' });
+      setCanReview(false);
+      fetchReviews();
+    } catch (error) {
+      console.error('리뷰 등록 실패:', error);
+      alert('리뷰 등록에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: number) => {
+    if (!window.confirm('리뷰를 삭제하시겠습니까?')) return;
+    try {
+      await api.delete(`/reviews/${reviewId}`);
+      fetchReviews();
+      setCanReview(true);
+    } catch (error) {
+      console.error('리뷰 삭제 실패:', error);
+    }
+  };
+
+  const renderStars = (rating: number) => {
+    return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+  };
+
   if (loading) {
     return <div className="loading">로딩 중...</div>;
   }
@@ -52,6 +135,10 @@ function ProductDetailPage() {
   if (!product) {
     return <div className="loading">상품을 찾을 수 없습니다.</div>;
   }
+
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
 
   return (
     <div className="detail-page">
@@ -105,7 +192,88 @@ function ProductDetailPage() {
             >
               {product.stock === 0 ? '품절' : '장바구니 담기'}
             </button>
+
+            {isOwner && (
+              <button className="delete-product-btn" onClick={handleDelete}>
+                상품 삭제
+              </button>
+            )}
           </div>
+        </div>
+
+        {/* 리뷰 섹션 */}
+        <div className="review-section">
+          <div className="review-header">
+            <h3>
+              리뷰 {reviews.length > 0 && <span className="review-count">({reviews.length})</span>}
+            </h3>
+            {avgRating && (
+              <span className="review-avg">
+                <span className="stars">{renderStars(Math.round(Number(avgRating)))}</span>
+                {avgRating}
+              </span>
+            )}
+          </div>
+
+          {canReview && !showReviewForm && (
+            <button className="write-review-btn" onClick={() => setShowReviewForm(true)}>
+              리뷰 작성하기
+            </button>
+          )}
+
+          {showReviewForm && (
+            <form className="review-form" onSubmit={handleSubmitReview}>
+              <div className="rating-select">
+                <span>별점</span>
+                <div className="rating-stars">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      className={`star-btn ${star <= reviewForm.rating ? 'active' : ''}`}
+                      onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <textarea
+                placeholder="리뷰를 작성해주세요..."
+                value={reviewForm.content}
+                onChange={(e) => setReviewForm({ ...reviewForm, content: e.target.value })}
+                rows={3}
+              />
+              <div className="review-form-actions">
+                <button type="button" onClick={() => setShowReviewForm(false)}>취소</button>
+                <button type="submit">등록</button>
+              </div>
+            </form>
+          )}
+
+          {reviews.length === 0 ? (
+            <p className="no-reviews">아직 리뷰가 없습니다.</p>
+          ) : (
+            <div className="review-list">
+              {reviews.map((review) => (
+                <div key={review.id} className="review-item">
+                  <div className="review-item-header">
+                    <span className="review-author">{review.nickname || review.user?.nickname}</span>
+                    <span className="review-stars">{renderStars(review.rating)}</span>
+                    <span className="review-date">
+                      {new Date(review.created_at).toLocaleDateString('ko-KR')}
+                    </span>
+                    {currentUser && review.user_id === currentUser.id && (
+                      <button className="review-delete-btn" onClick={() => handleDeleteReview(review.id)}>
+                        삭제
+                      </button>
+                    )}
+                  </div>
+                  <p className="review-content">{review.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

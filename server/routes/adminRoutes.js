@@ -1,0 +1,21 @@
+const express = require('express');
+const router = express.Router();
+const { authenticateToken, isAdmin } = require('../middleware/authMiddleware');
+const {
+  getAllOrders, updateOrderStatus,
+  getAllProducts, deleteProduct,
+  createCoupon, getAllCoupons, deleteCoupon
+} = require('../controllers/adminController');
+
+// 모든 관리자 라우트에 인증 + 관리자 권한 필요
+router.use(authenticateToken, isAdmin);
+
+router.get('/orders', getAllOrders);
+router.put('/orders/:id/status', updateOrderStatus);
+router.get('/products', getAllProducts);
+router.delete('/products/:id', deleteProduct);
+router.get('/coupons', getAllCoupons);
+router.post('/coupons', createCoupon);
+router.delete('/coupons/:id', deleteCoupon);
+
+module.exports = router;

@@ -7,6 +7,7 @@ interface CartItem {
   id: number;
   product_id: number;
   quantity: number;
+  is_selected: boolean;
   name: string;
   price: number;
   image_url: string;
@@ -39,6 +40,27 @@ function CartPage() {
     }
   };
 
+  const handleToggleSelect = async (id: number) => {
+    try {
+      await api.put(`/cart/${id}/select`);
+      setCartItems(cartItems.map(item =>
+        item.id === id ? { ...item, is_selected: !item.is_selected } : item
+      ));
+    } catch (error) {
+      console.error('선택 변경 실패:', error);
+    }
+  };
+
+  const handleToggleSelectAll = async () => {
+    const allSelected = cartItems.every(item => item.is_selected);
+    try {
+      await api.put('/cart/select-all', { is_selected: !allSelected });
+      setCartItems(cartItems.map(item => ({ ...item, is_selected: !allSelected })));
+    } catch (error) {
+      console.error('전체 선택 변경 실패:', error);
+    }
+  };
+
   const handleUpdateQuantity = async (id: number, quantity: number) => {
     if (quantity < 1) return;
     try {
@@ -61,7 +83,9 @@ function CartPage() {
     }
   };
 
-  const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const selectedItems = cartItems.filter(item => item.is_selected);
+  const totalPrice = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const allSelected = cartItems.length > 0 && cartItems.every(item => item.is_selected);
 
   if (loading) {
     return <div className="loading">로딩 중...</div>;
@@ -79,9 +103,27 @@ function CartPage() {
           </div>
         ) : (
           <>
+            <div className="cart-select-all">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={handleToggleSelectAll}
+                />
+                전체 선택
+              </label>
+            </div>
+
             <div className="cart-items">
               {cartItems.map(item => (
-                <div key={item.id} className="cart-item">
+                <div key={item.id} className={`cart-item ${!item.is_selected ? 'cart-item-unselected' : ''}`}>
+                  <input
+                    type="checkbox"
+                    className="cart-item-checkbox"
+                    checked={item.is_selected}
+                    onChange={() => handleToggleSelect(item.id)}
+                  />
+
                   <Link to={`/products/${item.product_id}`} className="cart-item-image">
                     <img src={item.image_url} alt={item.name} />
                   </Link>
@@ -112,15 +154,19 @@ function CartPage() {
 
             <div className="cart-summary">
               <div className="cart-summary-row">
-                <span>총 상품 수</span>
-                <span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}개</span>
+                <span>선택 상품 수</span>
+                <span>{selectedItems.reduce((sum, item) => sum + item.quantity, 0)}개</span>
               </div>
               <div className="cart-summary-total">
                 <span>총 결제 금액</span>
                 <strong>{totalPrice.toLocaleString()}원</strong>
               </div>
-              <button className="checkout-btn" onClick={() => navigate('/checkout')}>
-                구매하기
+              <button
+                className="checkout-btn"
+                onClick={() => navigate('/checkout')}
+                disabled={selectedItems.length === 0}
+              >
+                {selectedItems.length === 0 ? '상품을 선택해주세요' : '구매하기'}
               </button>
             </div>
           </>

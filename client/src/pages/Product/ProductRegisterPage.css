@@ -100,3 +100,19 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ===== 모바일 ===== */
+@media (max-width: 768px) {
+  .register-container {
+    margin: 0 1rem;
+    padding: 1.25rem;
+  }
+
+  .register-title {
+    font-size: 1.4rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}

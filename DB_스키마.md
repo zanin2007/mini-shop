@@ -105,7 +105,7 @@
 | total_amount | INT | NO | | 상품 총 금액 (원) |
 | discount_amount | INT | NO | | 할인 금액 (기본값: 0) |
 | final_amount | INT | NO | | 최종 결제 금액 (total - discount) |
-| status | VARCHAR(50) | NO | | 주문 상태 (pending/processing/shipped/delivered/cancelled) |
+| status | VARCHAR(50) | NO | | 주문 상태 (pending/shipped/delivered/completed) |
 | delivery_address | TEXT | YES | | 배송 주소 |
 | receiver_name | VARCHAR(100) | YES | | 수령인 이름 |
 | receiver_phone | VARCHAR(20) | YES | | 수령인 전화번호 |
@@ -113,8 +113,8 @@
 | created_at | TIMESTAMP | YES | | 주문 일시 (자동 기록) |
 | updated_at | TIMESTAMP | YES | | 상태 변경 일시 (자동 갱신) |
 
-> **주문 상태 흐름: pending(확인중) → processing(준비중) → shipped(배송중) → delivered(배송완료)**
-> **취소 시: cancelled**
+> **주문 상태 흐름: pending(준비중) → shipped(배송중) → delivered(배송완료) → completed(구매확정)**
+> 관리자가 상태를 변경할 수 있음 (관리자 페이지에서 드롭다운으로 변경)
 
 ---
 
