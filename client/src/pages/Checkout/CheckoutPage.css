@@ -154,6 +154,145 @@
   font-weight: 600;
 }
 
+.checkout-item-options {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0.1rem 0;
+}
+
+/* ===== 선물하기 ===== */
+.gift-toggle {
+  margin-bottom: 0.5rem;
+}
+
+.gift-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.gift-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #e53935;
+}
+
+.gift-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.gift-search {
+  position: relative;
+}
+
+.gift-search label,
+.gift-message-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 0.35rem;
+}
+
+.search-input-wrapper {
+  position: relative;
+}
+
+.search-input-wrapper input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: #fafafa;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.search-input-wrapper input:focus {
+  outline: none;
+  border-color: #111;
+  background: white;
+}
+
+.selected-badge {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  background: white;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  position: absolute;
+  width: 100%;
+  z-index: 10;
+}
+
+.search-results li {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: background 0.15s;
+}
+
+.search-results li:hover {
+  background: #f5f5f5;
+}
+
+.search-results li strong {
+  font-size: 0.9rem;
+  color: #111;
+}
+
+.search-results li span {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.gift-message-field textarea {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fafafa;
+  resize: vertical;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.gift-message-field textarea:focus {
+  outline: none;
+  border-color: #111;
+  background: white;
+}
+
 /* ===== 결제 정보 ===== */
 .checkout-payment {
   background: white;

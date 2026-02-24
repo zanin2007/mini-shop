@@ -15,6 +15,7 @@ export interface Product {
   image_url: string;
   stock: number;
   created_at: string;
+  options?: ProductOption[];
 }
 
 export interface CartItem {
@@ -53,6 +54,7 @@ export interface OrderItem {
   price: number;
   name: string;
   image_url: string;
+  options?: CartItemOption[];
 }
 
 export interface Order {
@@ -68,6 +70,46 @@ export interface Order {
   status: string;
   created_at: string;
   items?: OrderItem[];
+}
+
+export interface ProductOption {
+  id: number;
+  product_id: number;
+  option_name: string;
+  values: ProductOptionValue[];
+}
+
+export interface ProductOptionValue {
+  id: number;
+  option_id: number;
+  value: string;
+  extra_price: number;
+  stock: number;
+}
+
+export interface CartItemOption {
+  option_value_id: number;
+  option_name: string;
+  value: string;
+  extra_price: number;
+}
+
+export interface Gift {
+  id: number;
+  order_id: number;
+  sender_id: number;
+  receiver_id: number | null;
+  sender_nickname?: string;
+  receiver_nickname?: string;
+  receiver_name: string;
+  receiver_phone: string;
+  message: string;
+  status: string;
+  accepted_at: string | null;
+  created_at: string;
+  order_items?: OrderItem[];
+  total_amount?: number;
+  final_amount?: number;
 }
 
 export interface Coupon {

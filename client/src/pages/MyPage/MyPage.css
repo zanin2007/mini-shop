@@ -125,6 +125,14 @@
 .item-name {
   flex: 1;
   color: #444;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-options {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 0.15rem;
 }
 
 .item-qty {
@@ -154,6 +162,29 @@
   color: #dc2626;
   font-size: 0.85rem;
   margin-bottom: 0.25rem;
+}
+
+/* ===== 주문 상태 변경 버튼 ===== */
+.order-actions {
+  padding-top: 0.8rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.advance-btn {
+  padding: 0.5rem 1.25rem;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.advance-btn:hover {
+  background: #333;
 }
 
 /* ===== 배송 상태 진행 바 ===== */
@@ -370,6 +401,176 @@
   font-size: 0.8rem;
   color: #999;
   margin-top: 0.25rem;
+}
+
+/* ===== 선물 ===== */
+.gift-sub-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.gift-sub-tab {
+  padding: 0.5rem 1rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gift-sub-tab:hover {
+  border-color: #111;
+  color: #111;
+}
+
+.gift-sub-tab.active {
+  background: #111;
+  color: white;
+  border-color: #111;
+}
+
+.gift-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gift-card {
+  padding: 1rem 1.25rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  border-left: 4px solid #111;
+}
+
+.gift-status-pending {
+  border-left-color: #e65100;
+}
+
+.gift-status-accepted {
+  border-left-color: #2e7d32;
+}
+
+.gift-status-rejected {
+  border-left-color: #ccc;
+  opacity: 0.6;
+}
+
+.gift-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.gift-sender {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #111;
+}
+
+.gift-status-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.gift-status-badge.pending {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.gift-status-badge.accepted {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.gift-status-badge.rejected {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.gift-date {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.gift-message {
+  color: #555;
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.gift-items {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+.gift-items li {
+  font-size: 0.85rem;
+  color: #555;
+  padding: 0.2rem 0;
+}
+
+.gift-total {
+  text-align: right;
+  font-weight: 700;
+  color: #111;
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+.gift-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.gift-accept-btn {
+  padding: 0.45rem 1rem;
+  background: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gift-accept-btn:hover {
+  background: #15803d;
+}
+
+.gift-reject-btn {
+  padding: 0.45rem 1rem;
+  background: white;
+  color: #999;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gift-reject-btn:hover {
+  background: #fff0f0;
+  border-color: #ffb8b8;
+  color: #dc2626;
 }
 
 /* ===== 모바일 ===== */

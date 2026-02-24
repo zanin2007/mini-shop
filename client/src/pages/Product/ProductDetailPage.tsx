@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
-import type { Product, Review } from '../../types';
+import type { Product, Review, ProductOption } from '../../types';
 import './ProductDetailPage.css';
 
 function ProductDetailPage() {
@@ -16,6 +16,7 @@ function ProductDetailPage() {
   const [canReview, setCanReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' });
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({}); // optionId -> valueId
 
   useEffect(() => {
     fetchProduct();
@@ -81,8 +82,24 @@ function ProductDetailPage() {
       return;
     }
 
+    // 옵션이 있는 상품인데 모든 옵션을 선택하지 않은 경우
+    if (product?.options && product.options.length > 0) {
+      const unselected = product.options.filter(opt => !selectedOptions[opt.id]);
+      if (unselected.length > 0) {
+        showAlert(`${unselected[0].option_name}을(를) 선택해주세요.`, 'warning');
+        return;
+      }
+    }
+
+    const optionsPayload = product?.options?.length
+      ? Object.entries(selectedOptions).map(([optionId, valueId]) => ({
+          optionId: Number(optionId),
+          valueId,
+        }))
+      : undefined;
+
     try {
-      await api.post('/cart', { productId: product?.id, quantity });
+      await api.post('/cart', { productId: product?.id, quantity, selectedOptions: optionsPayload });
       if (await showConfirm('장바구니에 담았습니다. 장바구니로 이동할까요?')) {
         navigate('/cart');
       }
@@ -138,6 +155,14 @@ function ProductDetailPage() {
     return <div className="loading">상품을 찾을 수 없습니다.</div>;
   }
 
+  // 선택한 옵션들의 추가 금액 합산
+  const extraPrice = product?.options?.reduce((sum, opt) => {
+    const selectedValueId = selectedOptions[opt.id];
+    if (!selectedValueId) return sum;
+    const val = opt.values.find(v => v.id === selectedValueId);
+    return sum + (val?.extra_price || 0);
+  }, 0) || 0;
+
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : null;
@@ -164,6 +189,33 @@ function ProductDetailPage() {
               재고: {product.stock > 0 ? `${product.stock}개` : '품절'}
             </div>
 
+            {/* 옵션 선택 */}
+            {product.options && product.options.length > 0 && (
+              <div className="option-selectors">
+                {product.options.map((option) => (
+                  <div key={option.id} className="option-selector">
+                    <label>{option.option_name}</label>
+                    <select
+                      value={selectedOptions[option.id] || ''}
+                      onChange={(e) => setSelectedOptions({
+                        ...selectedOptions,
+                        [option.id]: Number(e.target.value),
+                      })}
+                    >
+                      <option value="">선택해주세요</option>
+                      {option.values.map((val) => (
+                        <option key={val.id} value={val.id}>
+                          {val.value}
+                          {val.extra_price > 0 ? ` (+${val.extra_price.toLocaleString()}원)` : ''}
+                          {val.stock <= 0 ? ' (품절)' : val.stock <= 5 ? ` (${val.stock}개 남음)` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="quantity-selector">
               <span className="quantity-label">수량</span>
               <div className="quantity-controls">
@@ -184,7 +236,12 @@ function ProductDetailPage() {
             </div>
 
             <div className="detail-total">
-              총 금액: <strong>{(product.price * quantity).toLocaleString()}원</strong>
+              총 금액: <strong>{((product.price + extraPrice) * quantity).toLocaleString()}원</strong>
+              {extraPrice > 0 && (
+                <span className="extra-price-note">
+                  (옵션 추가금액 +{extraPrice.toLocaleString()}원 포함)
+                </span>
+              )}
             </div>
 
             <button

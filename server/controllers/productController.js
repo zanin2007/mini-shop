@@ -41,7 +41,7 @@ exports.getCategories = async (req, res) => {
   }
 };
 
-// 특정 상품 조회
+// 특정 상품 조회 (옵션 포함)
 exports.getProductById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -51,7 +51,25 @@ exports.getProductById = async (req, res) => {
       return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
     }
 
-    res.json(products[0]);
+    const product = products[0];
+
+    // 옵션 그룹 조회
+    const [options] = await db.execute(
+      'SELECT * FROM product_options WHERE product_id = ? ORDER BY id',
+      [id]
+    );
+
+    // 각 옵션 그룹의 값 조회
+    for (const option of options) {
+      const [values] = await db.execute(
+        'SELECT * FROM product_option_values WHERE option_id = ? ORDER BY id',
+        [option.id]
+      );
+      option.values = values;
+    }
+
+    product.options = options;
+    res.json(product);
   } catch (error) {
     console.error('Get product error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
@@ -72,9 +90,85 @@ exports.createProduct = async (req, res) => {
       [req.user.userId, name, description || '', price, category || '', image_url || '', stock || 0]
     );
 
-    res.status(201).json({ message: '상품이 등록되었습니다.', productId: result.insertId });
+    const productId = result.insertId;
+
+    // 옵션 저장
+    const { options } = req.body;
+    if (options && Array.isArray(options)) {
+      for (const option of options) {
+        const [optResult] = await db.execute(
+          'INSERT INTO product_options (product_id, option_name) VALUES (?, ?)',
+          [productId, option.option_name]
+        );
+        const optionId = optResult.insertId;
+        if (option.values && Array.isArray(option.values)) {
+          for (const val of option.values) {
+            await db.execute(
+              'INSERT INTO product_option_values (option_id, value, extra_price, stock) VALUES (?, ?, ?, ?)',
+              [optionId, val.value, val.extra_price || 0, val.stock || 0]
+            );
+          }
+        }
+      }
+    }
+
+    res.status(201).json({ message: '상품이 등록되었습니다.', productId });
   } catch (error) {
     console.error('Create product error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 상품에 옵션 추가
+exports.addProductOption = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { option_name, values } = req.body;
+
+    const [products] = await db.execute('SELECT user_id FROM products WHERE id = ?', [id]);
+    if (products.length === 0) return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
+    if (products[0].user_id !== req.user.userId) return res.status(403).json({ message: '본인 상품만 수정할 수 있습니다.' });
+
+    const [optResult] = await db.execute(
+      'INSERT INTO product_options (product_id, option_name) VALUES (?, ?)',
+      [id, option_name]
+    );
+    const optionId = optResult.insertId;
+
+    if (values && Array.isArray(values)) {
+      for (const val of values) {
+        await db.execute(
+          'INSERT INTO product_option_values (option_id, value, extra_price, stock) VALUES (?, ?, ?, ?)',
+          [optionId, val.value, val.extra_price || 0, val.stock || 0]
+        );
+      }
+    }
+
+    res.status(201).json({ message: '옵션이 추가되었습니다.', optionId });
+  } catch (error) {
+    console.error('Add product option error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 옵션 삭제
+exports.deleteProductOption = async (req, res) => {
+  try {
+    const { optionId } = req.params;
+
+    const [options] = await db.execute(
+      `SELECT po.id, p.user_id FROM product_options po
+       JOIN products p ON po.product_id = p.id
+       WHERE po.id = ?`,
+      [optionId]
+    );
+    if (options.length === 0) return res.status(404).json({ message: '옵션을 찾을 수 없습니다.' });
+    if (options[0].user_id !== req.user.userId) return res.status(403).json({ message: '본인 상품만 수정할 수 있습니다.' });
+
+    await db.execute('DELETE FROM product_options WHERE id = ?', [optionId]);
+    res.json({ message: '옵션이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Delete product option error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
 };

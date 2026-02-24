@@ -90,6 +90,24 @@ exports.logout = (req, res) => {
   res.json({ message: '로그아웃 되었습니다.' });
 };
 
+// 유저 검색 (선물하기용)
+exports.searchUser = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) {
+      return res.json([]);
+    }
+    const [users] = await db.execute(
+      `SELECT id, nickname, email FROM users WHERE id != ? AND (nickname LIKE ? OR email LIKE ?) LIMIT 10`,
+      [req.user.userId, `%${q}%`, `%${q}%`]
+    );
+    res.json(users);
+  } catch (error) {
+    console.error('Search user error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
 // 인증 확인
 exports.checkAuth = async (req, res) => {
   try {

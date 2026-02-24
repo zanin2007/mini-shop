@@ -1,6 +1,6 @@
 const db = require('../config/db');
 
-// 장바구니 조회
+// 장바구니 조회 (옵션 포함)
 exports.getCart = async (req, res) => {
   try {
     const [items] = await db.execute(
@@ -11,6 +11,20 @@ exports.getCart = async (req, res) => {
        WHERE c.user_id = ?`,
       [req.user.userId]
     );
+
+    // 각 장바구니 아이템의 선택된 옵션 조회
+    for (const item of items) {
+      const [options] = await db.execute(
+        `SELECT cio.option_value_id, pov.value, pov.extra_price, po.option_name
+         FROM cart_item_options cio
+         JOIN product_option_values pov ON cio.option_value_id = pov.id
+         JOIN product_options po ON pov.option_id = po.id
+         WHERE cio.cart_item_id = ?`,
+        [item.id]
+      );
+      item.options = options;
+    }
+
     res.json(items);
   } catch (error) {
     console.error('Get cart error:', error);
@@ -18,29 +32,76 @@ exports.getCart = async (req, res) => {
   }
 };
 
-// 장바구니에 상품 추가
+// 장바구니에 상품 추가 (옵션 지원)
 exports.addToCart = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity, selectedOptions } = req.body;
 
-    // 이미 장바구니에 있는지 확인
-    const [existing] = await db.execute(
-      'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ?',
-      [req.user.userId, productId]
-    );
-
-    if (existing.length > 0) {
-      // 이미 있으면 수량 추가
-      await db.execute(
-        'UPDATE cart_items SET quantity = quantity + ? WHERE id = ?',
-        [quantity, existing[0].id]
+    // 옵션이 있으면 같은 상품+같은 옵션 조합인지 확인
+    if (selectedOptions && selectedOptions.length > 0) {
+      const [existing] = await db.execute(
+        'SELECT c.id FROM cart_items c WHERE c.user_id = ? AND c.product_id = ?',
+        [req.user.userId, productId]
       );
+
+      // 기존 아이템 중 같은 옵션 조합이 있는지 확인
+      let matchedCartId = null;
+      for (const cart of existing) {
+        const [cartOpts] = await db.execute(
+          'SELECT option_value_id FROM cart_item_options WHERE cart_item_id = ? ORDER BY option_value_id',
+          [cart.id]
+        );
+        const existingIds = cartOpts.map(o => o.option_value_id).sort((a, b) => a - b);
+        const newIds = selectedOptions.map(o => o.valueId).sort((a, b) => a - b);
+        if (JSON.stringify(existingIds) === JSON.stringify(newIds)) {
+          matchedCartId = cart.id;
+          break;
+        }
+      }
+
+      if (matchedCartId) {
+        await db.execute('UPDATE cart_items SET quantity = quantity + ? WHERE id = ?', [quantity, matchedCartId]);
+      } else {
+        const [result] = await db.execute(
+          'INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?)',
+          [req.user.userId, productId, quantity]
+        );
+        const cartItemId = result.insertId;
+        for (const opt of selectedOptions) {
+          await db.execute(
+            'INSERT INTO cart_item_options (cart_item_id, option_value_id) VALUES (?, ?)',
+            [cartItemId, opt.valueId]
+          );
+        }
+      }
     } else {
-      // 없으면 새로 추가
-      await db.execute(
-        'INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?)',
-        [req.user.userId, productId, quantity]
+      // 옵션 없는 상품: 기존 로직
+      const [existing] = await db.execute(
+        'SELECT * FROM cart_items WHERE user_id = ? AND product_id = ?',
+        [req.user.userId, productId]
       );
+
+      // 옵션 없는 기존 아이템만 매칭
+      let matchedId = null;
+      for (const cart of existing) {
+        const [cartOpts] = await db.execute(
+          'SELECT id FROM cart_item_options WHERE cart_item_id = ?',
+          [cart.id]
+        );
+        if (cartOpts.length === 0) {
+          matchedId = cart.id;
+          break;
+        }
+      }
+
+      if (matchedId) {
+        await db.execute('UPDATE cart_items SET quantity = quantity + ? WHERE id = ?', [quantity, matchedId]);
+      } else {
+        await db.execute(
+          'INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?)',
+          [req.user.userId, productId, quantity]
+        );
+      }
     }
 
     res.json({ message: '장바구니에 추가되었습니다.' });

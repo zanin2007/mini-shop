@@ -30,13 +30,24 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    // 총 금액 계산
-    const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    // 각 장바구니 아이템의 옵션 추가금액 계산
+    for (const item of cartItems) {
+      const [cartOpts] = await connection.execute(
+        `SELECT pov.extra_price FROM cart_item_options cio
+         JOIN product_option_values pov ON cio.option_value_id = pov.id
+         WHERE cio.cart_item_id = ?`,
+        [item.id]
+      );
+      item.extraPrice = cartOpts.reduce((sum, o) => sum + o.extra_price, 0);
+    }
+
+    // 총 금액 계산 (옵션 추가금액 포함)
+    const totalAmount = cartItems.reduce((sum, item) => sum + (item.price + item.extraPrice) * item.quantity, 0);
 
     // 쿠폰 적용
     let discountAmount = 0;
     let couponId = null;
-    const { couponId: requestedCouponId, delivery_address, receiver_name, receiver_phone } = req.body || {};
+    const { couponId: requestedCouponId, delivery_address, receiver_name, receiver_phone, isGift, receiverId, giftMessage } = req.body || {};
 
     if (requestedCouponId) {
       const [userCoupons] = await connection.execute(
@@ -80,12 +91,25 @@ exports.createOrder = async (req, res) => {
 
     const orderId = orderResult.insertId;
 
-    // 주문 상품 추가 및 재고 감소
+    // 주문 상품 추가, 옵션 복사, 재고 감소
     for (const item of cartItems) {
-      await connection.execute(
+      const [oiResult] = await connection.execute(
         'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)',
-        [orderId, item.product_id, item.quantity, item.price]
+        [orderId, item.product_id, item.quantity, item.price + item.extraPrice]
       );
+      const orderItemId = oiResult.insertId;
+
+      // 장바구니 옵션 → 주문 옵션으로 복사
+      const [cartOpts] = await connection.execute(
+        'SELECT option_value_id FROM cart_item_options WHERE cart_item_id = ?',
+        [item.id]
+      );
+      for (const opt of cartOpts) {
+        await connection.execute(
+          'INSERT INTO order_item_options (order_item_id, option_value_id) VALUES (?, ?)',
+          [orderItemId, opt.option_value_id]
+        );
+      }
 
       await connection.execute(
         'UPDATE products SET stock = stock - ? WHERE id = ?',
@@ -100,14 +124,92 @@ exports.createOrder = async (req, res) => {
       cartIds
     );
 
+    // 선물 처리
+    if (isGift && receiverId) {
+      await connection.execute(
+        `INSERT INTO gifts (order_id, sender_id, receiver_id, receiver_name, receiver_phone, message, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+        [orderId, req.user.userId, receiverId, receiver_name || '', receiver_phone || '', giftMessage || '']
+      );
+
+      // 받는 사람에게 알림
+      const [senderInfo] = await connection.execute('SELECT nickname FROM users WHERE id = ?', [req.user.userId]);
+      const senderName = senderInfo[0]?.nickname || '누군가';
+      await connection.execute(
+        `INSERT INTO notifications (user_id, type, title, content, link) VALUES (?, 'gift', ?, ?, '/mypage')`,
+        [receiverId, `${senderName}님이 선물을 보냈습니다!`, giftMessage || '선물이 도착했습니다.']
+      );
+    }
+
     await connection.commit();
-    res.status(201).json({ message: '주문이 완료되었습니다.', orderId });
+    res.status(201).json({ message: isGift ? '선물 주문이 완료되었습니다.' : '주문이 완료되었습니다.', orderId });
   } catch (error) {
     await connection.rollback();
     console.error('Create order error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   } finally {
     connection.release();
+  }
+};
+
+// 구매 확정
+exports.confirmOrder = async (req, res) => {
+  try {
+    const [orders] = await db.execute(
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.userId]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: '주문을 찾을 수 없습니다.' });
+    }
+
+    if (orders[0].status !== 'delivered') {
+      return res.status(400).json({ message: '배송 완료된 주문만 구매확정할 수 있습니다.' });
+    }
+
+    await db.execute(
+      'UPDATE orders SET status = ?, completed_at = NOW() WHERE id = ?',
+      ['completed', req.params.id]
+    );
+
+    res.json({ message: '구매가 확정되었습니다.' });
+  } catch (error) {
+    console.error('Confirm order error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// [테스트용] 주문 상태 다음 단계로 변경
+exports.advanceOrderStatus = async (req, res) => {
+  try {
+    const [orders] = await db.execute(
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.userId]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: '주문을 찾을 수 없습니다.' });
+    }
+
+    const statusFlow = ['pending', 'shipped', 'delivered', 'completed'];
+    const currentIdx = statusFlow.indexOf(orders[0].status);
+
+    if (currentIdx === -1 || currentIdx >= statusFlow.length - 1) {
+      return res.status(400).json({ message: '더 이상 변경할 수 없는 상태입니다.' });
+    }
+
+    const nextStatus = statusFlow[currentIdx + 1];
+    const extra = nextStatus === 'completed' ? ', completed_at = NOW()' : '';
+
+    await db.execute(
+      `UPDATE orders SET status = ?${extra} WHERE id = ?`,
+      [nextStatus, req.params.id]
+    );
+
+    res.json({ message: `상태가 '${nextStatus}'로 변경되었습니다.`, status: nextStatus });
+  } catch (error) {
+    console.error('Advance order status error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
 };
 
@@ -119,7 +221,7 @@ exports.getOrders = async (req, res) => {
       [req.user.userId]
     );
 
-    // 각 주문의 상품 정보도 함께 조회
+    // 각 주문의 상품 정보 + 옵션 정보 조회
     for (const order of orders) {
       const [items] = await db.execute(
         `SELECT oi.*, p.name, p.image_url
@@ -128,6 +230,17 @@ exports.getOrders = async (req, res) => {
          WHERE oi.order_id = ?`,
         [order.id]
       );
+      for (const item of items) {
+        const [opts] = await db.execute(
+          `SELECT oio.option_value_id, pov.value, pov.extra_price, po.option_name
+           FROM order_item_options oio
+           JOIN product_option_values pov ON oio.option_value_id = pov.id
+           JOIN product_options po ON pov.option_id = po.id
+           WHERE oio.order_item_id = ?`,
+          [item.id]
+        );
+        item.options = opts;
+      }
       order.items = items;
     }
 

@@ -130,10 +130,16 @@
   color: #555;
 }
 
+.cart-item-options {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0.15rem 0 0;
+}
+
 .cart-item-price {
   color: #888;
   font-size: 0.85rem;
-  margin: 0;
+  margin: 0.15rem 0 0;
 }
 
 /* ===== 수량 조절 ===== */

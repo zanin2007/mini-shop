@@ -14,6 +14,13 @@ interface CartItem {
   name: string;
   price: number;
   image_url: string;
+  options?: { option_name: string; value: string; extra_price: number }[];
+}
+
+interface SearchedUser {
+  id: number;
+  nickname: string;
+  email: string;
 }
 
 function CheckoutPage() {
@@ -25,6 +32,14 @@ function CheckoutPage() {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [delivery, setDelivery] = useState({ receiver_name: '', receiver_phone: '', delivery_address: '' });
   const navigate = useNavigate();
+
+  // 선물 관련 상태
+  const [isGift, setIsGift] = useState(false);
+  const [giftMessage, setGiftMessage] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
+  const [selectedReceiver, setSelectedReceiver] = useState<SearchedUser | null>(null);
+  const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -53,7 +68,11 @@ function CheckoutPage() {
     }
   };
 
-  const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const getItemTotal = (item: CartItem) => {
+    const extra = item.options?.reduce((s, o) => s + o.extra_price, 0) || 0;
+    return (item.price + extra) * item.quantity;
+  };
+  const totalPrice = cartItems.reduce((sum, item) => sum + getItemTotal(item), 0);
   const discountAmount = selectedCoupon?.calculated_discount || 0;
   const finalPrice = totalPrice - discountAmount;
 
@@ -73,6 +92,32 @@ function CheckoutPage() {
     }
   };
 
+  // 유저 검색 (디바운스)
+  const handleSearchUser = (query: string) => {
+    setSearchQuery(query);
+    setSelectedReceiver(null);
+    if (searchTimer) clearTimeout(searchTimer);
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.get(`/auth/search?q=${encodeURIComponent(query)}`);
+        setSearchResults(response.data);
+      } catch (error) {
+        console.error('유저 검색 실패:', error);
+      }
+    }, 300);
+    setSearchTimer(timer);
+  };
+
+  const handleSelectReceiver = (user: SearchedUser) => {
+    setSelectedReceiver(user);
+    setSearchQuery(user.nickname);
+    setSearchResults([]);
+  };
+
   const handleCouponChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = Number(e.target.value);
     if (id === 0) {
@@ -88,15 +133,25 @@ function CheckoutPage() {
       showAlert('배송 정보를 모두 입력해주세요.', 'warning');
       return;
     }
-    if (!(await showConfirm('주문을 진행하시겠습니까?'))) return;
+    if (isGift && !selectedReceiver) {
+      showAlert('선물 받을 사람을 선택해주세요.', 'warning');
+      return;
+    }
+    const confirmMsg = isGift
+      ? `${selectedReceiver?.nickname}님에게 선물을 보내시겠습니까?`
+      : '주문을 진행하시겠습니까?';
+    if (!(await showConfirm(confirmMsg))) return;
 
     setOrdering(true);
     try {
       await api.post('/orders', {
         couponId: selectedCoupon?.user_coupon_id || null,
         ...delivery,
+        isGift,
+        receiverId: isGift ? selectedReceiver?.id : undefined,
+        giftMessage: isGift ? giftMessage : undefined,
       });
-      showAlert('주문이 완료되었습니다!', 'success');
+      showAlert(isGift ? '선물 주문이 완료되었습니다!' : '주문이 완료되었습니다!', 'success');
       navigate('/mypage');
     } catch (error) {
       console.error('주문 실패:', error);
@@ -140,12 +195,17 @@ function CheckoutPage() {
                 </div>
                 <div className="checkout-item-info">
                   <p className="checkout-item-name">{item.name}</p>
+                  {item.options && item.options.length > 0 && (
+                    <p className="checkout-item-options">
+                      {item.options.map(o => `${o.option_name}: ${o.value}`).join(' / ')}
+                    </p>
+                  )}
                   <p className="checkout-item-detail">
                     {item.price.toLocaleString()}원 x {item.quantity}개
                   </p>
                 </div>
                 <div className="checkout-item-subtotal">
-                  {(item.price * item.quantity).toLocaleString()}원
+                  {getItemTotal(item).toLocaleString()}원
                 </div>
               </div>
             ))}
@@ -204,6 +264,64 @@ function CheckoutPage() {
                 </option>
               ))}
             </select>
+          )}
+        </div>
+
+        {/* 선물하기 */}
+        <div className="checkout-section">
+          <div className="gift-toggle">
+            <label>
+              <input
+                type="checkbox"
+                checked={isGift}
+                onChange={(e) => {
+                  setIsGift(e.target.checked);
+                  if (!e.target.checked) {
+                    setSelectedReceiver(null);
+                    setSearchQuery('');
+                    setGiftMessage('');
+                  }
+                }}
+              />
+              <span>선물하기</span>
+            </label>
+          </div>
+          {isGift && (
+            <div className="gift-form">
+              <div className="gift-search">
+                <label>받는 사람</label>
+                <div className="search-input-wrapper">
+                  <input
+                    type="text"
+                    placeholder="닉네임 또는 이메일로 검색"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchUser(e.target.value)}
+                  />
+                  {selectedReceiver && (
+                    <span className="selected-badge">{selectedReceiver.nickname}</span>
+                  )}
+                </div>
+                {searchResults.length > 0 && (
+                  <ul className="search-results">
+                    {searchResults.map(user => (
+                      <li key={user.id} onClick={() => handleSelectReceiver(user)}>
+                        <strong>{user.nickname}</strong>
+                        <span>{user.email}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="gift-message-field">
+                <label>선물 메시지</label>
+                <textarea
+                  placeholder="선물과 함께 보낼 메시지를 작성하세요"
+                  value={giftMessage}
+                  onChange={(e) => setGiftMessage(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
           )}
         </div>
 

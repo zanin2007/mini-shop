@@ -4,6 +4,13 @@ import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
 import './CartPage.css';
 
+interface CartItemOption {
+  option_value_id: number;
+  option_name: string;
+  value: string;
+  extra_price: number;
+}
+
 interface CartItem {
   id: number;
   product_id: number;
@@ -13,6 +20,7 @@ interface CartItem {
   price: number;
   image_url: string;
   stock: number;
+  options?: CartItemOption[];
 }
 
 function CartPage() {
@@ -85,8 +93,11 @@ function CartPage() {
     }
   };
 
+  const getItemExtraPrice = (item: CartItem) =>
+    item.options?.reduce((sum, o) => sum + o.extra_price, 0) || 0;
+
   const selectedItems = cartItems.filter(item => item.is_selected);
-  const totalPrice = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalPrice = selectedItems.reduce((sum, item) => sum + (item.price + getItemExtraPrice(item)) * item.quantity, 0);
   const allSelected = cartItems.length > 0 && cartItems.every(item => item.is_selected);
 
   if (loading) {
@@ -134,7 +145,12 @@ function CartPage() {
                     <Link to={`/products/${item.product_id}`} className="cart-item-name">
                       {item.name}
                     </Link>
-                    <p className="cart-item-price">{item.price.toLocaleString()}원</p>
+                    {item.options && item.options.length > 0 && (
+                      <p className="cart-item-options">
+                        {item.options.map(o => `${o.option_name}: ${o.value}${o.extra_price > 0 ? ` (+${o.extra_price.toLocaleString()}원)` : ''}`).join(' / ')}
+                      </p>
+                    )}
+                    <p className="cart-item-price">{(item.price + getItemExtraPrice(item)).toLocaleString()}원</p>
                   </div>
 
                   <div className="cart-item-quantity">
@@ -144,7 +160,7 @@ function CartPage() {
                   </div>
 
                   <div className="cart-item-subtotal">
-                    {(item.price * item.quantity).toLocaleString()}원
+                    {((item.price + getItemExtraPrice(item)) * item.quantity).toLocaleString()}원
                   </div>
 
                   <button className="cart-item-remove" onClick={() => handleRemove(item.id)}>

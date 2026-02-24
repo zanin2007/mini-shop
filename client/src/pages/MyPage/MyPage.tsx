@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
-import type { Order, User, UserCoupon } from '../../types';
+import type { Order, User, UserCoupon, Gift } from '../../types';
 import './MyPage.css';
 
 const statusMap: Record<string, { label: string; className: string }> = {
@@ -14,13 +14,16 @@ const statusMap: Record<string, { label: string; className: string }> = {
 
 function MyPage() {
   const navigate = useNavigate();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
   const [couponCode, setCouponCode] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'orders' | 'coupons'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'gifts'>('orders');
+  const [sentGifts, setSentGifts] = useState<Gift[]>([]);
+  const [receivedGifts, setReceivedGifts] = useState<Gift[]>([]);
+  const [giftSubTab, setGiftSubTab] = useState<'received' | 'sent'>('received');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -32,6 +35,7 @@ function MyPage() {
     if (userData) setUser(JSON.parse(userData));
     fetchOrders();
     fetchCoupons();
+    fetchGifts();
   }, []);
 
   const fetchOrders = async () => {
@@ -51,6 +55,41 @@ function MyPage() {
       setCoupons(response.data);
     } catch (error) {
       console.error('쿠폰 조회 실패:', error);
+    }
+  };
+
+  const fetchGifts = async () => {
+    try {
+      const [sentRes, receivedRes] = await Promise.all([
+        api.get('/gifts/sent'),
+        api.get('/gifts/received'),
+      ]);
+      setSentGifts(sentRes.data);
+      setReceivedGifts(receivedRes.data);
+    } catch (error) {
+      console.error('선물 조회 실패:', error);
+    }
+  };
+
+  const handleAcceptGift = async (giftId: number) => {
+    if (!(await showConfirm('선물을 수락하시겠습니까?'))) return;
+    try {
+      await api.put(`/gifts/${giftId}/accept`);
+      showAlert('선물을 수락했습니다.', 'success');
+      fetchGifts();
+    } catch (error: any) {
+      showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleRejectGift = async (giftId: number) => {
+    if (!(await showConfirm('선물을 거절하시겠습니까?'))) return;
+    try {
+      await api.put(`/gifts/${giftId}/reject`);
+      showAlert('선물을 거절했습니다.', 'success');
+      fetchGifts();
+    } catch (error: any) {
+      showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
     }
   };
 
@@ -113,6 +152,14 @@ function MyPage() {
           >
             쿠폰 {availableCoupons.length > 0 && <span className="tab-badge">{availableCoupons.length}</span>}
           </button>
+          <button
+            className={`mypage-tab ${activeTab === 'gifts' ? 'active' : ''}`}
+            onClick={() => setActiveTab('gifts')}
+          >
+            선물 {receivedGifts.filter(g => g.status === 'pending').length > 0 && (
+              <span className="tab-badge">{receivedGifts.filter(g => g.status === 'pending').length}</span>
+            )}
+          </button>
         </div>
 
         {/* 주문 내역 */}
@@ -138,7 +185,14 @@ function MyPage() {
                         {order.items.map((item) => (
                           <li key={item.id} className="order-item">
                             <img src={item.image_url} alt={item.name} />
-                            <span className="item-name">{item.name}</span>
+                            <div className="item-name">
+                              {item.name}
+                              {item.options && item.options.length > 0 && (
+                                <span className="item-options">
+                                  {item.options.map((o: any) => `${o.option_name}: ${o.value}`).join(' / ')}
+                                </span>
+                              )}
+                            </div>
                             <span className="item-qty">{item.quantity}개</span>
                             <span className="item-price">{(item.price * item.quantity).toLocaleString()}원</span>
                           </li>
@@ -177,6 +231,37 @@ function MyPage() {
                       )}
                       총 결제금액: <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
                     </div>
+
+                    {/* 다음 단계 버튼 (테스트용) */}
+                    {order.status !== 'completed' && (
+                      <div className="order-actions">
+                        <button
+                          className="advance-btn"
+                          onClick={async () => {
+                            const nextLabel: Record<string, string> = {
+                              pending: '배송중',
+                              shipped: '배송완료',
+                              delivered: '구매확정',
+                            };
+                            const label = nextLabel[order.status] || '다음 단계';
+                            if (!(await showConfirm(`'${label}'(으)로 변경하시겠습니까?`))) return;
+                            try {
+                              const res = await api.put(`/orders/${order.id}/advance`);
+                              showAlert(res.data.message, 'success');
+                              setOrders(orders.map(o => o.id === order.id ? { ...o, status: res.data.status } : o));
+                            } catch (error: any) {
+                              showAlert(error.response?.data?.message || '상태 변경에 실패했습니다.', 'error');
+                            }
+                          }}
+                        >
+                          {{
+                            pending: '배송중으로 변경',
+                            shipped: '배송완료로 변경',
+                            delivered: '구매확정',
+                          }[order.status] || '다음 단계'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -237,6 +322,95 @@ function MyPage() {
 
             {coupons.length === 0 && (
               <p className="empty-message">보유한 쿠폰이 없습니다.</p>
+            )}
+          </section>
+        )}
+
+        {/* 선물 */}
+        {activeTab === 'gifts' && (
+          <section className="mypage-section">
+            <div className="gift-sub-tabs">
+              <button
+                className={`gift-sub-tab ${giftSubTab === 'received' ? 'active' : ''}`}
+                onClick={() => setGiftSubTab('received')}
+              >
+                받은 선물 ({receivedGifts.length})
+              </button>
+              <button
+                className={`gift-sub-tab ${giftSubTab === 'sent' ? 'active' : ''}`}
+                onClick={() => setGiftSubTab('sent')}
+              >
+                보낸 선물 ({sentGifts.length})
+              </button>
+            </div>
+
+            {giftSubTab === 'received' && (
+              receivedGifts.length === 0 ? (
+                <p className="empty-message">받은 선물이 없습니다.</p>
+              ) : (
+                <div className="gift-list">
+                  {receivedGifts.map(gift => (
+                    <div key={gift.id} className={`gift-card gift-status-${gift.status}`}>
+                      <div className="gift-card-header">
+                        <span className="gift-sender">{gift.sender_nickname || '알 수 없음'}님의 선물</span>
+                        <span className={`gift-status-badge ${gift.status}`}>
+                          {gift.status === 'pending' ? '대기중' : gift.status === 'accepted' ? '수락됨' : '거절됨'}
+                        </span>
+                        <span className="gift-date">{new Date(gift.created_at).toLocaleDateString('ko-KR')}</span>
+                      </div>
+                      {gift.message && <p className="gift-message">"{gift.message}"</p>}
+                      {gift.order_items && gift.order_items.length > 0 && (
+                        <ul className="gift-items">
+                          {gift.order_items.map((item, i) => (
+                            <li key={i}>
+                              {item.name} x {item.quantity}개
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {gift.status === 'pending' && (
+                        <div className="gift-actions">
+                          <button className="gift-accept-btn" onClick={() => handleAcceptGift(gift.id)}>수락</button>
+                          <button className="gift-reject-btn" onClick={() => handleRejectGift(gift.id)}>거절</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {giftSubTab === 'sent' && (
+              sentGifts.length === 0 ? (
+                <p className="empty-message">보낸 선물이 없습니다.</p>
+              ) : (
+                <div className="gift-list">
+                  {sentGifts.map(gift => (
+                    <div key={gift.id} className={`gift-card gift-status-${gift.status}`}>
+                      <div className="gift-card-header">
+                        <span className="gift-sender">{gift.receiver_nickname || '알 수 없음'}님에게</span>
+                        <span className={`gift-status-badge ${gift.status}`}>
+                          {gift.status === 'pending' ? '대기중' : gift.status === 'accepted' ? '수락됨' : '거절됨'}
+                        </span>
+                        <span className="gift-date">{new Date(gift.created_at).toLocaleDateString('ko-KR')}</span>
+                      </div>
+                      {gift.message && <p className="gift-message">"{gift.message}"</p>}
+                      {gift.order_items && gift.order_items.length > 0 && (
+                        <ul className="gift-items">
+                          {gift.order_items.map((item, i) => (
+                            <li key={i}>
+                              {item.name} x {item.quantity}개
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="gift-total">
+                        {(gift.final_amount || gift.total_amount || 0).toLocaleString()}원
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </section>
         )}

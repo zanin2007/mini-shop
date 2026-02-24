@@ -101,6 +101,132 @@
   cursor: not-allowed;
 }
 
+/* ===== 옵션 섹션 ===== */
+.options-section {
+  border-top: 1px solid #eee;
+  padding-top: 1.2rem;
+}
+
+.options-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.options-header label {
+  font-weight: 600;
+  color: #444;
+  font-size: 0.95rem;
+}
+
+.add-option-btn {
+  padding: 0.4rem 0.9rem;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.add-option-btn:hover {
+  background: #333;
+}
+
+.option-group {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.option-group-header {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.option-group-header input {
+  flex: 1;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.option-group-header input:focus {
+  border-color: #1976d2;
+}
+
+.remove-btn {
+  padding: 0.4rem 0.8rem;
+  background: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  color: #999;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.remove-btn:hover {
+  background: #fff0f0;
+  border-color: #ffb8b8;
+  color: #dc2626;
+}
+
+.remove-btn.small {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.option-value-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.option-value-row input {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  outline: none;
+  min-width: 0;
+}
+
+.option-value-row input:focus {
+  border-color: #1976d2;
+}
+
+.option-value-row input[type="number"] {
+  flex: 0.7;
+}
+
+.add-value-btn {
+  margin-top: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  background: white;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-value-btn:hover {
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
 /* ===== 모바일 ===== */
 @media (max-width: 768px) {
   .register-container {
