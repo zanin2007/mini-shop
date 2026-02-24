@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import './ProductRegisterPage.css';
 
 function ProductRegisterPage() {
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -22,7 +24,7 @@ function ProductRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.price) {
-      alert('상품명과 가격은 필수입니다.');
+      showAlert('상품명과 가격은 필수입니다.', 'warning');
       return;
     }
     setLoading(true);
@@ -32,11 +34,11 @@ function ProductRegisterPage() {
         price: Number(form.price),
         stock: Number(form.stock) || 0,
       });
-      alert('상품이 등록되었습니다.');
+      showAlert('상품이 등록되었습니다.', 'success');
       navigate('/');
     } catch (error) {
       console.error('상품 등록 실패:', error);
-      alert('상품 등록에 실패했습니다.');
+      showAlert('상품 등록에 실패했습니다.', 'error');
     } finally {
       setLoading(false);
     }

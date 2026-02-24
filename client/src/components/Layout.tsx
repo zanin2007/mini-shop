@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../api/instance';
+import { useAlert } from './AlertContext';
 import './Layout.css';
 
 interface User {
@@ -13,7 +14,10 @@ interface User {
 function Layout() {
   const [user, setUser] = useState<User | null>(null);
   const [cartCount, setCartCount] = useState(0);
+  const [mailboxCount, setMailboxCount] = useState(0);
+  const [notifCount, setNotifCount] = useState(0);
   const navigate = useNavigate();
+  const { showConfirm } = useAlert();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -23,6 +27,8 @@ function Layout() {
         setUser(JSON.parse(userData));
       }
       fetchCartCount();
+      fetchMailboxCount();
+      fetchNotifCount();
     }
   }, []);
 
@@ -35,8 +41,26 @@ function Layout() {
     }
   };
 
-  const handleLogout = () => {
-    if (!window.confirm('로그아웃 하시겠습니까?')) return;
+  const fetchMailboxCount = async () => {
+    try {
+      const response = await api.get('/mailbox/unread-count');
+      setMailboxCount(response.data.count);
+    } catch {
+      setMailboxCount(0);
+    }
+  };
+
+  const fetchNotifCount = async () => {
+    try {
+      const response = await api.get('/notifications/unread-count');
+      setNotifCount(response.data.count);
+    } catch {
+      setNotifCount(0);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (!(await showConfirm('로그아웃 하시겠습니까?'))) return;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
@@ -54,6 +78,12 @@ function Layout() {
             {user ? (
               <>
                 <span className="user-info">{user.nickname}님</span>
+                <Link to="/mailbox" className="icon-link" title="우편함">
+                  ✉️{mailboxCount > 0 && <span className="icon-badge">{mailboxCount}</span>}
+                </Link>
+                <Link to="/notifications" className="icon-link" title="알림">
+                  🔔{notifCount > 0 && <span className="icon-badge">{notifCount}</span>}
+                </Link>
                 <Link to="/products/new">상품 등록</Link>
                 <Link to="/cart">장바구니{cartCount > 0 && <span className="cart-badge">{cartCount}</span>}</Link>
                 <Link to="/mypage">마이페이지</Link>

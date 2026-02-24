@@ -104,6 +104,38 @@
   margin-left: 0.25rem;
 }
 
+/* ===== 우편함 & 알림 아이콘 ===== */
+.icon-link {
+  position: relative;
+  font-size: 1.25rem;
+  padding: 0.4rem 0.5rem !important;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+.icon-link:hover {
+  transform: scale(1.15);
+  background-color: transparent !important;
+}
+
+.icon-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #dc2626;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  padding: 0 4px;
+  transform: translate(30%, -30%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
 /* ===== 메인 ===== */
 .main-content {
   flex: 1;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import './AdminPage.css';
 
 interface AdminOrder {
@@ -41,6 +42,7 @@ interface AdminCoupon {
 
 function AdminPage() {
   const navigate = useNavigate();
+  const { showAlert, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'coupons'>('orders');
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -59,7 +61,7 @@ function AdminPage() {
     }
     const user = JSON.parse(userData);
     if (user.role !== 'admin') {
-      alert('관리자 권한이 필요합니다.');
+      showAlert('관리자 권한이 필요합니다.', 'error');
       navigate('/');
       return;
     }
@@ -89,12 +91,12 @@ function AdminPage() {
       setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o));
     } catch (error) {
       console.error('상태 변경 실패:', error);
-      alert('상태 변경에 실패했습니다.');
+      showAlert('상태 변경에 실패했습니다.', 'error');
     }
   };
 
   const handleDeleteProduct = async (id: number) => {
-    if (!confirm('정말 이 상품을 삭제하시겠습니까?')) return;
+    if (!(await showConfirm('정말 이 상품을 삭제하시겠습니까?'))) return;
     try {
       await api.delete(`/admin/products/${id}`);
       setProducts(products.filter(p => p.id !== id));
@@ -114,17 +116,17 @@ function AdminPage() {
         expiry_date: couponForm.expiry_date,
         max_uses: Number(couponForm.max_uses) || null,
       });
-      alert('쿠폰이 생성되었습니다.');
+      showAlert('쿠폰이 생성되었습니다.', 'success');
       setCouponForm({ code: '', discount_amount: '', discount_percentage: '', min_price: '', expiry_date: '', max_uses: '' });
       const res = await api.get('/admin/coupons');
       setCoupons(res.data);
     } catch (error: any) {
-      alert(error.response?.data?.message || '쿠폰 생성에 실패했습니다.');
+      showAlert(error.response?.data?.message || '쿠폰 생성에 실패했습니다.', 'error');
     }
   };
 
   const handleDeleteCoupon = async (id: number) => {
-    if (!confirm('이 쿠폰을 삭제하시겠습니까?')) return;
+    if (!(await showConfirm('이 쿠폰을 삭제하시겠습니까?'))) return;
     try {
       await api.delete(`/admin/coupons/${id}`);
       setCoupons(coupons.filter(c => c.id !== id));

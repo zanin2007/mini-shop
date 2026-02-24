@@ -1,0 +1,233 @@
+/* ===== 토스트 알림 ===== */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  min-width: 300px;
+  max-width: 420px;
+  pointer-events: auto;
+  animation: toastSlideIn 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+  border-left: 4px solid transparent;
+}
+
+.toast-success {
+  border-left-color: #10b981;
+  background: linear-gradient(135deg, #f0fdf4, #fff);
+}
+
+.toast-error {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2, #fff);
+}
+
+.toast-info {
+  border-left-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff, #fff);
+}
+
+.toast-warning {
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb, #fff);
+}
+
+.toast-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.toast-success .toast-icon {
+  background: #10b981;
+  color: #fff;
+}
+
+.toast-error .toast-icon {
+  background: #ef4444;
+  color: #fff;
+}
+
+.toast-info .toast-icon {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.toast-warning .toast-icon {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 14px;
+  color: #1f2937;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.toast-close:hover {
+  color: #374151;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(80px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* ===== 확인 모달 ===== */
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: overlayFadeIn 0.2s ease;
+}
+
+.confirm-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  min-width: 320px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: modalPopIn 0.3s cubic-bezier(0.21, 1.02, 0.73, 1);
+}
+
+.confirm-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  color: #3b82f6;
+  font-size: 24px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.confirm-message {
+  font-size: 16px;
+  color: #1f2937;
+  line-height: 1.5;
+  margin-bottom: 28px;
+  word-break: keep-all;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-btn {
+  flex: 1;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-cancel {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.confirm-cancel:hover {
+  background: #e5e7eb;
+}
+
+.confirm-ok {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+}
+
+.confirm-ok:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ===== 모바일 반응형 ===== */
+@media (max-width: 480px) {
+  .toast-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .toast {
+    min-width: unset;
+    max-width: unset;
+  }
+
+  .confirm-modal {
+    min-width: unset;
+    margin: 0 20px;
+  }
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import './CartPage.css';
 
 interface CartItem {
@@ -18,11 +19,12 @@ function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { showAlert, showConfirm } = useAlert();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('로그인이 필요합니다.');
+      showAlert('로그인이 필요합니다.', 'warning');
       navigate('/login');
       return;
     }
@@ -74,7 +76,7 @@ function CartPage() {
   };
 
   const handleRemove = async (id: number) => {
-    if (!confirm('이 상품을 장바구니에서 삭제할까요?')) return;
+    if (!(await showConfirm('이 상품을 장바구니에서 삭제할까요?'))) return;
     try {
       await api.delete(`/cart/${id}`);
       setCartItems(cartItems.filter(item => item.id !== id));

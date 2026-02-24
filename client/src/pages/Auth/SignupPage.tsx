@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import './AuthPages.css';
 
 function SignupPage() {
@@ -13,6 +14,7 @@ function SignupPage() {
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
@@ -43,7 +45,7 @@ function SignupPage() {
         nickname: formData.nickname,
       });
 
-      alert('회원가입이 완료되었습니다!');
+      showAlert('회원가입이 완료되었습니다!', 'success');
       navigate('/login');
     } catch (err) {
       if (err instanceof AxiosError) {

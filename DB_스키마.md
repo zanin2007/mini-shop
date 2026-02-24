@@ -110,6 +110,7 @@
 | receiver_name | VARCHAR(100) | YES | | 수령인 이름 |
 | receiver_phone | VARCHAR(20) | YES | | 수령인 전화번호 |
 | coupon_id | INT | YES | FK | 사용한 쿠폰 (-> coupons.id) |
+| completed_at | DATETIME | YES | | 구매 확정 일시 |
 | created_at | TIMESTAMP | YES | | 주문 일시 (자동 기록) |
 | updated_at | TIMESTAMP | YES | | 상태 변경 일시 (자동 갱신) |
 
@@ -166,6 +167,144 @@
 
 ---
 
+## 10. product_options (상품 옵션 그룹)
+- 상품에 달린 옵션 종류를 저장하는 테이블
+- 예: 옷 → "사이즈", "색상" 두 가지 옵션 그룹
+- 코드: `CREATE TABLE product_options ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 옵션 그룹 고유 번호 (자동 증가) |
+| product_id | INT | NO | FK | 어떤 상품의 옵션인지 (-> products.id) |
+| option_name | VARCHAR(100) | NO | | 옵션 이름 (예: 사이즈, 색상) |
+| created_at | TIMESTAMP | YES | | 생성 일시 (자동 기록) |
+
+---
+
+## 11. product_option_values (상품 옵션 값)
+- 옵션 그룹에 속한 구체적인 선택지를 저장하는 테이블
+- 예: "사이즈" 옵션 → S, M, L, XL
+- 코드: `CREATE TABLE product_option_values ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 옵션 값 고유 번호 (자동 증가) |
+| option_id | INT | NO | FK | 어떤 옵션 그룹인지 (-> product_options.id) |
+| value | VARCHAR(100) | NO | | 옵션 값 (예: S, M, L, 빨강, 파랑) |
+| extra_price | INT | NO | | 추가 금액 (기본값: 0원) |
+| stock | INT | NO | | 해당 옵션 재고 수량 (기본값: 0) |
+| created_at | TIMESTAMP | YES | | 생성 일시 (자동 기록) |
+
+---
+
+## 12. cart_item_options (장바구니 선택 옵션)
+- 장바구니에 담을 때 선택한 옵션을 기록하는 테이블
+- 예: 장바구니에 티셔츠 담을 때 "사이즈: M", "색상: 빨강" 선택
+- 코드: `CREATE TABLE cart_item_options ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 고유 번호 (자동 증가) |
+| cart_item_id | INT | NO | FK | 장바구니 항목 (-> cart_items.id) |
+| option_value_id | INT | NO | FK | 선택한 옵션 값 (-> product_option_values.id) |
+
+---
+
+## 13. order_item_options (주문 상품 선택 옵션)
+- 주문 시점에 선택된 옵션을 기록하는 테이블
+- 나중에 주문 내역에서 "사이즈: M" 등 확인 가능
+- 코드: `CREATE TABLE order_item_options ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 고유 번호 (자동 증가) |
+| order_item_id | INT | NO | FK | 주문 상세 항목 (-> order_items.id) |
+| option_value_id | INT | NO | FK | 선택한 옵션 값 (-> product_option_values.id) |
+
+---
+
+## 14. gifts (선물)
+- 선물하기로 보낸 주문을 추적하는 테이블
+- 회원/비회원 모두 받을 수 있음 (receiver_id는 회원일 때만)
+- 코드: `CREATE TABLE gifts ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 선물 고유 번호 (자동 증가) |
+| order_id | INT | NO | FK | 선물과 연결된 주문 (-> orders.id) |
+| sender_id | INT | NO | FK | 보내는 사람 (-> users.id) |
+| receiver_id | INT | YES | FK | 받는 사람 - 회원일 경우 (-> users.id) |
+| receiver_name | VARCHAR(100) | YES | | 받는 사람 이름 |
+| receiver_phone | VARCHAR(20) | YES | | 받는 사람 연락처 |
+| message | TEXT | YES | | 선물 메시지 |
+| status | VARCHAR(50) | NO | | 상태 (pending/accepted/rejected) |
+| accepted_at | DATETIME | YES | | 선물 수락 일시 |
+| created_at | TIMESTAMP | YES | | 선물 보낸 일시 (자동 기록) |
+
+> **선물 상태 흐름: pending(대기중) → accepted(수락) / rejected(거절)**
+
+---
+
+## 15. notifications (알림)
+- 사용자에게 보내는 알림을 저장하는 테이블
+- 주문 상태 변경, 선물 도착, 쿠폰 발급 등 이벤트 알림
+- 코드: `CREATE TABLE notifications ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 알림 고유 번호 (자동 증가) |
+| user_id | INT | NO | FK | 알림 받는 사람 (-> users.id) |
+| type | VARCHAR(50) | NO | | 알림 종류 (order/gift/coupon/system) |
+| title | VARCHAR(255) | NO | | 알림 제목 |
+| content | TEXT | YES | | 알림 내용 |
+| is_read | BOOLEAN | NO | | 읽음 여부 (기본값: false) |
+| link | VARCHAR(500) | YES | | 클릭 시 이동할 경로 |
+| created_at | TIMESTAMP | YES | | 알림 생성 일시 (자동 기록) |
+
+> **알림 타입 종류:**
+> - `order`: 주문/배송 관련 (배송 시작, 배송 완료 등)
+> - `gift`: 선물 관련 (선물 도착, 수락/거절)
+> - `coupon`: 쿠폰 관련 (새 쿠폰 발급)
+> - `system`: 시스템 공지
+
+---
+
+## 16. mailbox (우편함)
+- 보상 수령용 우편함 테이블
+- 선물, 쿠폰 지급, 이벤트 당첨 보상 등을 수령하는 곳
+- 보상이 있는 우편은 "수령하기" 버튼으로 보상을 받을 수 있음
+- 코드: `CREATE TABLE mailbox ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 우편 고유 번호 (자동 증가) |
+| user_id | INT | NO | FK | 받는 사람 (-> users.id) |
+| type | VARCHAR(50) | NO | | 우편 종류 (gift/coupon/event/system) |
+| title | VARCHAR(255) | NO | | 우편 제목 |
+| content | TEXT | YES | | 우편 내용 |
+| reward_type | VARCHAR(50) | YES | | 보상 종류 (coupon/point/item, 없으면 NULL) |
+| reward_id | INT | YES | | 보상 연결 ID (쿠폰 ID 등) |
+| reward_amount | INT | YES | | 보상 수량/금액 |
+| is_read | BOOLEAN | NO | | 읽음 여부 (기본값: false) |
+| is_claimed | BOOLEAN | NO | | 보상 수령 여부 (기본값: false) |
+| claimed_at | DATETIME | YES | | 보상 수령 일시 |
+| expires_at | DATETIME | YES | | 우편 만료일 (만료 시 수령 불가) |
+| created_at | TIMESTAMP | YES | | 우편 도착 일시 (자동 기록) |
+
+> **우편 종류 (type):**
+> - `gift`: 선물 도착 (다른 유저가 보낸 선물)
+> - `coupon`: 쿠폰 지급 (관리자가 지급한 쿠폰)
+> - `event`: 이벤트 보상 (이벤트 당첨 보상)
+> - `system`: 시스템 공지 (보상 없음)
+>
+> **보상 종류 (reward_type):**
+> - `coupon`: 쿠폰 지급 → reward_id = 쿠폰 ID
+> - `point`: 포인트 지급 → reward_amount = 포인트 금액
+> - `item`: 상품 지급 → reward_id = 상품 ID
+> - NULL: 보상 없음 (안내 우편)
+
+---
+
 ## FK 관계도 (외래키)
 
 > **FK(외래키)란?**
@@ -191,3 +330,14 @@
 | reviews.order_id | orders.id | CASCADE |
 | wishlists.user_id | users.id | CASCADE |
 | wishlists.product_id | products.id | CASCADE |
+| product_options.product_id | products.id | CASCADE |
+| product_option_values.option_id | product_options.id | CASCADE |
+| cart_item_options.cart_item_id | cart_items.id | CASCADE |
+| cart_item_options.option_value_id | product_option_values.id | CASCADE |
+| order_item_options.order_item_id | order_items.id | CASCADE |
+| order_item_options.option_value_id | product_option_values.id | CASCADE |
+| gifts.order_id | orders.id | CASCADE |
+| gifts.sender_id | users.id | CASCADE |
+| gifts.receiver_id | users.id | SET NULL |
+| notifications.user_id | users.id | CASCADE |
+| mailbox.user_id | users.id | CASCADE |

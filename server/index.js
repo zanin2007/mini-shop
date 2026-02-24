@@ -15,6 +15,8 @@ const orderRoutes = require('./routes/orderRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const mailboxRoutes = require('./routes/mailboxRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 dotenv.config();
 
@@ -38,6 +40,8 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/mailbox', mailboxRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 기본 라우트
 app.get('/', (req, res) => {

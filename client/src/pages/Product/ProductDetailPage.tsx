@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import type { Product, Review } from '../../types';
 import './ProductDetailPage.css';
 
 function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showAlert, showConfirm } = useAlert();
   const [product, setProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -60,40 +62,40 @@ function ProductDetailPage() {
   const isOwner = currentUser && product?.user_id === currentUser.id;
 
   const handleDelete = async () => {
-    if (!window.confirm('정말 이 상품을 삭제하시겠습니까?')) return;
+    if (!(await showConfirm('정말 이 상품을 삭제하시겠습니까?'))) return;
     try {
       await api.delete(`/products/${id}`);
-      alert('상품이 삭제되었습니다.');
+      showAlert('상품이 삭제되었습니다.', 'success');
       navigate('/');
     } catch (error) {
       console.error('상품 삭제 실패:', error);
-      alert('삭제에 실패했습니다.');
+      showAlert('삭제에 실패했습니다.', 'error');
     }
   };
 
   const handleAddToCart = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('로그인이 필요합니다.');
+      showAlert('로그인이 필요합니다.', 'warning');
       navigate('/login');
       return;
     }
 
     try {
       await api.post('/cart', { productId: product?.id, quantity });
-      if (confirm('장바구니에 담았습니다. 장바구니로 이동할까요?')) {
+      if (await showConfirm('장바구니에 담았습니다. 장바구니로 이동할까요?')) {
         navigate('/cart');
       }
     } catch (error) {
       console.error('장바구니 담기 실패:', error);
-      alert('장바구니 담기에 실패했습니다.');
+      showAlert('장바구니 담기에 실패했습니다.', 'error');
     }
   };
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewForm.content.trim()) {
-      alert('리뷰 내용을 입력해주세요.');
+      showAlert('리뷰 내용을 입력해주세요.', 'warning');
       return;
     }
     try {
@@ -102,19 +104,19 @@ function ProductDetailPage() {
         rating: reviewForm.rating,
         content: reviewForm.content,
       });
-      alert('리뷰가 등록되었습니다.');
+      showAlert('리뷰가 등록되었습니다.', 'success');
       setShowReviewForm(false);
       setReviewForm({ rating: 5, content: '' });
       setCanReview(false);
       fetchReviews();
     } catch (error) {
       console.error('리뷰 등록 실패:', error);
-      alert('리뷰 등록에 실패했습니다.');
+      showAlert('리뷰 등록에 실패했습니다.', 'error');
     }
   };
 
   const handleDeleteReview = async (reviewId: number) => {
-    if (!window.confirm('리뷰를 삭제하시겠습니까?')) return;
+    if (!(await showConfirm('리뷰를 삭제하시겠습니까?'))) return;
     try {
       await api.delete(`/reviews/${reviewId}`);
       fetchReviews();

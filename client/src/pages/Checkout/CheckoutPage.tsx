@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import type { Coupon } from '../../types';
 import './CheckoutPage.css';
 
@@ -9,6 +10,7 @@ interface CartItem {
   id: number;
   product_id: number;
   quantity: number;
+  is_selected: boolean;
   name: string;
   price: number;
   image_url: string;
@@ -18,6 +20,7 @@ function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordering, setOrdering] = useState(false);
+  const { showAlert, showConfirm } = useAlert();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [delivery, setDelivery] = useState({ receiver_name: '', receiver_phone: '', delivery_address: '' });
@@ -26,7 +29,7 @@ function CheckoutPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('로그인이 필요합니다.');
+      showAlert('로그인이 필요합니다.', 'warning');
       navigate('/login');
       return;
     }
@@ -36,12 +39,13 @@ function CheckoutPage() {
   const fetchCart = async () => {
     try {
       const response = await api.get('/cart');
-      if (response.data.length === 0) {
-        alert('장바구니가 비어있습니다.');
+      const selectedItems = response.data.filter((item: CartItem) => item.is_selected);
+      if (selectedItems.length === 0) {
+        showAlert('선택된 상품이 없습니다.', 'warning');
         navigate('/cart');
         return;
       }
-      setCartItems(response.data);
+      setCartItems(selectedItems);
     } catch (error) {
       console.error('장바구니 조회 실패:', error);
     } finally {
@@ -81,10 +85,10 @@ function CheckoutPage() {
 
   const handleOrder = async () => {
     if (!delivery.receiver_name.trim() || !delivery.receiver_phone.trim() || !delivery.delivery_address.trim()) {
-      alert('배송 정보를 모두 입력해주세요.');
+      showAlert('배송 정보를 모두 입력해주세요.', 'warning');
       return;
     }
-    if (!confirm('주문을 진행하시겠습니까?')) return;
+    if (!(await showConfirm('주문을 진행하시겠습니까?'))) return;
 
     setOrdering(true);
     try {
@@ -92,14 +96,14 @@ function CheckoutPage() {
         couponId: selectedCoupon?.user_coupon_id || null,
         ...delivery,
       });
-      alert('주문이 완료되었습니다!');
+      showAlert('주문이 완료되었습니다!', 'success');
       navigate('/mypage');
     } catch (error) {
       console.error('주문 실패:', error);
       if (error instanceof AxiosError) {
-        alert(error.response?.data?.message || '주문에 실패했습니다.');
+        showAlert(error.response?.data?.message || '주문에 실패했습니다.', 'error');
       } else {
-        alert('주문에 실패했습니다.');
+        showAlert('주문에 실패했습니다.', 'error');
       }
     } finally {
       setOrdering(false);

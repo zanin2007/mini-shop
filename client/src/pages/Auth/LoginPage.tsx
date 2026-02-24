@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import './AuthPages.css';
 
 function LoginPage() {
@@ -11,6 +12,7 @@ function LoginPage() {
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
@@ -35,7 +37,7 @@ function LoginPage() {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
 
-      alert('로그인 성공!');
+      showAlert('로그인 성공!', 'success');
       window.location.href = '/'; // 페이지 새로고침으로 레이아웃 업데이트
     } catch (err) {
       if (err instanceof AxiosError) {

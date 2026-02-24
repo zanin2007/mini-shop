@@ -3,11 +3,16 @@ require('dotenv').config();
 
 async function initializeDatabase() {
   // 먼저 데이터베이스 없이 연결하여 DB 생성
-  const connection = await mysql.createConnection({
+  const connConfig = {
     host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-  });
+  };
+  if (process.env.DB_SSL === 'true') {
+    connConfig.ssl = { rejectUnauthorized: false };
+  }
+  const connection = await mysql.createConnection(connConfig);
 
   // 데이터베이스 생성
   await connection.execute(
@@ -162,6 +167,121 @@ async function initializeDatabase() {
     )
   `);
   console.log('wishlists 테이블 확인 완료');
+
+  // ===== 9. 구매 완료 (orders 테이블에 completed_at 컬럼 추가) =====
+  await connection.execute(`
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at DATETIME DEFAULT NULL
+  `).catch(() => {});
+  console.log('orders 테이블 completed_at 컬럼 확인 완료');
+
+  // ===== 11. 상품 옵션 시스템 =====
+  // product_options: 옵션 그룹 (사이즈, 색상 등)
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS product_options (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      option_name VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('product_options 테이블 확인 완료');
+
+  // product_option_values: 옵션 값 (S, M, L / 빨강, 파랑 등)
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS product_option_values (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      option_id INT NOT NULL,
+      value VARCHAR(100) NOT NULL,
+      extra_price INT NOT NULL DEFAULT 0,
+      stock INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (option_id) REFERENCES product_options(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('product_option_values 테이블 확인 완료');
+
+  // cart_item_options: 장바구니 선택 옵션
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS cart_item_options (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      cart_item_id INT NOT NULL,
+      option_value_id INT NOT NULL,
+      FOREIGN KEY (cart_item_id) REFERENCES cart_items(id) ON DELETE CASCADE,
+      FOREIGN KEY (option_value_id) REFERENCES product_option_values(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('cart_item_options 테이블 확인 완료');
+
+  // order_item_options: 주문 상품 선택 옵션
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS order_item_options (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_item_id INT NOT NULL,
+      option_value_id INT NOT NULL,
+      FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
+      FOREIGN KEY (option_value_id) REFERENCES product_option_values(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('order_item_options 테이블 확인 완료');
+
+  // ===== 10. 선물하기 시스템 =====
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS gifts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      sender_id INT NOT NULL,
+      receiver_id INT DEFAULT NULL,
+      receiver_name VARCHAR(100),
+      receiver_phone VARCHAR(20),
+      message TEXT,
+      status VARCHAR(50) NOT NULL DEFAULT 'pending',
+      accepted_at DATETIME DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+  console.log('gifts 테이블 확인 완료');
+
+  // ===== 12. 알림 시스템 =====
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      content TEXT,
+      is_read BOOLEAN NOT NULL DEFAULT false,
+      link VARCHAR(500) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('notifications 테이블 확인 완료');
+
+  // ===== 13. 우편함 시스템 (보상 수령용) =====
+  await connection.execute(`DROP TABLE IF EXISTS messages`).catch(() => {});
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS mailbox (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      content TEXT,
+      reward_type VARCHAR(50) DEFAULT NULL,
+      reward_id INT DEFAULT NULL,
+      reward_amount INT DEFAULT NULL,
+      is_read BOOLEAN NOT NULL DEFAULT false,
+      is_claimed BOOLEAN NOT NULL DEFAULT false,
+      claimed_at DATETIME DEFAULT NULL,
+      expires_at DATETIME DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('mailbox 테이블 확인 완료');
 
   await connection.end();
   console.log('데이터베이스 초기화 완료!');

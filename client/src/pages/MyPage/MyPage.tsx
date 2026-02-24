@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import type { Order, User, UserCoupon } from '../../types';
 import './MyPage.css';
 
@@ -13,6 +14,7 @@ const statusMap: Record<string, { label: string; className: string }> = {
 
 function MyPage() {
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
@@ -54,16 +56,16 @@ function MyPage() {
 
   const handleClaimCoupon = async () => {
     if (!couponCode.trim()) {
-      alert('쿠폰 코드를 입력해주세요.');
+      showAlert('쿠폰 코드를 입력해주세요.', 'warning');
       return;
     }
     try {
       const response = await api.post('/coupons/claim', { code: couponCode.trim() });
-      alert(response.data.message);
+      showAlert(response.data.message, 'success');
       setCouponCode('');
       fetchCoupons();
     } catch (error: any) {
-      alert(error.response?.data?.message || '쿠폰 등록에 실패했습니다.');
+      showAlert(error.response?.data?.message || '쿠폰 등록에 실패했습니다.', 'error');
     }
   };
 
