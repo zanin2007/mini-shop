@@ -1,4 +1,4 @@
-/* ===== 토스트 알림 ===== */
+/* ===== Toast Notifications ===== */
 .toast-container {
   position: fixed;
   top: 20px;
@@ -15,9 +15,9 @@
   align-items: center;
   gap: 12px;
   padding: 14px 20px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
   min-width: 300px;
   max-width: 420px;
   pointer-events: auto;
@@ -26,23 +26,23 @@
 }
 
 .toast-success {
-  border-left-color: #10b981;
-  background: linear-gradient(135deg, #f0fdf4, #fff);
+  border-left-color: var(--color-success);
+  background: linear-gradient(135deg, var(--color-success-bg), var(--color-surface));
 }
 
 .toast-error {
-  border-left-color: #ef4444;
-  background: linear-gradient(135deg, #fef2f2, #fff);
+  border-left-color: var(--color-error);
+  background: linear-gradient(135deg, var(--color-error-bg), var(--color-surface));
 }
 
 .toast-info {
-  border-left-color: #3b82f6;
-  background: linear-gradient(135deg, #eff6ff, #fff);
+  border-left-color: var(--color-info);
+  background: linear-gradient(135deg, var(--color-info-bg), var(--color-surface));
 }
 
 .toast-warning {
-  border-left-color: #f59e0b;
-  background: linear-gradient(135deg, #fffbeb, #fff);
+  border-left-color: var(--color-warning);
+  background: linear-gradient(135deg, var(--color-warning-bg), var(--color-surface));
 }
 
 .toast-icon {
@@ -58,29 +58,29 @@
 }
 
 .toast-success .toast-icon {
-  background: #10b981;
+  background: var(--color-success);
   color: #fff;
 }
 
 .toast-error .toast-icon {
-  background: #ef4444;
+  background: var(--color-error);
   color: #fff;
 }
 
 .toast-info .toast-icon {
-  background: #3b82f6;
+  background: var(--color-info);
   color: #fff;
 }
 
 .toast-warning .toast-icon {
-  background: #f59e0b;
+  background: var(--color-warning);
   color: #fff;
 }
 
 .toast-message {
   flex: 1;
   font-size: 14px;
-  color: #1f2937;
+  color: var(--color-text);
   line-height: 1.4;
   font-weight: 500;
 }
@@ -89,16 +89,16 @@
   background: none;
   border: none;
   font-size: 20px;
-  color: #9ca3af;
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
   flex-shrink: 0;
-  transition: color 0.2s;
+  transition: color var(--duration) var(--ease);
 }
 
 .toast-close:hover {
-  color: #374151;
+  color: var(--color-text);
 }
 
 @keyframes toastSlideIn {
@@ -112,30 +112,30 @@
   }
 }
 
-/* ===== 확인 모달 ===== */
+/* ===== Confirm Modal ===== */
 .confirm-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(26, 26, 26, 0.4);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10001;
-  animation: overlayFadeIn 0.2s ease;
+  animation: overlayFadeIn 0.2s var(--ease);
 }
 
 .confirm-modal {
-  background: #fff;
-  border-radius: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
   padding: 32px;
   min-width: 320px;
   max-width: 400px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 60px rgba(26, 26, 26, 0.15);
   animation: modalPopIn 0.3s cubic-bezier(0.21, 1.02, 0.73, 1);
 }
 
@@ -143,8 +143,8 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
-  color: #3b82f6;
+  background: linear-gradient(135deg, var(--color-accent-light), rgba(196, 125, 90, 0.15));
+  color: var(--color-accent);
   font-size: 24px;
   font-weight: 700;
   display: flex;
@@ -155,7 +155,7 @@
 
 .confirm-message {
   font-size: 16px;
-  color: #1f2937;
+  color: var(--color-text);
   line-height: 1.5;
   margin-bottom: 28px;
   word-break: keep-all;
@@ -170,31 +170,31 @@
   flex: 1;
   padding: 12px 24px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
 }
 
 .confirm-cancel {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
 }
 
 .confirm-cancel:hover {
-  background: #e5e7eb;
+  background: var(--color-border-light);
 }
 
 .confirm-ok {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
 }
 
 .confirm-ok:hover {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: var(--color-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
 }
 
 @keyframes overlayFadeIn {
@@ -213,7 +213,7 @@
   }
 }
 
-/* ===== 모바일 반응형 ===== */
+/* ===== Mobile ===== */
 @media (max-width: 480px) {
   .toast-container {
     top: 10px;

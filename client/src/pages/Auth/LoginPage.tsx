@@ -32,7 +32,10 @@ function LoginPage() {
     setError('');
 
     try {
-      const response = await api.post('/auth/login', formData);
+      const response = await api.post('/auth/login', {
+        email: formData.email.trim(),
+        password: formData.password.trim(),
+      });
 
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));

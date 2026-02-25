@@ -4,13 +4,16 @@
   padding: 0 2rem;
 }
 
-/* ===== 히어로 배너 ===== */
+/* ===== Hero Banner ===== */
 .hero {
   text-align: center;
   padding: 4.5rem 2rem;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-  color: white;
-  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 30% 50%, rgba(196, 125, 90, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 20%, rgba(90, 138, 94, 0.08) 0%, transparent 50%),
+    var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-lg);
   margin-bottom: 3rem;
   position: relative;
   overflow: hidden;
@@ -19,11 +22,15 @@
 .hero::before {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 60%);
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 100px,
+      rgba(255, 255, 255, 0.015) 100px,
+      rgba(255, 255, 255, 0.015) 101px
+    );
   pointer-events: none;
 }
 
@@ -37,12 +44,12 @@
 
 .hero p {
   font-size: 1.15rem;
-  opacity: 0.7;
+  opacity: 0.6;
   font-weight: 300;
   position: relative;
 }
 
-/* ===== 검색 & 필터 ===== */
+/* ===== Search & Filter ===== */
 .search-section {
   margin-bottom: 2rem;
 }
@@ -56,34 +63,35 @@
 .search-bar input {
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 0.95rem;
-  background: #fafafa;
-  transition: all 0.2s;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  transition: all var(--duration) var(--ease);
 }
 
 .search-bar input:focus {
   outline: none;
-  border-color: #111;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px rgba(196, 125, 90, 0.1);
 }
 
 .search-bar button {
   padding: 0.75rem 1.5rem;
-  background: #111;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--duration) var(--ease);
 }
 
 .search-bar button:hover {
-  background: #333;
+  background: var(--color-primary-hover);
 }
 
 .category-filters {
@@ -94,33 +102,34 @@
 
 .category-btn {
   padding: 0.5rem 1rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 20px;
-  background: white;
-  color: #666;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
 }
 
 .category-btn:hover {
-  border-color: #111;
-  color: #111;
+  border-color: var(--color-text);
+  color: var(--color-text);
 }
 
 .category-btn.active {
-  background: #111;
-  color: white;
-  border-color: #111;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-color: var(--color-primary);
 }
 
-/* ===== 상품 섹션 ===== */
+/* ===== Products Section ===== */
 .products-section h3 {
   font-size: 1.5rem;
   margin-bottom: 1.5rem;
-  color: #111;
+  color: var(--color-text);
   font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .products-grid {
@@ -129,21 +138,21 @@
   gap: 1.5rem;
 }
 
-/* ===== 상품 카드 ===== */
+/* ===== Product Card ===== */
 .product-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  border: 1px solid #eee;
-  transition: all 0.25s ease;
+  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--color-border-light);
+  transition: all 0.3s var(--ease);
   text-decoration: none;
   color: inherit;
 }
 
 .product-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
   border-color: transparent;
 }
 
@@ -151,14 +160,14 @@
   width: 100%;
   height: 280px;
   overflow: hidden;
-  background-color: #f8f8f8;
+  background-color: var(--color-surface-alt);
 }
 
 .product-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform 0.4s var(--ease);
 }
 
 .product-card:hover .product-image img {
@@ -172,13 +181,14 @@
 .product-info h4 {
   font-size: 1rem;
   margin: 0 0 0.4rem;
-  color: #111;
+  color: var(--color-text);
   font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
 .product-category {
   font-size: 0.8rem;
-  color: #aaa;
+  color: var(--color-text-muted);
   margin: 0 0 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -188,36 +198,37 @@
 .product-price {
   font-size: 1.2rem;
   font-weight: 800;
-  color: #111;
+  color: var(--color-text);
   margin: 0;
+  letter-spacing: -0.3px;
 }
 
 .product-count {
   font-size: 0.9rem;
   font-weight: 400;
-  color: #999;
+  color: var(--color-text-muted);
   margin-left: 0.5rem;
 }
 
 .empty-products {
   text-align: center;
   padding: 4rem;
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 1rem;
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #eee;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
 }
 
-/* ===== 로딩 ===== */
+/* ===== Loading ===== */
 .loading {
   text-align: center;
   padding: 6rem;
   font-size: 1rem;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
-/* ===== 모바일 ===== */
+/* ===== Mobile ===== */
 @media (max-width: 768px) {
   .main-page .container {
     padding: 0 1rem;
@@ -226,7 +237,6 @@
   .hero {
     padding: 2.5rem 1.5rem;
     margin-bottom: 2rem;
-    border-radius: 12px;
   }
 
   .hero h2 {

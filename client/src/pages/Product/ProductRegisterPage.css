@@ -5,16 +5,20 @@
 .register-container {
   max-width: 600px;
   margin: 0 auto;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 2rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: 2.25rem;
+  box-shadow: var(--shadow-sm);
+  animation: slideUp 0.5s var(--ease-out) both;
 }
 
 .register-title {
-  font-size: 1.8rem;
-  margin-bottom: 1.5rem;
-  color: #333;
+  font-size: 1.65rem;
+  margin-bottom: 1.75rem;
+  color: var(--color-text);
+  font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
 .register-form {
@@ -37,23 +41,27 @@
 
 .form-group label {
   font-weight: 600;
-  color: #444;
-  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
 }
 
 .form-group input,
 .form-group textarea {
-  padding: 0.7rem 0.9rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 1rem;
+  padding: 0.75rem 0.95rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.2s;
+  transition: all var(--duration) var(--ease);
+  background: var(--color-surface-alt);
+  color: var(--color-text);
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
-  border-color: #1976d2;
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px rgba(196, 125, 90, 0.1);
 }
 
 .form-group textarea {
@@ -68,42 +76,46 @@
 }
 
 .cancel-btn {
-  padding: 0.7rem 1.5rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  color: #555;
-  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
   cursor: pointer;
+  transition: all var(--duration) var(--ease);
 }
 
 .cancel-btn:hover {
-  background: #f5f5f5;
+  background: var(--color-surface-alt);
+  border-color: var(--color-text-muted);
 }
 
 .submit-btn {
-  padding: 0.7rem 1.5rem;
+  padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 6px;
-  background: #1976d2;
-  color: #fff;
-  font-size: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: 0.95rem;
   cursor: pointer;
   font-weight: 600;
+  transition: all var(--duration) var(--ease);
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #1565c0;
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
 }
 
 .submit-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* ===== 옵션 섹션 ===== */
+/* ===== Options Section ===== */
 .options-section {
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border-light);
   padding-top: 1.2rem;
 }
 
@@ -116,30 +128,30 @@
 
 .options-header label {
   font-weight: 600;
-  color: #444;
-  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
 }
 
 .add-option-btn {
   padding: 0.4rem 0.9rem;
-  background: #111;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
   border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--duration) var(--ease);
 }
 
 .add-option-btn:hover {
-  background: #333;
+  background: var(--color-primary-hover);
 }
 
 .option-group {
-  background: #f9f9f9;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
   padding: 1rem;
   margin-bottom: 0.8rem;
 }
@@ -152,38 +164,40 @@
 
 .option-group-header input {
   flex: 1;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  font-size: 0.88rem;
   outline: none;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .option-group-header input:focus {
-  border-color: #1976d2;
+  border-color: var(--color-accent);
 }
 
 .remove-btn {
   padding: 0.4rem 0.8rem;
   background: none;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  color: #999;
-  font-size: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
   white-space: nowrap;
 }
 
 .remove-btn:hover {
-  background: #fff0f0;
-  border-color: #ffb8b8;
-  color: #dc2626;
+  background: var(--color-error-bg);
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .remove-btn.small {
   padding: 0.3rem 0.6rem;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
 }
 
 .option-value-row {
@@ -194,16 +208,18 @@
 
 .option-value-row input {
   flex: 1;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  padding: 0.45rem 0.65rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  font-size: 0.82rem;
   outline: none;
   min-width: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .option-value-row input:focus {
-  border-color: #1976d2;
+  border-color: var(--color-accent);
 }
 
 .option-value-row input[type="number"] {
@@ -213,21 +229,21 @@
 .add-value-btn {
   margin-top: 0.4rem;
   padding: 0.35rem 0.7rem;
-  background: white;
-  border: 1px dashed #ccc;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  color: #666;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-xs);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
 }
 
 .add-value-btn:hover {
-  border-color: #1976d2;
-  color: #1976d2;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
-/* ===== 모바일 ===== */
+/* ===== Mobile ===== */
 @media (max-width: 768px) {
   .register-container {
     margin: 0 1rem;
@@ -235,7 +251,7 @@
   }
 
   .register-title {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
   }
 
   .form-row {

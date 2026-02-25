@@ -10,26 +10,29 @@
 }
 
 .checkout-title {
-  font-size: 1.75rem;
+  font-size: 1.65rem;
   font-weight: 800;
-  color: #111;
+  color: var(--color-text);
   margin-bottom: 2rem;
+  letter-spacing: -0.5px;
 }
 
-/* ===== 주문 상품 섹션 ===== */
+/* ===== Checkout Sections ===== */
 .checkout-section {
-  background: white;
-  border-radius: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 2rem;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border-light);
   margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-xs);
 }
 
 .checkout-section h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #111;
+  color: var(--color-text);
   margin: 0 0 1.25rem;
+  letter-spacing: -0.2px;
 }
 
 .checkout-items {
@@ -43,7 +46,7 @@
   align-items: center;
   gap: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .checkout-item:last-child {
@@ -54,9 +57,9 @@
 .checkout-item-image {
   width: 60px;
   height: 60px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: #f8f8f8;
+  background: var(--color-surface-alt);
   flex-shrink: 0;
 }
 
@@ -72,24 +75,31 @@
 
 .checkout-item-name {
   font-weight: 600;
-  color: #111;
+  color: var(--color-text);
   margin: 0 0 0.25rem;
   font-size: 0.95rem;
 }
 
 .checkout-item-detail {
-  color: #888;
+  color: var(--color-text-muted);
   font-size: 0.85rem;
   margin: 0;
 }
 
-.checkout-item-subtotal {
-  font-weight: 700;
-  color: #111;
-  font-size: 1rem;
+.checkout-item-options {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0.1rem 0;
 }
 
-/* ===== 배송 정보 ===== */
+.checkout-item-subtotal {
+  font-weight: 700;
+  color: var(--color-text);
+  font-size: 1rem;
+  letter-spacing: -0.2px;
+}
+
+/* ===== Delivery Form ===== */
 .delivery-form {
   display: flex;
   flex-direction: column;
@@ -105,62 +115,57 @@
 .delivery-field label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #444;
+  color: var(--color-text-secondary);
 }
 
 .delivery-field input {
   padding: 0.7rem 1rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
-  background: #fafafa;
-  transition: all 0.2s;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  transition: all var(--duration) var(--ease);
 }
 
 .delivery-field input:focus {
   outline: none;
-  border-color: #111;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px rgba(196, 125, 90, 0.1);
 }
 
-/* ===== 쿠폰 ===== */
+/* ===== Coupon Select ===== */
 .coupon-select {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
-  color: #333;
-  background: #fafafa;
+  color: var(--color-text);
+  background: var(--color-surface-alt);
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color var(--duration) var(--ease);
 }
 
 .coupon-select:focus {
   outline: none;
-  border-color: #111;
-  background: white;
+  border-color: var(--color-accent);
+  background: var(--color-surface);
 }
 
 .no-coupons {
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
   margin: 0;
 }
 
 .payment-discount {
-  color: #dc2626;
+  color: var(--color-error);
   font-weight: 600;
 }
 
-.checkout-item-options {
-  font-size: 0.8rem;
-  color: #888;
-  margin: 0.1rem 0;
-}
-
-/* ===== 선물하기 ===== */
+/* ===== Gift Section ===== */
 .gift-toggle {
   margin-bottom: 0.5rem;
 }
@@ -172,13 +177,13 @@
   cursor: pointer;
   font-weight: 600;
   font-size: 0.95rem;
-  color: #333;
+  color: var(--color-text);
 }
 
 .gift-toggle input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #e53935;
+  accent-color: var(--color-accent);
 }
 
 .gift-form {
@@ -187,7 +192,7 @@
   gap: 1rem;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--color-border-light);
 }
 
 .gift-search {
@@ -199,7 +204,7 @@
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #444;
+  color: var(--color-text-secondary);
   margin-bottom: 0.35rem;
 }
 
@@ -210,18 +215,19 @@
 .search-input-wrapper input {
   width: 100%;
   padding: 0.7rem 1rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
-  background: #fafafa;
-  transition: all 0.2s;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  transition: all var(--duration) var(--ease);
   box-sizing: border-box;
 }
 
 .search-input-wrapper input:focus {
   outline: none;
-  border-color: #111;
-  background: white;
+  border-color: var(--color-accent);
+  background: var(--color-surface);
 }
 
 .selected-badge {
@@ -229,10 +235,10 @@
   right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--color-success-bg);
+  color: var(--color-success);
   padding: 0.2rem 0.5rem;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -241,11 +247,11 @@
   list-style: none;
   padding: 0;
   margin: 0.25rem 0 0;
-  background: white;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
   position: absolute;
   width: 100%;
   z-index: 10;
@@ -257,61 +263,64 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  transition: background 0.15s;
+  transition: background var(--duration-fast) var(--ease);
 }
 
 .search-results li:hover {
-  background: #f5f5f5;
+  background: var(--color-surface-alt);
 }
 
 .search-results li strong {
   font-size: 0.9rem;
-  color: #111;
+  color: var(--color-text);
 }
 
 .search-results li span {
   font-size: 0.8rem;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .gift-message-field textarea {
   width: 100%;
   padding: 0.7rem 1rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   font-family: inherit;
-  background: #fafafa;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
   resize: vertical;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
   box-sizing: border-box;
 }
 
 .gift-message-field textarea:focus {
   outline: none;
-  border-color: #111;
-  background: white;
+  border-color: var(--color-accent);
+  background: var(--color-surface);
 }
 
-/* ===== 결제 정보 ===== */
+/* ===== Payment Summary ===== */
 .checkout-payment {
-  background: white;
-  border-radius: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 2rem;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-sm);
 }
 
 .checkout-payment h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #111;
+  color: var(--color-text);
   margin: 0 0 1.25rem;
+  letter-spacing: -0.2px;
 }
 
 .payment-row {
   display: flex;
   justify-content: space-between;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 0.75rem;
   font-size: 0.95rem;
 }
@@ -321,41 +330,43 @@
   justify-content: space-between;
   align-items: center;
   padding-top: 1rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border-light);
   margin-bottom: 1.5rem;
   margin-top: 0.5rem;
 }
 
 .payment-total strong {
   font-size: 1.5rem;
-  color: #111;
+  color: var(--color-text);
+  letter-spacing: -0.3px;
 }
 
 .order-btn {
   width: 100%;
   padding: 1rem;
-  background: #111;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-size: 1.1rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
+  letter-spacing: -0.2px;
 }
 
 .order-btn:hover:not(:disabled) {
-  background: #333;
+  background: var(--color-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
 }
 
 .order-btn:disabled {
-  background: #999;
+  background: var(--color-border);
   cursor: not-allowed;
 }
 
-/* ===== 모바일 ===== */
+/* ===== Mobile ===== */
 @media (max-width: 768px) {
   .checkout-page {
     padding: 0 1rem;
@@ -368,7 +379,6 @@
   .checkout-section,
   .checkout-payment {
     padding: 1.25rem;
-    border-radius: 12px;
   }
 
   .checkout-item {

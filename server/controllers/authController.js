@@ -5,7 +5,9 @@ const db = require('../config/db');
 // 회원가입
 exports.signup = async (req, res) => {
   try {
-    const { email, password, nickname } = req.body;
+    const email = (req.body.email || '').trim();
+    const password = (req.body.password || '').trim();
+    const nickname = (req.body.nickname || '').trim();
 
     // 유효성 검사
     if (!email || !password || !nickname) {
@@ -41,7 +43,8 @@ exports.signup = async (req, res) => {
 // 로그인
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = (req.body.email || '').trim();
+    const password = (req.body.password || '').trim();
 
     // 사용자 조회
     const [users] = await db.execute(

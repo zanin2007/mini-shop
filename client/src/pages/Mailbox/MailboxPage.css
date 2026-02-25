@@ -1,14 +1,15 @@
 .mailbox-page {
   max-width: 800px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 2rem;
 }
 
 .mailbox-container {
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
+  border: 1px solid var(--color-border-light);
 }
 
 .mailbox-header {
@@ -16,30 +17,33 @@
   align-items: center;
   gap: 1rem;
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .mailbox-header h2 {
   margin: 0;
   font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.3px;
 }
 
-.back-btn {
+.mailbox-page .back-btn {
   background: none;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
   padding: 0.4rem 0.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  color: #555;
+  color: var(--color-text-muted);
   font-size: 0.85rem;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
 }
 
-.back-btn:hover {
-  background: #f5f5f5;
-  color: #111;
-  border-color: #ccc;
+.mailbox-page .back-btn:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
 }
 
 .mail-list {
@@ -52,13 +56,13 @@
   align-items: center;
   gap: 1rem;
   padding: 1.25rem 2rem;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--color-border-light);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--duration) var(--ease);
 }
 
 .mail-card:hover {
-  background: #fafafa;
+  background: var(--color-surface-hover);
 }
 
 .mail-card:last-child {
@@ -66,11 +70,11 @@
 }
 
 .mail-card.unread {
-  background: #f0f7ff;
+  background: var(--color-accent-light);
 }
 
 .mail-card.unread:hover {
-  background: #e5f0ff;
+  background: rgba(196, 125, 90, 0.08);
 }
 
 .mail-card.claimed {
@@ -94,7 +98,7 @@
 .mail-title {
   font-weight: 600;
   font-size: 0.95rem;
-  color: #111;
+  color: var(--color-text);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -103,13 +107,13 @@
 .unread-dot {
   width: 8px;
   height: 8px;
-  background: #2563eb;
+  background: var(--color-accent);
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .mail-content {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   margin-top: 0.25rem;
   white-space: nowrap;
@@ -122,15 +126,15 @@
   gap: 0.75rem;
   margin-top: 0.4rem;
   font-size: 0.75rem;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .mail-expiry {
-  color: #2563eb;
+  color: var(--color-accent);
 }
 
 .expired-text {
-  color: #dc2626 !important;
+  color: var(--color-error) !important;
 }
 
 .mail-actions {
@@ -142,56 +146,65 @@
 .claim-btn {
   padding: 0.4rem 0.8rem;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  background: #2563eb;
-  color: white;
-  transition: all 0.2s;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  transition: all var(--duration) var(--ease);
 }
 
 .claim-btn:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--color-primary-hover);
 }
 
 .claim-btn.claimed {
-  background: #e5e7eb;
-  color: #9ca3af;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
   cursor: default;
 }
 
 .claim-btn.disabled {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--color-error-bg);
+  color: var(--color-error);
   cursor: default;
 }
 
 .mail-card .delete-btn {
   padding: 0.4rem 0.6rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   background: none;
   font-size: 0.8rem;
-  color: #999;
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
 }
 
 .mail-card .delete-btn:hover {
-  background: #fff0f0;
-  border-color: #ffb8b8;
-  color: #dc2626;
+  background: var(--color-error-bg);
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .mailbox-page .empty-message {
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
   padding: 3rem 1rem;
   font-size: 0.95rem;
 }
 
+/* ===== Mobile ===== */
 @media (max-width: 768px) {
+  .mailbox-page {
+    padding: 0 1rem;
+  }
+
+  .mailbox-header {
+    padding: 1rem;
+  }
+
   .mail-card {
     padding: 1rem;
     flex-wrap: wrap;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
@@ -7,6 +7,15 @@ import './ProductRegisterPage.css';
 function ProductRegisterPage() {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (!userData || JSON.parse(userData).role !== 'admin') {
+      showAlert('관리자만 접근할 수 있습니다.', 'error');
+      navigate('/', { replace: true });
+    }
+  }, []);
+
   const [form, setForm] = useState({
     name: '',
     description: '',

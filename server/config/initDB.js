@@ -169,9 +169,14 @@ async function initializeDatabase() {
   console.log('wishlists 테이블 확인 완료');
 
   // ===== 9. 구매 완료 (orders 테이블에 completed_at 컬럼 추가) =====
-  await connection.execute(`
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at DATETIME DEFAULT NULL
-  `).catch(() => {});
+  const [cols] = await connection.execute(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'completed_at'`,
+    [process.env.DB_NAME]
+  );
+  if (cols.length === 0) {
+    await connection.execute('ALTER TABLE orders ADD COLUMN completed_at DATETIME DEFAULT NULL');
+  }
   console.log('orders 테이블 completed_at 컬럼 확인 완료');
 
   // ===== 11. 상품 옵션 시스템 =====
@@ -282,6 +287,55 @@ async function initializeDatabase() {
     )
   `);
   console.log('mailbox 테이블 확인 완료');
+
+  // ===== 14. 공지사항 =====
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS announcements (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      admin_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      is_pinned BOOLEAN NOT NULL DEFAULT false,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('announcements 테이블 확인 완료');
+
+  // ===== 15. 이벤트 =====
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS events (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      type VARCHAR(50) NOT NULL DEFAULT 'fcfs',
+      reward_type VARCHAR(50) DEFAULT NULL,
+      reward_id INT DEFAULT NULL,
+      reward_amount INT DEFAULT NULL,
+      max_participants INT DEFAULT NULL,
+      start_date DATETIME NOT NULL,
+      end_date DATETIME NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  console.log('events 테이블 확인 완료');
+
+  // ===== 16. 이벤트 참여자 =====
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS event_participants (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      event_id INT NOT NULL,
+      user_id INT NOT NULL,
+      is_winner BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_event_user (event_id, user_id)
+    )
+  `);
+  console.log('event_participants 테이블 확인 완료');
 
   await connection.end();
   console.log('데이터베이스 초기화 완료!');

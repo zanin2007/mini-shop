@@ -10,13 +10,14 @@
 }
 
 .admin-title {
-  font-size: 1.75rem;
+  font-size: 1.65rem;
   font-weight: 800;
-  color: #111;
+  color: var(--color-text);
   margin-bottom: 1.5rem;
+  letter-spacing: -0.5px;
 }
 
-/* ===== 탭 ===== */
+/* ===== Tabs ===== */
 .admin-tabs {
   display: flex;
   gap: 0.5rem;
@@ -25,42 +26,43 @@
 
 .admin-tab {
   padding: 0.6rem 1.25rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
-  background: white;
-  color: #666;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
 }
 
 .admin-tab:hover {
-  border-color: #111;
-  color: #111;
+  border-color: var(--color-text);
+  color: var(--color-text);
 }
 
 .admin-tab.active {
-  background: #111;
-  color: white;
-  border-color: #111;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-color: var(--color-primary);
 }
 
-/* ===== 섹션 ===== */
+/* ===== Section ===== */
 .admin-section {
-  background: white;
-  border-radius: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-xs);
 }
 
 .empty-msg {
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
   padding: 2rem;
 }
 
-/* ===== 테이블 ===== */
+/* ===== Table ===== */
 .admin-table-wrap {
   overflow-x: auto;
 }
@@ -72,35 +74,35 @@
 }
 
 .admin-table th {
-  background: #f8f8f8;
+  background: var(--color-surface-alt);
   padding: 0.75rem;
   text-align: left;
   font-weight: 700;
-  color: #444;
-  border-bottom: 2px solid #eee;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid var(--color-border-light);
   white-space: nowrap;
 }
 
 .admin-table td {
   padding: 0.75rem;
-  border-bottom: 1px solid #f0f0f0;
-  color: #555;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
   vertical-align: middle;
 }
 
 .admin-table tbody tr:hover {
-  background: #fafafa;
+  background: var(--color-surface-hover);
 }
 
 .admin-table code {
-  background: #f0f0f0;
+  background: var(--color-surface-alt);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   font-size: 0.8rem;
   letter-spacing: 0.5px;
 }
 
-/* ===== 주문 관리 ===== */
+/* ===== Order Management ===== */
 .order-customer {
   display: flex;
   flex-direction: column;
@@ -108,91 +110,140 @@
 }
 
 .order-customer small {
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 0.75rem;
 }
 
 .order-item-mini {
   font-size: 0.8rem;
-  color: #666;
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }
 
 .discount-info {
   display: block;
-  color: #dc2626;
+  color: var(--color-error);
   font-size: 0.75rem;
 }
 
 .status-select {
   padding: 0.3rem 0.5rem;
-  border-radius: 6px;
-  border: 1.5px solid #e0e0e0;
+  border-radius: var(--radius-xs);
+  border: 1.5px solid var(--color-border);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .status-select.status-pending {
-  color: #e65100;
-  border-color: #ffcc80;
-  background: #fff3e0;
+  color: var(--color-warning);
+  border-color: rgba(184, 134, 75, 0.3);
+  background: var(--color-warning-bg);
 }
 
 .status-select.status-shipped {
-  color: #1565c0;
-  border-color: #90caf9;
-  background: #e3f2fd;
+  color: var(--color-info);
+  border-color: rgba(90, 127, 166, 0.3);
+  background: var(--color-info-bg);
 }
 
 .status-select.status-delivered {
-  color: #2e7d32;
-  border-color: #a5d6a7;
-  background: #e8f5e9;
+  color: var(--color-success);
+  border-color: rgba(90, 138, 94, 0.3);
+  background: var(--color-success-bg);
 }
 
 .status-select.status-completed {
-  color: #7b1fa2;
-  border-color: #ce93d8;
-  background: #f3e5f5;
+  color: var(--color-accent);
+  border-color: rgba(196, 125, 90, 0.3);
+  background: var(--color-accent-light);
 }
 
-/* ===== 상품 관리 ===== */
+/* ===== Product Filters ===== */
+.product-filters {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 0.55rem 0.85rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color var(--duration) var(--ease);
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.filter-select {
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.product-count {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ===== Product Management ===== */
 .out-of-stock {
-  color: #dc2626;
+  color: var(--color-error);
   font-weight: 700;
 }
 
 .admin-delete-btn {
   padding: 0.3rem 0.7rem;
   background: none;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  color: #999;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration) var(--ease);
 }
 
 .admin-delete-btn:hover {
-  background: #fff0f0;
-  border-color: #ffb8b8;
-  color: #dc2626;
+  background: var(--color-error-bg);
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
-/* ===== 쿠폰 생성 ===== */
+/* ===== Coupon Create ===== */
 .coupon-create-form {
-  background: #f9f9f9;
-  border-radius: 12px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border-light);
 }
 
 .coupon-create-form h4 {
   margin: 0 0 1rem;
   font-size: 1rem;
-  color: #333;
+  color: var(--color-text);
 }
 
 .coupon-form-grid {
@@ -204,52 +255,209 @@
 
 .coupon-form-grid input {
   padding: 0.6rem 0.75rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
   font-size: 0.85rem;
-  background: white;
-  transition: border-color 0.2s;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color var(--duration) var(--ease);
 }
 
 .coupon-form-grid input:focus {
   outline: none;
-  border-color: #111;
+  border-color: var(--color-accent);
 }
 
 .coupon-create-btn {
   padding: 0.6rem 1.5rem;
-  background: #111;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--duration) var(--ease);
 }
 
 .coupon-create-btn:hover {
-  background: #333;
+  background: var(--color-primary-hover);
 }
 
 .coupon-status {
   padding: 0.15rem 0.5rem;
-  border-radius: 10px;
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .coupon-status.active {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .coupon-status.expired {
-  background: #fafafa;
-  color: #999;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
 }
 
-/* ===== 모바일 ===== */
+/* ===== Coupon Distribution ===== */
+.coupon-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.admin-distribute-btn {
+  padding: 0.3rem 0.7rem;
+  background: var(--color-info-bg);
+  border: 1px solid rgba(90, 127, 166, 0.3);
+  border-radius: var(--radius-xs);
+  color: var(--color-info);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.admin-distribute-btn:hover {
+  background: rgba(90, 127, 166, 0.15);
+  border-color: var(--color-info);
+}
+
+/* ===== Announcement Form ===== */
+.announcement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.announcement-form input,
+.announcement-form textarea {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color var(--duration) var(--ease);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.announcement-form input:focus,
+.announcement-form textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.pin-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+/* ===== Events ===== */
+.coupon-form-grid select {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color var(--duration) var(--ease);
+}
+
+.coupon-form-grid select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.event-desc-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 1rem;
+  box-sizing: border-box;
+  transition: border-color var(--duration) var(--ease);
+}
+
+.event-desc-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.event-type-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.event-type-badge.type-fcfs {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.event-type-badge.type-random {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.event-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.draw-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.draw-input {
+  width: 50px;
+  padding: 0.25rem 0.4rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.draw-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.admin-draw-btn {
+  padding: 0.3rem 0.6rem;
+  background: var(--color-success-bg);
+  border: 1px solid rgba(90, 138, 94, 0.3);
+  border-radius: var(--radius-xs);
+  color: var(--color-success);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.admin-draw-btn:hover {
+  background: rgba(90, 138, 94, 0.15);
+  border-color: var(--color-success);
+}
+
+/* ===== Mobile ===== */
 @media (max-width: 768px) {
   .admin-page {
     padding: 0 1rem;
@@ -274,6 +482,19 @@
 
   .coupon-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .product-filters {
+    gap: 0.5rem;
+  }
+
+  .filter-input {
+    min-width: 100%;
+  }
+
+  .filter-select {
+    flex: 1;
+    min-width: 0;
   }
 
   .admin-table {

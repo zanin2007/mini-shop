@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
 import './MailboxPage.css';
@@ -66,8 +67,10 @@ function MailboxPage() {
       const response = await api.post(`/mailbox/${mail.id}/claim`);
       showAlert(response.data.message, 'success');
       setMails(mails.map(m => m.id === mail.id ? { ...m, is_claimed: true, is_read: true, claimed_at: new Date().toISOString() } : m));
-    } catch (error: any) {
-      showAlert(error.response?.data?.message || '보상 수령에 실패했습니다.', 'error');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '보상 수령에 실패했습니다.', 'error');
+      }
     }
   };
 

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
-import type { Order, User, UserCoupon, Gift } from '../../types';
+import type { Order, User, UserCoupon, Gift, CartItemOption } from '../../types';
 import './MyPage.css';
 
 const statusMap: Record<string, { label: string; className: string }> = {
@@ -77,8 +78,10 @@ function MyPage() {
       await api.put(`/gifts/${giftId}/accept`);
       showAlert('선물을 수락했습니다.', 'success');
       fetchGifts();
-    } catch (error: any) {
-      showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
+      }
     }
   };
 
@@ -88,8 +91,10 @@ function MyPage() {
       await api.put(`/gifts/${giftId}/reject`);
       showAlert('선물을 거절했습니다.', 'success');
       fetchGifts();
-    } catch (error: any) {
-      showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
+      }
     }
   };
 
@@ -103,8 +108,10 @@ function MyPage() {
       showAlert(response.data.message, 'success');
       setCouponCode('');
       fetchCoupons();
-    } catch (error: any) {
-      showAlert(error.response?.data?.message || '쿠폰 등록에 실패했습니다.', 'error');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '쿠폰 등록에 실패했습니다.', 'error');
+      }
     }
   };
 
@@ -119,26 +126,47 @@ function MyPage() {
     return new Date(coupon.expiry_date) < new Date();
   };
 
+  const getInitials = (nickname: string) => {
+    return nickname.slice(0, 2);
+  };
+
   if (loading) return <div className="loading">로딩 중...</div>;
 
   const availableCoupons = coupons.filter(c => !c.is_used && !isCouponExpired(c));
   const usedOrExpiredCoupons = coupons.filter(c => c.is_used || isCouponExpired(c));
+  const pendingGiftsCount = receivedGifts.filter(g => g.status === 'pending').length;
 
   return (
     <div className="mypage">
       <div className="container">
-        <h2 className="mypage-title">마이페이지</h2>
-
-        {/* 사용자 정보 */}
-        <section className="mypage-section">
-          <h3>내 정보</h3>
-          <div className="user-info-card">
-            <p><span>닉네임</span>{user?.nickname}</p>
-            <p><span>이메일</span>{user?.email}</p>
+        {/* Profile Hero */}
+        <div className="mypage-hero">
+          <div className="hero-content">
+            <div className="hero-avatar">
+              {user?.nickname ? getInitials(user.nickname) : '?'}
+            </div>
+            <div className="hero-info">
+              <div className="hero-nickname">{user?.nickname}</div>
+              <div className="hero-email">{user?.email}</div>
+            </div>
+            <div className="hero-stats">
+              <div className="hero-stat">
+                <span className="hero-stat-value">{orders.length}</span>
+                <span className="hero-stat-label">주문</span>
+              </div>
+              <div className="hero-stat">
+                <span className="hero-stat-value">{availableCoupons.length}</span>
+                <span className="hero-stat-label">쿠폰</span>
+              </div>
+              <div className="hero-stat">
+                <span className="hero-stat-value">{receivedGifts.length + sentGifts.length}</span>
+                <span className="hero-stat-label">선물</span>
+              </div>
+            </div>
           </div>
-        </section>
+        </div>
 
-        {/* 탭 네비게이션 */}
+        {/* Tab Navigation */}
         <div className="mypage-tabs">
           <button
             className={`mypage-tab ${activeTab === 'orders' ? 'active' : ''}`}
@@ -156,13 +184,11 @@ function MyPage() {
             className={`mypage-tab ${activeTab === 'gifts' ? 'active' : ''}`}
             onClick={() => setActiveTab('gifts')}
           >
-            선물 {receivedGifts.filter(g => g.status === 'pending').length > 0 && (
-              <span className="tab-badge">{receivedGifts.filter(g => g.status === 'pending').length}</span>
-            )}
+            선물 {pendingGiftsCount > 0 && <span className="tab-badge">{pendingGiftsCount}</span>}
           </button>
         </div>
 
-        {/* 주문 내역 */}
+        {/* Orders Tab */}
         {activeTab === 'orders' && (
           <section className="mypage-section">
             {orders.length === 0 ? (
@@ -189,7 +215,7 @@ function MyPage() {
                               {item.name}
                               {item.options && item.options.length > 0 && (
                                 <span className="item-options">
-                                  {item.options.map((o: any) => `${o.option_name}: ${o.value}`).join(' / ')}
+                                  {item.options.map((o: CartItemOption) => `${o.option_name}: ${o.value}`).join(' / ')}
                                 </span>
                               )}
                             </div>
@@ -199,7 +225,7 @@ function MyPage() {
                         ))}
                       </ul>
                     )}
-                    {/* 배송 상태 진행 바 */}
+                    {/* Delivery Progress */}
                     <div className="delivery-progress">
                       {['pending', 'shipped', 'delivered', 'completed'].map((step, idx) => {
                         const steps = ['pending', 'shipped', 'delivered', 'completed'];
@@ -214,7 +240,7 @@ function MyPage() {
                       })}
                     </div>
 
-                    {/* 배송 정보 */}
+                    {/* Delivery Info */}
                     {order.receiver_name && (
                       <div className="delivery-info">
                         <span>{order.receiver_name}</span>
@@ -232,7 +258,7 @@ function MyPage() {
                       총 결제금액: <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
                     </div>
 
-                    {/* 다음 단계 버튼 (테스트용) */}
+                    {/* Advance Status (Test) */}
                     {order.status !== 'completed' && (
                       <div className="order-actions">
                         <button
@@ -249,8 +275,10 @@ function MyPage() {
                               const res = await api.put(`/orders/${order.id}/advance`);
                               showAlert(res.data.message, 'success');
                               setOrders(orders.map(o => o.id === order.id ? { ...o, status: res.data.status } : o));
-                            } catch (error: any) {
-                              showAlert(error.response?.data?.message || '상태 변경에 실패했습니다.', 'error');
+                            } catch (error) {
+                              if (error instanceof AxiosError) {
+                                showAlert(error.response?.data?.message || '상태 변경에 실패했습니다.', 'error');
+                              }
                             }
                           }}
                         >
@@ -269,7 +297,7 @@ function MyPage() {
           </section>
         )}
 
-        {/* 쿠폰 */}
+        {/* Coupons Tab */}
         {activeTab === 'coupons' && (
           <section className="mypage-section">
             <div className="coupon-claim">
@@ -326,7 +354,7 @@ function MyPage() {
           </section>
         )}
 
-        {/* 선물 */}
+        {/* Gifts Tab */}
         {activeTab === 'gifts' && (
           <section className="mypage-section">
             <div className="gift-sub-tabs">

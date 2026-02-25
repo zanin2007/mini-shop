@@ -305,6 +305,66 @@
 
 ---
 
+## 17. announcements (공지사항)
+- 관리자가 작성하는 전체 공지사항을 저장하는 테이블
+- 고정 공지는 상단에 노출, 비활성 공지는 유저에게 미노출
+- 코드: `CREATE TABLE announcements ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 공지 고유 번호 (자동 증가) |
+| admin_id | INT | NO | FK | 작성한 관리자 (-> users.id) |
+| title | VARCHAR(255) | NO | | 공지 제목 |
+| content | TEXT | NO | | 공지 내용 |
+| is_pinned | BOOLEAN | NO | | 상단 고정 여부 (기본값: false) |
+| is_active | BOOLEAN | NO | | 노출 여부 (기본값: true) |
+| created_at | TIMESTAMP | YES | | 작성 일시 (자동 기록) |
+
+---
+
+## 18. events (이벤트)
+- 관리자가 개최하는 이벤트 정보를 저장하는 테이블
+- 선착순(fcfs) 또는 랜덤 추첨(random) 유형 지원
+- 코드: `CREATE TABLE events ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 이벤트 고유 번호 (자동 증가) |
+| title | VARCHAR(255) | NO | | 이벤트 제목 |
+| description | TEXT | YES | | 이벤트 설명 |
+| type | VARCHAR(50) | NO | | 유형 (fcfs: 선착순, random: 랜덤추첨) |
+| reward_type | VARCHAR(50) | YES | | 보상 종류 (coupon/point, 없으면 NULL) |
+| reward_id | INT | YES | | 보상 연결 ID (쿠폰 ID 등) |
+| reward_amount | INT | YES | | 보상 수량/금액 |
+| max_participants | INT | YES | | 최대 참여 인원 (NULL이면 무제한) |
+| start_date | DATETIME | NO | | 이벤트 시작일 |
+| end_date | DATETIME | NO | | 이벤트 종료일 |
+| is_active | BOOLEAN | NO | | 활성 여부 (기본값: true) |
+| created_at | TIMESTAMP | YES | | 생성 일시 (자동 기록) |
+
+> **이벤트 유형:**
+> - `fcfs`: 선착순 - 참여 즉시 당첨 및 보상 지급
+> - `random`: 랜덤 추첨 - 참여 후 관리자가 추첨하여 당첨자 선정
+
+---
+
+## 19. event_participants (이벤트 참여자)
+- 이벤트에 참여한 유저와 당첨 여부를 기록하는 테이블
+- 같은 이벤트에 중복 참여 불가
+- 코드: `CREATE TABLE event_participants ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 고유 번호 (자동 증가) |
+| event_id | INT | NO | FK | 참여한 이벤트 (-> events.id) |
+| user_id | INT | NO | FK | 참여한 유저 (-> users.id) |
+| is_winner | BOOLEAN | NO | | 당첨 여부 (기본값: false) |
+| created_at | TIMESTAMP | YES | | 참여 일시 (자동 기록) |
+
+> **(event_id + user_id) 조합 중복 불가 (UNIQUE)**
+
+---
+
 ## FK 관계도 (외래키)
 
 > **FK(외래키)란?**
@@ -341,3 +401,6 @@
 | gifts.receiver_id | users.id | SET NULL |
 | notifications.user_id | users.id | CASCADE |
 | mailbox.user_id | users.id | CASCADE |
+| announcements.admin_id | users.id | CASCADE |
+| event_participants.event_id | events.id | CASCADE |
+| event_participants.user_id | users.id | CASCADE |

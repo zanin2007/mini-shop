@@ -84,10 +84,14 @@ function Layout() {
                 <Link to="/notifications" className="icon-link" title="알림">
                   🔔{notifCount > 0 && <span className="icon-badge">{notifCount}</span>}
                 </Link>
-                <Link to="/products/new">상품 등록</Link>
                 <Link to="/cart">장바구니{cartCount > 0 && <span className="cart-badge">{cartCount}</span>}</Link>
                 <Link to="/mypage">마이페이지</Link>
-                {user.role === 'admin' && <Link to="/admin" className="admin-link">관리자</Link>}
+                {user.role === 'admin' && (
+                  <>
+                    <Link to="/products/new">상품 등록</Link>
+                    <Link to="/admin" className="admin-link">관리자</Link>
+                  </>
+                )}
                 <button onClick={handleLogout} className="logout-btn">
                   로그아웃
                 </button>

@@ -136,3 +136,30 @@ export interface UserCoupon {
   claimed_at: string;
   is_active: boolean;
 }
+
+export interface Announcement {
+  id: number;
+  admin_id: number;
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Event {
+  id: number;
+  title: string;
+  description: string;
+  type: string;
+  reward_type: string | null;
+  reward_id: number | null;
+  reward_amount: number | null;
+  max_participants: number | null;
+  current_participants?: number;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  is_participated?: boolean;
+  created_at: string;
+}

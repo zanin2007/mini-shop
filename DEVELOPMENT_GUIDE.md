@@ -75,6 +75,9 @@ order_item_options   →  주문 상품 선택 옵션
 gifts                →  선물하기 (보내는 사람 ↔ 받는 사람)
 notifications        →  알림 (주문/선물/쿠폰/시스템)
 mailbox              →  우편함 (보상 수령: 쿠폰/포인트/아이템)
+announcements        →  공지사항 (관리자 작성, 고정/비고정)
+events               →  이벤트 (선착순/랜덤추첨, 보상 설정)
+event_participants   →  이벤트 참여자 (당첨 여부 기록)
 ```
 
 ### 팁
@@ -241,12 +244,42 @@ API가 준비되면 **화면**을 만든다. (API와 병행해도 됨)
 - [ ] 우편 삭제 동작
 - [ ] ← 뒤로가기 버튼으로 이전 페이지 이동
 
+#### 상품 옵션
+- [ ] 상품 등록 시 옵션 그룹 추가 (사이즈, 색상 등)
+- [ ] 옵션 값 추가 (S/M/L, 추가금액, 재고)
+- [ ] 상품 상세에서 옵션 드롭다운 선택
+- [ ] 옵션 선택 시 추가 금액 반영
+- [ ] 같은 상품 다른 옵션 → 별도 장바구니 항목
+- [ ] 장바구니/주문내역에서 선택한 옵션 표시
+
+#### 선물하기
+- [ ] 체크아웃에서 "선물하기" 토글 활성화
+- [ ] 유저 검색 (닉네임/이메일 자동완성)
+- [ ] 선물 메시지 입력
+- [ ] 주문 → 받는 사람에게 알림/우편함 도착
+- [ ] 마이페이지 선물 탭 (보낸/받은 선물)
+- [ ] 받은 선물 수락/거절
+
 #### 관리자
 - [ ] 일반 유저 → 관리자 메뉴 안 보임
 - [ ] 관리자 계정 → 헤더에 "관리자" 메뉴 표시
 - [ ] 주문 상태 변경 (드롭다운)
+- [ ] 상품 검색 (이름/판매자) + 카테고리 필터 + 정렬
 - [ ] 상품 삭제
 - [ ] 쿠폰 생성 + 삭제
+- [ ] 쿠폰 전체 배포 → 유저 우편함에 도착 확인
+- [ ] 공지 작성 (고정/일반) → 전체 유저 알림 확인
+- [ ] 공지 삭제
+- [ ] 이벤트 생성 (선착순/추첨, 보상 설정)
+- [ ] 이벤트 삭제
+- [ ] 랜덤 추첨 → 당첨자 우편함 보상 확인
+
+#### 이벤트 (유저)
+- [ ] 진행중 이벤트 목록 표시
+- [ ] 이벤트 참여 버튼 클릭
+- [ ] 선착순 이벤트 → 즉시 보상 지급 (우편함)
+- [ ] 중복 참여 방지
+- [ ] 마감된 이벤트 참여 불가
 
 ### 팁
 - 브라우저 개발자 도구(F12) > Network 탭에서 API 요청/응답 확인
@@ -278,7 +311,7 @@ DB: AWS RDS, PlanetScale 등
 | 회원가입/로그인 | ✅ | ✅ | 완료 (JWT에 role 포함) |
 | 로그인 시 auth 페이지 접근 차단 | - | ✅ | 완료 |
 | 상품 목록/상세 | ✅ | ✅ | 완료 (검색 + 카테고리 필터) |
-| 상품 등록 | ✅ | ✅ | 완료 (user_id 자동 저장) |
+| 상품 등록 | ✅ | ✅ | 완료 (관리자 전용, user_id 자동 저장) |
 | 상품 삭제 | ✅ | ✅ | 완료 (본인 등록 상품만) |
 | 장바구니 | ✅ | ✅ | 완료 (선택 구매 체크박스) |
 | 주문 | ✅ | ✅ | 완료 (재고검증 + 선택상품만) |
@@ -291,10 +324,71 @@ DB: AWS RDS, PlanetScale 등
 | 우편함 | ✅ | ✅ | 완료 (✉️ 뱃지 + 보상수령 + 만료처리) |
 | 커스텀 알림창 | - | ✅ | 완료 (토스트 알림 + 확인 모달) |
 | 관리자 | ✅ | ✅ | 완료 (주문/상품/쿠폰 관리) |
+| 상품 옵션 | ✅ | ✅ | 완료 (옵션 그룹/값, 추가금액, 옵션별 재고) |
+| 선물하기 | ✅ | ✅ | 완료 (유저 검색, 메시지, 수락/거절) |
+| 구매확정 / 주문상태 진행 | ✅ | ✅ | 완료 (테스트용 단계별 진행) |
+| 관리자 상품 검색/정렬 | - | ✅ | 완료 (이름/판매자 검색, 카테고리, 6종 정렬) |
+| 공지사항 | ✅ | ✅ | 완료 (작성/삭제, 고정, 전체 알림) |
+| 쿠폰 전체 배포 | ✅ | ✅ | 완료 (전체 유저 배포 + 우편함/알림) |
+| 이벤트 | ✅ | ✅ | 완료 (선착순/랜덤추첨, 보상 지급) |
+| UI 디자인 시스템 | - | ✅ | 완료 (Refined Korean Contemporary) |
+| 관리자 전용 상품등록 | - | ✅ | 완료 (비관리자 URL 직접접근 차단) |
 
 ---
 
 ## 구현된 기능 상세 가이드
+
+### UI 디자인 시스템
+
+**컨셉**: "Refined Korean Contemporary" — 29CM, W Concept 스타일
+
+**글로벌 CSS 변수** (`index.css`)
+```
+색상:
+  --color-bg: #f7f5f2 (웜 크림 배경)
+  --color-surface: #ffffff (카드/섹션)
+  --color-primary: #1a1a1a (차콜 - 버튼, 텍스트)
+  --color-accent: #c47d5a (테라코타 - 포인트 색상)
+  --color-accent-light: #f5ebe5 (연한 테라코타)
+  --color-border: #e8e3dd / --color-border-light: #f0ebe5
+
+그림자: --shadow-xs/sm/md/lg/hover
+둥글기: --radius-xs(6px)/sm(8px)/md(10px)/lg(14px)/xl(20px)/full
+트랜지션: --ease, --ease-out, --duration(0.2s)
+```
+
+**페이지별 CSS 파일** (모두 글로벌 변수 사용)
+```
+index.css              → 디자인 시스템 정의 + 공유 애니메이션
+Layout.css             → 헤더/푸터 (backdrop-filter 블러 헤더)
+MainPage.css           → 히어로 배너 + 상품 카드
+AuthPages.css          → 로그인/회원가입
+ProductDetailPage.css  → 상품 상세 + 리뷰
+ProductRegisterPage.css→ 상품 등록 폼
+CartPage.css           → 장바구니
+CheckoutPage.css       → 결제
+AdminPage.css          → 관리자
+MyPage.css             → 마이페이지 (골드 액센트 --mp-gold: #c4a265)
+MailboxPage.css        → 우편함
+NotificationPage.css   → 알림
+Alert.css              → 토스트 알림 + 확인 모달
+```
+
+### 관리자 전용 상품등록
+
+**헤더** (`Layout.tsx`)
+```
+- "상품 등록" 링크: user.role === 'admin'일 때만 표시
+- "관리자" 링크와 함께 관리자 전용 영역에 배치
+```
+
+**URL 직접접근 차단** (`ProductRegisterPage.tsx`)
+```
+- useEffect에서 localStorage의 user.role 확인
+- role !== 'admin'이면 에러 알림 + 메인으로 리다이렉트
+```
+
+---
 
 ### 검색 & 카테고리 필터
 
@@ -410,15 +504,25 @@ DELETE /api/admin/products/:id        → 상품 삭제
 GET    /api/admin/coupons             → 전체 쿠폰 목록
 POST   /api/admin/coupons             → 쿠폰 생성
 DELETE /api/admin/coupons/:id         → 쿠폰 삭제
+POST   /api/admin/coupons/distribute  → 쿠폰 전체 배포
+POST   /api/admin/announcements       → 공지 작성 (전체 유저 알림)
+GET    /api/admin/announcements       → 공지 목록
+DELETE /api/admin/announcements/:id   → 공지 삭제
+POST   /api/admin/events              → 이벤트 생성 (전체 유저 알림)
+GET    /api/admin/events              → 이벤트 목록 (참여자 수 포함)
+DELETE /api/admin/events/:id          → 이벤트 삭제
+POST   /api/admin/events/:id/draw     → 이벤트 추첨 (당첨자 보상 지급)
 ```
 
 **클라이언트** (`AdminPage.tsx`)
 ```
 - 관리자 전용 페이지 (role !== 'admin'이면 메인으로 리다이렉트)
-- 3개 탭: 주문 관리 / 상품 관리 / 쿠폰 관리
+- 5개 탭: 주문 관리 / 상품 관리 / 쿠폰 관리 / 공지 관리 / 이벤트
 - 주문: 테이블 + 상태 변경 드롭다운 (색상별 구분)
-- 상품: 테이블 + 삭제 버튼
-- 쿠폰: 생성 폼 + 테이블 + 삭제 버튼
+- 상품: 검색/카테고리/정렬 필터 + 테이블 + 삭제 버튼
+- 쿠폰: 생성 폼 + 테이블 + 배포 버튼 + 삭제 버튼
+- 공지: 작성 폼 (제목/내용/고정) + 테이블 + 삭제 버튼
+- 이벤트: 생성 폼 (유형/보상/기간/인원) + 테이블 + 추첨 버튼 + 삭제 버튼
 ```
 
 **관리자 계정 설정**
@@ -493,6 +597,116 @@ DELETE /api/mailbox/:id          → 우편 삭제
 ```
 
 **적용된 곳**: 로그아웃, 삭제, 구매, 회원가입 등 모든 alert/confirm 대체
+
+### 상품 옵션 시스템
+
+**서버** (`productController.js`)
+```
+POST /api/products              → 상품 등록 시 options 배열 포함 가능
+GET  /api/products/:id          → 상품 상세 + 옵션 그룹/값 JOIN 반환
+POST /api/products/:id/options  → 옵션 그룹 + 값 추가
+DELETE /api/products/options/:id → 옵션 그룹 삭제
+```
+
+**장바구니 옵션** (`cartController.js`)
+```
+- addToCart 시 selectedOptions: [{optionId, valueId}] 전달
+- 같은 상품이라도 옵션이 다르면 별도 cart_item으로 추가
+- getCart에서 cart_item_options JOIN하여 옵션 정보 반환
+```
+
+**주문 옵션** (`orderController.js`)
+```
+- 주문 생성 시 cart_item_options → order_item_options로 복사
+- 옵션별 extra_price 합산하여 가격 반영
+```
+
+**클라이언트**
+- `ProductRegisterPage.tsx`: 옵션 그룹/값 추가 UI (이름, 값, 추가금액, 재고)
+- `ProductDetailPage.tsx`: 옵션별 드롭다운 선택, 추가 금액 표시
+- `CartPage.tsx`: 각 아이템 아래 선택 옵션 텍스트, 추가금액 포함 소계
+- `MyPage.tsx`: 주문내역 아이템별 옵션 정보 표시
+
+### 선물하기 시스템
+
+**서버** (`giftController.js`)
+```
+GET /api/gifts/sent      → 보낸 선물 목록
+GET /api/gifts/received  → 받은 선물 목록
+PUT /api/gifts/:id/accept → 선물 수락 (sender에게 알림)
+PUT /api/gifts/:id/reject → 선물 거절 (sender에게 알림)
+```
+
+**유저 검색** (`authController.js`)
+```
+GET /api/auth/search?q=검색어 → 닉네임/이메일로 유저 검색 (본인 제외, 최대 10명)
+```
+
+**주문 시 선물 처리** (`orderController.js`)
+```
+- body에 isGift, receiverId, giftMessage 포함 시
+- 주문 생성 후 gifts 테이블에 INSERT
+- 받는 사람에게 notification + mailbox 발송
+```
+
+**클라이언트**
+- `CheckoutPage.tsx`: 선물하기 토글, 유저 검색 (300ms 디바운스), 선물 메시지
+- `MyPage.tsx`: 선물 탭 (보낸/받은 서브탭, 수락/거절 버튼)
+
+### 공지사항
+
+**서버**
+```
+관리자: POST/GET/DELETE /api/admin/announcements
+유저:   GET /api/announcements → 활성 공지 목록 (고정 우선)
+```
+
+**동작 흐름**
+```
+1) 관리자가 공지 작성 (제목, 내용, 고정 여부)
+2) 전체 유저에게 알림 자동 발송
+3) 유저는 알림 페이지에서 공지 확인
+```
+
+### 쿠폰 전체 배포
+
+**서버** (`adminController.js`)
+```
+POST /api/admin/coupons/distribute  → { coupon_id }
+1) 전체 유저 조회
+2) 각 유저에게 user_coupons INSERT (이미 보유 시 건너뜀)
+3) mailbox에 쿠폰 보상 우편 발송
+4) notifications에 알림 발송
+5) 배포 완료 인원 응답
+```
+
+### 이벤트 시스템
+
+**서버**
+```
+관리자:
+  POST   /api/admin/events          → 이벤트 생성 (유형/보상/기간/인원)
+  GET    /api/admin/events          → 이벤트 목록 (참여자 수 포함)
+  DELETE /api/admin/events/:id      → 이벤트 삭제
+  POST   /api/admin/events/:id/draw → 랜덤 추첨
+
+유저:
+  GET  /api/events                  → 진행중 이벤트 목록
+  POST /api/events/:id/participate  → 이벤트 참여
+```
+
+**이벤트 유형**
+```
+fcfs (선착순):
+  - 참여 즉시 is_winner = true
+  - 보상이 설정되어 있으면 우편함에 즉시 지급
+  - max_participants로 인원 제한
+
+random (랜덤 추첨):
+  - 참여 시 event_participants에 기록만
+  - 관리자가 "추첨" 버튼 → winner_count명 랜덤 선정
+  - 당첨자에게 우편함 보상 + 알림 발송
+```
 
 ---
 
