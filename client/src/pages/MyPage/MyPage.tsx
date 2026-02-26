@@ -7,10 +7,11 @@ import type { Order, User, UserCoupon, Gift, CartItemOption } from '../../types'
 import './MyPage.css';
 
 const statusMap: Record<string, { label: string; className: string }> = {
+  checking: { label: '상품확인중', className: 'status-checking' },
   pending: { label: '준비중', className: 'status-pending' },
   shipped: { label: '배송중', className: 'status-shipped' },
   delivered: { label: '배송완료', className: 'status-delivered' },
-  completed: { label: '구매확정', className: 'status-completed' },
+  completed: { label: '수령완료', className: 'status-completed' },
 };
 
 function MyPage() {
@@ -21,10 +22,15 @@ function MyPage() {
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
   const [couponCode, setCouponCode] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'gifts'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings'>('orders');
   const [sentGifts, setSentGifts] = useState<Gift[]>([]);
   const [receivedGifts, setReceivedGifts] = useState<Gift[]>([]);
   const [giftSubTab, setGiftSubTab] = useState<'received' | 'sent'>('received');
+  const [newNickname, setNewNickname] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -126,6 +132,57 @@ function MyPage() {
     return new Date(coupon.expiry_date) < new Date();
   };
 
+  const handleChangeNickname = async () => {
+    if (!newNickname.trim()) {
+      showAlert('닉네임을 입력해주세요.', 'warning');
+      return;
+    }
+    setSettingsLoading(true);
+    try {
+      const res = await api.put('/auth/nickname', { nickname: newNickname.trim() });
+      showAlert(res.data.message, 'success');
+      const updatedUser = { ...user!, nickname: res.data.nickname };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setNewNickname('');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '닉네임 변경에 실패했습니다.', 'error');
+      }
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword) {
+      showAlert('현재 비밀번호와 새 비밀번호를 모두 입력해주세요.', 'warning');
+      return;
+    }
+    if (newPassword.length < 4) {
+      showAlert('새 비밀번호는 4자 이상이어야 합니다.', 'warning');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showAlert('새 비밀번호가 일치하지 않습니다.', 'warning');
+      return;
+    }
+    setSettingsLoading(true);
+    try {
+      const res = await api.put('/auth/password', { currentPassword, newPassword });
+      showAlert(res.data.message, 'success');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '비밀번호 변경에 실패했습니다.', 'error');
+      }
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
   const getInitials = (nickname: string) => {
     return nickname.slice(0, 2);
   };
@@ -135,6 +192,8 @@ function MyPage() {
   const availableCoupons = coupons.filter(c => !c.is_used && !isCouponExpired(c));
   const usedOrExpiredCoupons = coupons.filter(c => c.is_used || isCouponExpired(c));
   const pendingGiftsCount = receivedGifts.filter(g => g.status === 'pending').length;
+  const activeOrders = orders.filter(o => o.status !== 'completed');
+  const completedOrders = orders.filter(o => o.status === 'completed');
 
   return (
     <div className="mypage">
@@ -151,16 +210,16 @@ function MyPage() {
             </div>
             <div className="hero-stats">
               <div className="hero-stat">
-                <span className="hero-stat-value">{orders.length}</span>
+                <span className="hero-stat-value">{activeOrders.length}</span>
                 <span className="hero-stat-label">주문</span>
+              </div>
+              <div className="hero-stat">
+                <span className="hero-stat-value">{completedOrders.length}</span>
+                <span className="hero-stat-label">구매</span>
               </div>
               <div className="hero-stat">
                 <span className="hero-stat-value">{availableCoupons.length}</span>
                 <span className="hero-stat-label">쿠폰</span>
-              </div>
-              <div className="hero-stat">
-                <span className="hero-stat-value">{receivedGifts.length + sentGifts.length}</span>
-                <span className="hero-stat-label">선물</span>
               </div>
             </div>
           </div>
@@ -172,7 +231,13 @@ function MyPage() {
             className={`mypage-tab ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
-            주문 내역
+            주문 내역 {activeOrders.length > 0 && <span className="tab-badge">{activeOrders.length}</span>}
+          </button>
+          <button
+            className={`mypage-tab ${activeTab === 'purchases' ? 'active' : ''}`}
+            onClick={() => setActiveTab('purchases')}
+          >
+            구매 내역
           </button>
           <button
             className={`mypage-tab ${activeTab === 'coupons' ? 'active' : ''}`}
@@ -186,24 +251,29 @@ function MyPage() {
           >
             선물 {pendingGiftsCount > 0 && <span className="tab-badge">{pendingGiftsCount}</span>}
           </button>
+          <button
+            className={`mypage-tab ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            계정 설정
+          </button>
         </div>
 
-        {/* Orders Tab */}
+        {/* Orders Tab (active orders only) */}
         {activeTab === 'orders' && (
           <section className="mypage-section">
-            {orders.length === 0 ? (
-              <p className="empty-message">주문 내역이 없습니다.</p>
+            {activeOrders.length === 0 ? (
+              <p className="empty-message">진행중인 주문이 없습니다.</p>
             ) : (
               <div className="order-list">
-                {orders.map((order) => (
+                {activeOrders.map((order) => (
                   <div key={order.id} className="order-card">
                     <div className="order-header">
-                      <span className="order-id">주문 #{order.id}</span>
+                      <span className="order-date-title">
+                        {new Date(order.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })} 주문
+                      </span>
                       <span className={`order-status ${statusMap[order.status]?.className || ''}`}>
                         {statusMap[order.status]?.label || order.status}
-                      </span>
-                      <span className="order-date">
-                        {new Date(order.created_at).toLocaleDateString('ko-KR')}
                       </span>
                     </div>
                     {order.items && order.items.length > 0 && (
@@ -225,10 +295,10 @@ function MyPage() {
                         ))}
                       </ul>
                     )}
-                    {/* Delivery Progress */}
+                    {/* Delivery Progress (4 steps) */}
                     <div className="delivery-progress">
-                      {['pending', 'shipped', 'delivered', 'completed'].map((step, idx) => {
-                        const steps = ['pending', 'shipped', 'delivered', 'completed'];
+                      {['checking', 'pending', 'shipped', 'delivered'].map((step, idx) => {
+                        const steps = ['checking', 'pending', 'shipped', 'delivered'];
                         const currentIdx = steps.indexOf(order.status);
                         const isActive = idx <= currentIdx;
                         return (
@@ -258,16 +328,34 @@ function MyPage() {
                       총 결제금액: <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
                     </div>
 
-                    {/* Advance Status (Test) */}
-                    {order.status !== 'completed' && (
-                      <div className="order-actions">
+                    {/* Actions */}
+                    <div className="order-actions">
+                      {order.status === 'delivered' ? (
+                        <button
+                          className="confirm-btn"
+                          onClick={async () => {
+                            if (!(await showConfirm('수령완료 하시겠습니까?'))) return;
+                            try {
+                              await api.put(`/orders/${order.id}/confirm`);
+                              showAlert('수령이 완료되었습니다.', 'success');
+                              setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'completed' } : o));
+                            } catch (error) {
+                              if (error instanceof AxiosError) {
+                                showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
+                              }
+                            }
+                          }}
+                        >
+                          수령완료
+                        </button>
+                      ) : (
                         <button
                           className="advance-btn"
                           onClick={async () => {
                             const nextLabel: Record<string, string> = {
+                              checking: '준비중',
                               pending: '배송중',
                               shipped: '배송완료',
-                              delivered: '구매확정',
                             };
                             const label = nextLabel[order.status] || '다음 단계';
                             if (!(await showConfirm(`'${label}'(으)로 변경하시겠습니까?`))) return;
@@ -283,13 +371,64 @@ function MyPage() {
                           }}
                         >
                           {{
+                            checking: '준비중으로 변경',
                             pending: '배송중으로 변경',
                             shipped: '배송완료로 변경',
-                            delivered: '구매확정',
                           }[order.status] || '다음 단계'}
                         </button>
-                      </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Purchases Tab (completed orders) */}
+        {activeTab === 'purchases' && (
+          <section className="mypage-section">
+            {completedOrders.length === 0 ? (
+              <p className="empty-message">구매 내역이 없습니다.</p>
+            ) : (
+              <div className="order-list">
+                {completedOrders.map((order) => (
+                  <div key={order.id} className="order-card">
+                    <div className="order-header">
+                      <span className="order-date-title">
+                        {new Date(order.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })} 구매
+                      </span>
+                      <span className={`order-status ${statusMap[order.status]?.className || ''}`}>
+                        {statusMap[order.status]?.label || order.status}
+                      </span>
+                    </div>
+                    {order.items && order.items.length > 0 && (
+                      <ul className="order-items">
+                        {order.items.map((item) => (
+                          <li key={item.id} className="order-item">
+                            <img src={item.image_url} alt={item.name} />
+                            <div className="item-name">
+                              {item.name}
+                              {item.options && item.options.length > 0 && (
+                                <span className="item-options">
+                                  {item.options.map((o: CartItemOption) => `${o.option_name}: ${o.value}`).join(' / ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="item-qty">{item.quantity}개</span>
+                            <span className="item-price">{(item.price * item.quantity).toLocaleString()}원</span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
+                    <div className="order-total">
+                      {order.discount_amount > 0 && (
+                        <span className="order-discount">
+                          쿠폰 할인: -{order.discount_amount.toLocaleString()}원
+                        </span>
+                      )}
+                      총 결제금액: <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -351,6 +490,55 @@ function MyPage() {
             {coupons.length === 0 && (
               <p className="empty-message">보유한 쿠폰이 없습니다.</p>
             )}
+          </section>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <section className="mypage-section">
+            <div className="settings-block">
+              <h4 className="settings-subtitle">닉네임 변경</h4>
+              <div className="settings-form">
+                <input
+                  type="text"
+                  placeholder={user?.nickname || '새 닉네임'}
+                  value={newNickname}
+                  onChange={(e) => setNewNickname(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleChangeNickname()}
+                />
+                <button onClick={handleChangeNickname} disabled={settingsLoading}>
+                  {settingsLoading ? '변경 중...' : '변경'}
+                </button>
+              </div>
+            </div>
+
+            <div className="settings-block">
+              <h4 className="settings-subtitle">비밀번호 변경</h4>
+              <div className="settings-form vertical">
+                <input
+                  type="password"
+                  placeholder="현재 비밀번호"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="새 비밀번호 (4자 이상)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="새 비밀번호 확인"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
+                />
+                <button onClick={handleChangePassword} disabled={settingsLoading}>
+                  {settingsLoading ? '변경 중...' : '비밀번호 변경'}
+                </button>
+              </div>
+            </div>
           </section>
         )}
 

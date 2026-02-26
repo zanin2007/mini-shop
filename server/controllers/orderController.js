@@ -86,7 +86,7 @@ exports.createOrder = async (req, res) => {
     // 주문 생성
     const [orderResult] = await connection.execute(
       'INSERT INTO orders (user_id, total_amount, discount_amount, final_amount, coupon_id, delivery_address, receiver_name, receiver_phone, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.userId, totalAmount, discountAmount, finalAmount, couponId, delivery_address || '', receiver_name || '', receiver_phone || '', 'pending']
+      [req.user.userId, totalAmount, discountAmount, finalAmount, couponId, delivery_address || '', receiver_name || '', receiver_phone || '', 'checking']
     );
 
     const orderId = orderResult.insertId;
@@ -191,7 +191,7 @@ exports.advanceOrderStatus = async (req, res) => {
       return res.status(404).json({ message: '주문을 찾을 수 없습니다.' });
     }
 
-    const statusFlow = ['pending', 'shipped', 'delivered', 'completed'];
+    const statusFlow = ['checking', 'pending', 'shipped', 'delivered', 'completed'];
     const currentIdx = statusFlow.indexOf(orders[0].status);
 
     if (currentIdx === -1 || currentIdx >= statusFlow.length - 1) {

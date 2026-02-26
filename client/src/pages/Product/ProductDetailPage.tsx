@@ -17,11 +17,13 @@ function ProductDetailPage() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' });
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({}); // optionId -> valueId
+  const [wishlisted, setWishlisted] = useState(false);
 
   useEffect(() => {
     fetchProduct();
     fetchReviews();
     checkCanReview();
+    checkWishlisted();
   }, [id]);
 
   const fetchProduct = async () => {
@@ -52,6 +54,39 @@ function ProductDetailPage() {
       setCanReview(response.data.purchased && !response.data.reviewed);
     } catch {
       setCanReview(false);
+    }
+  };
+
+  const checkWishlisted = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const response = await api.get(`/wishlist/check/${id}`);
+      setWishlisted(response.data.wishlisted);
+    } catch {
+      setWishlisted(false);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showAlert('로그인이 필요합니다.', 'warning');
+      navigate('/login');
+      return;
+    }
+    try {
+      if (wishlisted) {
+        await api.delete(`/wishlist/${product?.id}`);
+        setWishlisted(false);
+        showAlert('찜 목록에서 삭제되었습니다.', 'success');
+      } else {
+        await api.post('/wishlist', { productId: product?.id });
+        setWishlisted(true);
+        showAlert('찜 목록에 추가되었습니다.', 'success');
+      }
+    } catch {
+      showAlert('처리에 실패했습니다.', 'error');
     }
   };
 
@@ -244,13 +279,22 @@ function ProductDetailPage() {
               )}
             </div>
 
-            <button
-              className="add-to-cart-btn"
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-            >
-              {product.stock === 0 ? '품절' : '장바구니 담기'}
-            </button>
+            <div className="detail-actions">
+              <button
+                className="add-to-cart-btn"
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+              >
+                {product.stock === 0 ? '품절' : '장바구니 담기'}
+              </button>
+              <button
+                className={`wishlist-btn ${wishlisted ? 'active' : ''}`}
+                onClick={handleToggleWishlist}
+                title={wishlisted ? '찜 해제' : '찜하기'}
+              >
+                {wishlisted ? '♥' : '♡'}
+              </button>
+            </div>
 
             {isOwner && (
               <button className="delete-product-btn" onClick={handleDelete}>

@@ -34,7 +34,7 @@ exports.updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const validStatuses = ['pending', 'shipped', 'delivered', 'completed'];
+    const validStatuses = ['checking', 'pending', 'shipped', 'delivered', 'completed'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: '유효하지 않은 상태입니다.' });
     }

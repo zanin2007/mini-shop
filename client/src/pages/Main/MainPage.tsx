@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
+import { useAlert } from '../../components/AlertContext';
 import type { Product } from '../../types';
 import './MainPage.css';
 
 function MainPage() {
+  const navigate = useNavigate();
+  const { showAlert } = useAlert();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [wishlistIds, setWishlistIds] = useState<number[]>([]);
 
   useEffect(() => {
     fetchCategories();
     fetchProducts();
+    fetchWishlistIds();
   }, []);
 
   const fetchCategories = async () => {
@@ -44,6 +49,39 @@ function MainPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchProducts(search, selectedCategory);
+  };
+
+  const fetchWishlistIds = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const response = await api.get('/wishlist/ids');
+      setWishlistIds(response.data);
+    } catch {
+      setWishlistIds([]);
+    }
+  };
+
+  const handleToggleWishlist = async (e: React.MouseEvent, productId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showAlert('로그인이 필요합니다.', 'warning');
+      navigate('/login');
+      return;
+    }
+    try {
+      if (wishlistIds.includes(productId)) {
+        await api.delete(`/wishlist/${productId}`);
+        setWishlistIds(wishlistIds.filter(id => id !== productId));
+      } else {
+        await api.post('/wishlist', { productId });
+        setWishlistIds([...wishlistIds, productId]);
+      }
+    } catch {
+      showAlert('처리에 실패했습니다.', 'error');
+    }
   };
 
   const handleCategoryClick = (category: string) => {
@@ -104,10 +142,21 @@ function MainPage() {
                 <Link
                   to={`/products/${product.id}`}
                   key={product.id}
-                  className="product-card"
+                  className={`product-card ${product.stock <= 0 ? 'sold-out' : ''}`}
                 >
                   <div className="product-image">
                     <img src={product.image_url} alt={product.name} />
+                    {product.stock <= 0 && (
+                      <div className="sold-out-overlay">
+                        <span>Sold Out</span>
+                      </div>
+                    )}
+                    <button
+                      className={`product-heart ${wishlistIds.includes(product.id) ? 'active' : ''}`}
+                      onClick={(e) => handleToggleWishlist(e, product.id)}
+                    >
+                      {wishlistIds.includes(product.id) ? '♥' : '♡'}
+                    </button>
                   </div>
                   <div className="product-info">
                     <h4>{product.name}</h4>

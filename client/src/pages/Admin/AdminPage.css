@@ -135,6 +135,12 @@
   cursor: pointer;
 }
 
+.status-select.status-checking {
+  color: var(--color-text-muted);
+  border-color: rgba(140, 140, 140, 0.3);
+  background: var(--color-surface-alt);
+}
+
 .status-select.status-pending {
   color: var(--color-warning);
   border-color: rgba(184, 134, 75, 0.3);

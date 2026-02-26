@@ -366,10 +366,11 @@ function AdminPage() {
                             onChange={(e) => handleStatusChange(order.id, e.target.value)}
                             className={`status-select status-${order.status}`}
                           >
+                            <option value="checking">상품확인중</option>
                             <option value="pending">준비중</option>
                             <option value="shipped">배송중</option>
                             <option value="delivered">배송완료</option>
-                            <option value="completed">구매확정</option>
+                            <option value="completed">수령완료</option>
                           </select>
                         </td>
                         <td>{new Date(order.created_at).toLocaleDateString('ko-KR')}</td>

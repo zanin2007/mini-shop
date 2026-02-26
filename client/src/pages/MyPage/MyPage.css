@@ -255,7 +255,7 @@
   margin-bottom: 1.15rem;
 }
 
-.order-id {
+.order-date-title {
   font-weight: 800;
   font-size: 0.95rem;
   color: var(--color-text);
@@ -269,6 +269,11 @@
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+}
+
+.status-checking {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
 }
 
 .status-pending {
@@ -291,11 +296,8 @@
   color: var(--mp-gold);
 }
 
-.order-date {
+.order-date-title + .order-status {
   margin-left: auto;
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-  font-weight: 500;
 }
 
 /* ===== Order Items ===== */
@@ -477,6 +479,25 @@
   box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
 }
 
+.confirm-btn {
+  padding: 0.6rem 1.5rem;
+  background: var(--color-success);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: -0.2px;
+}
+
+.confirm-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(90, 138, 94, 0.25);
+}
+
 /* ===== Coupon Section ===== */
 .coupon-claim {
   display: flex;
@@ -646,6 +667,104 @@
   color: var(--color-text-muted);
   margin-top: 0.35rem;
   font-weight: 500;
+}
+
+/* ===== Settings Section ===== */
+.settings-block {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.settings-block:first-child {
+  padding-top: 0;
+}
+
+.settings-block:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settings-subtitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.2px;
+}
+
+.settings-subtitle::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: var(--mp-gold);
+  border-radius: 2px;
+}
+
+.settings-form {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.settings-form.vertical {
+  flex-direction: column;
+  max-width: 400px;
+}
+
+.settings-form input {
+  flex: 1;
+  padding: 0.75rem 1.1rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  background: var(--color-surface-alt);
+  transition: all 0.25s;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.settings-form input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.settings-form input:focus {
+  outline: none;
+  border-color: var(--mp-gold);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px var(--mp-gold-soft);
+}
+
+.settings-form button {
+  padding: 0.75rem 1.75rem;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.25s;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+
+.settings-form button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 26, 26, 0.15);
+}
+
+.settings-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-form.vertical button {
+  align-self: flex-start;
+  margin-top: 0.25rem;
 }
 
 /* ===== Gift Section ===== */
@@ -932,10 +1051,8 @@
     gap: 0.4rem;
   }
 
-  .order-date {
-    margin-left: 0;
-    width: 100%;
-    font-size: 0.75rem;
+  .order-date-title {
+    font-size: 0.85rem;
   }
 
   .order-item {
@@ -999,6 +1116,22 @@
   .gift-reject-btn {
     width: 100%;
     text-align: center;
+  }
+
+  .settings-form {
+    flex-direction: column;
+  }
+
+  .settings-form button {
+    width: 100%;
+  }
+
+  .settings-form.vertical {
+    max-width: 100%;
+  }
+
+  .settings-form.vertical button {
+    align-self: stretch;
   }
 }
 

@@ -43,7 +43,7 @@ function SignupPage() {
         email: formData.email.trim(),
         password: formData.password.trim(),
         nickname: formData.nickname.trim(),
-      });
+      }); 
 
       showAlert('회원가입이 완료되었습니다!', 'success');
       navigate('/login');

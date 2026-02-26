@@ -84,6 +84,7 @@ function Layout() {
                 <Link to="/notifications" className="icon-link" title="알림">
                   🔔{notifCount > 0 && <span className="icon-badge">{notifCount}</span>}
                 </Link>
+                <Link to="/wishlist">찜</Link>
                 <Link to="/cart">장바구니{cartCount > 0 && <span className="cart-badge">{cartCount}</span>}</Link>
                 <Link to="/mypage">마이페이지</Link>
                 {user.role === 'admin' && (

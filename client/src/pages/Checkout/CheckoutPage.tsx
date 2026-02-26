@@ -6,6 +6,20 @@ import { useAlert } from '../../components/AlertContext';
 import type { Coupon } from '../../types';
 import './CheckoutPage.css';
 
+interface DaumPostcodeData {
+  zonecode: string;
+  roadAddress: string;
+  jibunAddress: string;
+}
+
+declare global {
+  interface Window {
+    daum: {
+      Postcode: new (options: { oncomplete: (data: DaumPostcodeData) => void }) => { open: () => void };
+    };
+  }
+}
+
 interface CartItem {
   id: number;
   product_id: number;
@@ -30,7 +44,7 @@ function CheckoutPage() {
   const { showAlert, showConfirm } = useAlert();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
-  const [delivery, setDelivery] = useState({ receiver_name: '', receiver_phone: '', delivery_address: '' });
+  const [delivery, setDelivery] = useState({ receiver_name: '', receiver_phone: '', delivery_address: '', delivery_address_detail: '' });
   const navigate = useNavigate();
 
   // 선물 관련 상태
@@ -118,6 +132,20 @@ function CheckoutPage() {
     setSearchResults([]);
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
+    setDelivery({ ...delivery, receiver_phone: value });
+  };
+
+  const handleAddressSearch = () => {
+    new window.daum.Postcode({
+      oncomplete: (data: DaumPostcodeData) => {
+        const address = data.roadAddress || data.jibunAddress;
+        setDelivery(prev => ({ ...prev, delivery_address: `(${data.zonecode}) ${address}` }));
+      },
+    }).open();
+  };
+
   const handleCouponChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = Number(e.target.value);
     if (id === 0) {
@@ -129,7 +157,7 @@ function CheckoutPage() {
   };
 
   const handleOrder = async () => {
-    if (!delivery.receiver_name.trim() || !delivery.receiver_phone.trim() || !delivery.delivery_address.trim()) {
+    if (!delivery.receiver_name.trim() || !delivery.receiver_phone.trim() || !delivery.delivery_address.trim() || !delivery.delivery_address_detail.trim()) {
       showAlert('배송 정보를 모두 입력해주세요.', 'warning');
       return;
     }
@@ -144,9 +172,12 @@ function CheckoutPage() {
 
     setOrdering(true);
     try {
+      const fullAddress = `${delivery.delivery_address} ${delivery.delivery_address_detail}`.trim();
       await api.post('/orders', {
         couponId: selectedCoupon?.user_coupon_id || null,
-        ...delivery,
+        receiver_name: delivery.receiver_name,
+        receiver_phone: delivery.receiver_phone,
+        delivery_address: fullAddress,
         isGift,
         receiverId: isGift ? selectedReceiver?.id : undefined,
         giftMessage: isGift ? giftMessage : undefined,
@@ -229,18 +260,35 @@ function CheckoutPage() {
               <label>연락처</label>
               <input
                 type="tel"
-                placeholder="010-0000-0000"
+                placeholder="01012345678"
                 value={delivery.receiver_phone}
-                onChange={(e) => setDelivery({ ...delivery, receiver_phone: e.target.value })}
+                onChange={handlePhoneChange}
+                maxLength={11}
+                inputMode="numeric"
               />
+              <span className="field-hint">숫자만 입력 (하이픈 없이)</span>
             </div>
             <div className="delivery-field">
               <label>배송 주소</label>
+              <div className="address-search-row">
+                <input
+                  type="text"
+                  placeholder="주소 검색을 눌러주세요"
+                  value={delivery.delivery_address}
+                  readOnly
+                />
+                <button type="button" className="address-search-btn" onClick={handleAddressSearch}>
+                  주소 검색
+                </button>
+              </div>
+            </div>
+            <div className="delivery-field">
+              <label>상세 주소</label>
               <input
                 type="text"
-                placeholder="주소를 입력하세요"
-                value={delivery.delivery_address}
-                onChange={(e) => setDelivery({ ...delivery, delivery_address: e.target.value })}
+                placeholder="동/호수 등 상세주소를 입력하세요"
+                value={delivery.delivery_address_detail}
+                onChange={(e) => setDelivery({ ...delivery, delivery_address_detail: e.target.value })}
               />
             </div>
           </div>

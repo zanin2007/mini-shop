@@ -111,6 +111,54 @@ exports.searchUser = async (req, res) => {
   }
 };
 
+// 닉네임 변경
+exports.changeNickname = async (req, res) => {
+  try {
+    const nickname = (req.body.nickname || '').trim();
+    if (!nickname) {
+      return res.status(400).json({ message: '닉네임을 입력해주세요.' });
+    }
+    await db.execute('UPDATE users SET nickname = ? WHERE id = ?', [nickname, req.user.userId]);
+    res.json({ message: '닉네임이 변경되었습니다.', nickname });
+  } catch (error) {
+    console.error('Change nickname error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 비밀번호 변경
+exports.changePassword = async (req, res) => {
+  try {
+    const currentPassword = (req.body.currentPassword || '').trim();
+    const newPassword = (req.body.newPassword || '').trim();
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.' });
+    }
+    if (newPassword.length < 4) {
+      return res.status(400).json({ message: '새 비밀번호는 4자 이상이어야 합니다.' });
+    }
+
+    const [users] = await db.execute('SELECT password FROM users WHERE id = ?', [req.user.userId]);
+    if (users.length === 0) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, users[0].password);
+    if (!isMatch) {
+      return res.status(400).json({ message: '현재 비밀번호가 일치하지 않습니다.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.user.userId]);
+
+    res.json({ message: '비밀번호가 변경되었습니다.' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
 // 인증 확인
 exports.checkAuth = async (req, res) => {
   try {

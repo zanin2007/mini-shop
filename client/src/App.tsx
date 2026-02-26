@@ -12,6 +12,7 @@ import MyPage from './pages/MyPage/MyPage';
 import AdminPage from './pages/Admin/AdminPage';
 import MailboxPage from './pages/Mailbox/MailboxPage';
 import NotificationPage from './pages/Notification/NotificationPage';
+import WishlistPage from './pages/Wishlist/WishlistPage';
 import './App.css';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           <Route path="admin" element={<AdminPage />} />
           <Route path="mailbox" element={<MailboxPage />} />
           <Route path="notifications" element={<NotificationPage />} />
+          <Route path="wishlist" element={<WishlistPage />} />
         </Route>
       </Routes>
     </AlertProvider>
