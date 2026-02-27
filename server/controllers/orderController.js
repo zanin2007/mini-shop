@@ -221,27 +221,49 @@ exports.getOrders = async (req, res) => {
       [req.user.userId]
     );
 
-    // 각 주문의 상품 정보 + 옵션 정보 조회
-    for (const order of orders) {
-      const [items] = await db.execute(
-        `SELECT oi.*, p.name, p.image_url
-         FROM order_items oi
-         JOIN products p ON oi.product_id = p.id
-         WHERE oi.order_id = ?`,
-        [order.id]
+    if (orders.length === 0) return res.json([]);
+
+    const orderIds = orders.map(o => o.id);
+    const placeholders = orderIds.map(() => '?').join(',');
+
+    // 모든 주문 상품을 한 번에 조회
+    const [allItems] = await db.execute(
+      `SELECT oi.*, p.name, p.image_url
+       FROM order_items oi
+       JOIN products p ON oi.product_id = p.id
+       WHERE oi.order_id IN (${placeholders})`,
+      orderIds
+    );
+
+    // 모든 주문 상품 옵션을 한 번에 조회
+    const itemIds = allItems.map(i => i.id);
+    let allOpts = [];
+    if (itemIds.length > 0) {
+      const itemPlaceholders = itemIds.map(() => '?').join(',');
+      [allOpts] = await db.execute(
+        `SELECT oio.order_item_id, oio.option_value_id, pov.value, pov.extra_price, po.option_name
+         FROM order_item_options oio
+         JOIN product_option_values pov ON oio.option_value_id = pov.id
+         JOIN product_options po ON pov.option_id = po.id
+         WHERE oio.order_item_id IN (${itemPlaceholders})`,
+        itemIds
       );
-      for (const item of items) {
-        const [opts] = await db.execute(
-          `SELECT oio.option_value_id, pov.value, pov.extra_price, po.option_name
-           FROM order_item_options oio
-           JOIN product_option_values pov ON oio.option_value_id = pov.id
-           JOIN product_options po ON pov.option_id = po.id
-           WHERE oio.order_item_id = ?`,
-          [item.id]
-        );
-        item.options = opts;
-      }
-      order.items = items;
+    }
+
+    // 메모리에서 조합
+    const optsMap = new Map();
+    for (const opt of allOpts) {
+      if (!optsMap.has(opt.order_item_id)) optsMap.set(opt.order_item_id, []);
+      optsMap.get(opt.order_item_id).push(opt);
+    }
+    const itemsMap = new Map();
+    for (const item of allItems) {
+      item.options = optsMap.get(item.id) || [];
+      if (!itemsMap.has(item.order_id)) itemsMap.set(item.order_id, []);
+      itemsMap.get(item.order_id).push(item);
+    }
+    for (const order of orders) {
+      order.items = itemsMap.get(order.id) || [];
     }
 
     res.json(orders);

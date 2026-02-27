@@ -101,7 +101,7 @@ function CartPage() {
   const allSelected = cartItems.length > 0 && cartItems.every(item => item.is_selected);
 
   if (loading) {
-    return <div className="loading">로딩 중...</div>;
+    return <div className="loading"><div className="spinner" />로딩 중...</div>;
   }
 
   return (

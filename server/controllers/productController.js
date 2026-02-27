@@ -53,21 +53,23 @@ exports.getProductById = async (req, res) => {
 
     const product = products[0];
 
-    // 옵션 그룹 조회
+    // 옵션 그룹 + 값을 한 번에 조회
     const [options] = await db.execute(
-      'SELECT * FROM product_options WHERE product_id = ? ORDER BY id',
-      [id]
+      'SELECT * FROM product_options WHERE product_id = ? ORDER BY id', [id]
     );
-
-    // 각 옵션 그룹의 값 조회
-    for (const option of options) {
-      const [values] = await db.execute(
-        'SELECT * FROM product_option_values WHERE option_id = ? ORDER BY id',
-        [option.id]
+    if (options.length > 0) {
+      const optIds = options.map(o => o.id);
+      const ph = optIds.map(() => '?').join(',');
+      const [allValues] = await db.execute(
+        `SELECT * FROM product_option_values WHERE option_id IN (${ph}) ORDER BY id`, optIds
       );
-      option.values = values;
+      const valMap = new Map();
+      for (const v of allValues) {
+        if (!valMap.has(v.option_id)) valMap.set(v.option_id, []);
+        valMap.get(v.option_id).push(v);
+      }
+      for (const opt of options) opt.values = valMap.get(opt.id) || [];
     }
-
     product.options = options;
     res.json(product);
   } catch (error) {

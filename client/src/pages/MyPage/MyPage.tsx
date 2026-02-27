@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
-import type { Order, User, UserCoupon, Gift, CartItemOption } from '../../types';
+import type { Order, User, UserCoupon, Gift } from '../../types';
+import OrdersTab from './OrdersTab';
+import PurchasesTab from './PurchasesTab';
+import CouponsTab from './CouponsTab';
+import GiftsTab from './GiftsTab';
+import SettingsTab from './SettingsTab';
 import './MyPage.css';
 
 const statusMap: Record<string, { label: string; className: string }> = {
@@ -16,21 +19,13 @@ const statusMap: Record<string, { label: string; className: string }> = {
 
 function MyPage() {
   const navigate = useNavigate();
-  const { showAlert, showConfirm } = useAlert();
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
-  const [couponCode, setCouponCode] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings'>('orders');
   const [sentGifts, setSentGifts] = useState<Gift[]>([]);
   const [receivedGifts, setReceivedGifts] = useState<Gift[]>([]);
-  const [giftSubTab, setGiftSubTab] = useState<'received' | 'sent'>('received');
-  const [newNickname, setNewNickname] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [settingsLoading, setSettingsLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -40,9 +35,7 @@ function MyPage() {
     }
     const userData = localStorage.getItem('user');
     if (userData) setUser(JSON.parse(userData));
-    fetchOrders();
-    fetchCoupons();
-    fetchGifts();
+    Promise.all([fetchOrders(), fetchCoupons(), fetchGifts()]);
   }, []);
 
   const fetchOrders = async () => {
@@ -56,16 +49,16 @@ function MyPage() {
     }
   };
 
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       const response = await api.get('/coupons');
       setCoupons(response.data);
     } catch (error) {
       console.error('쿠폰 조회 실패:', error);
     }
-  };
+  }, []);
 
-  const fetchGifts = async () => {
+  const fetchGifts = useCallback(async () => {
     try {
       const [sentRes, receivedRes] = await Promise.all([
         api.get('/gifts/sent'),
@@ -76,124 +69,28 @@ function MyPage() {
     } catch (error) {
       console.error('선물 조회 실패:', error);
     }
-  };
+  }, []);
 
-  const handleAcceptGift = async (giftId: number) => {
-    if (!(await showConfirm('선물을 수락하시겠습니까?'))) return;
-    try {
-      await api.put(`/gifts/${giftId}/accept`);
-      showAlert('선물을 수락했습니다.', 'success');
-      fetchGifts();
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
-      }
-    }
-  };
-
-  const handleRejectGift = async (giftId: number) => {
-    if (!(await showConfirm('선물을 거절하시겠습니까?'))) return;
-    try {
-      await api.put(`/gifts/${giftId}/reject`);
-      showAlert('선물을 거절했습니다.', 'success');
-      fetchGifts();
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
-      }
-    }
-  };
-
-  const handleClaimCoupon = async () => {
-    if (!couponCode.trim()) {
-      showAlert('쿠폰 코드를 입력해주세요.', 'warning');
-      return;
-    }
-    try {
-      const response = await api.post('/coupons/claim', { code: couponCode.trim() });
-      showAlert(response.data.message, 'success');
-      setCouponCode('');
-      fetchCoupons();
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        showAlert(error.response?.data?.message || '쿠폰 등록에 실패했습니다.', 'error');
-      }
-    }
-  };
-
-  const formatCouponDiscount = (coupon: UserCoupon) => {
-    if (coupon.discount_percentage) {
-      return `${coupon.discount_percentage}% 할인`;
-    }
-    return `${coupon.discount_amount.toLocaleString()}원 할인`;
-  };
+  const handleUserUpdate = useCallback((updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  }, []);
 
   const isCouponExpired = (coupon: UserCoupon) => {
     return new Date(coupon.expiry_date) < new Date();
-  };
-
-  const handleChangeNickname = async () => {
-    if (!newNickname.trim()) {
-      showAlert('닉네임을 입력해주세요.', 'warning');
-      return;
-    }
-    setSettingsLoading(true);
-    try {
-      const res = await api.put('/auth/nickname', { nickname: newNickname.trim() });
-      showAlert(res.data.message, 'success');
-      const updatedUser = { ...user!, nickname: res.data.nickname };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setNewNickname('');
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        showAlert(error.response?.data?.message || '닉네임 변경에 실패했습니다.', 'error');
-      }
-    } finally {
-      setSettingsLoading(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword) {
-      showAlert('현재 비밀번호와 새 비밀번호를 모두 입력해주세요.', 'warning');
-      return;
-    }
-    if (newPassword.length < 4) {
-      showAlert('새 비밀번호는 4자 이상이어야 합니다.', 'warning');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      showAlert('새 비밀번호가 일치하지 않습니다.', 'warning');
-      return;
-    }
-    setSettingsLoading(true);
-    try {
-      const res = await api.put('/auth/password', { currentPassword, newPassword });
-      showAlert(res.data.message, 'success');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        showAlert(error.response?.data?.message || '비밀번호 변경에 실패했습니다.', 'error');
-      }
-    } finally {
-      setSettingsLoading(false);
-    }
   };
 
   const getInitials = (nickname: string) => {
     return nickname.slice(0, 2);
   };
 
-  if (loading) return <div className="loading">로딩 중...</div>;
+  const availableCoupons = useMemo(() => coupons.filter(c => !c.is_used && !isCouponExpired(c)), [coupons]);
+  const usedOrExpiredCoupons = useMemo(() => coupons.filter(c => c.is_used || isCouponExpired(c)), [coupons]);
+  const pendingGiftsCount = useMemo(() => receivedGifts.filter(g => g.status === 'pending').length, [receivedGifts]);
+  const activeOrders = useMemo(() => orders.filter(o => o.status !== 'completed'), [orders]);
+  const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed'), [orders]);
 
-  const availableCoupons = coupons.filter(c => !c.is_used && !isCouponExpired(c));
-  const usedOrExpiredCoupons = coupons.filter(c => c.is_used || isCouponExpired(c));
-  const pendingGiftsCount = receivedGifts.filter(g => g.status === 'pending').length;
-  const activeOrders = orders.filter(o => o.status !== 'completed');
-  const completedOrders = orders.filter(o => o.status === 'completed');
+  if (loading) return <div className="loading"><div className="spinner" />로딩 중...</div>;
 
   return (
     <div className="mypage">
@@ -259,375 +156,51 @@ function MyPage() {
           </button>
         </div>
 
-        {/* Orders Tab (active orders only) */}
+        {/* Tab Contents */}
         {activeTab === 'orders' && (
           <section className="mypage-section">
-            {activeOrders.length === 0 ? (
-              <p className="empty-message">진행중인 주문이 없습니다.</p>
-            ) : (
-              <div className="order-list">
-                {activeOrders.map((order) => (
-                  <div key={order.id} className="order-card">
-                    <div className="order-header">
-                      <span className="order-date-title">
-                        {new Date(order.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })} 주문
-                      </span>
-                      <span className={`order-status ${statusMap[order.status]?.className || ''}`}>
-                        {statusMap[order.status]?.label || order.status}
-                      </span>
-                    </div>
-                    {order.items && order.items.length > 0 && (
-                      <ul className="order-items">
-                        {order.items.map((item) => (
-                          <li key={item.id} className="order-item">
-                            <img src={item.image_url} alt={item.name} />
-                            <div className="item-name">
-                              {item.name}
-                              {item.options && item.options.length > 0 && (
-                                <span className="item-options">
-                                  {item.options.map((o: CartItemOption) => `${o.option_name}: ${o.value}`).join(' / ')}
-                                </span>
-                              )}
-                            </div>
-                            <span className="item-qty">{item.quantity}개</span>
-                            <span className="item-price">{(item.price * item.quantity).toLocaleString()}원</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {/* Delivery Progress (4 steps) */}
-                    <div className="delivery-progress">
-                      {['checking', 'pending', 'shipped', 'delivered'].map((step, idx) => {
-                        const steps = ['checking', 'pending', 'shipped', 'delivered'];
-                        const currentIdx = steps.indexOf(order.status);
-                        const isActive = idx <= currentIdx;
-                        return (
-                          <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>
-                            <div className="progress-dot" />
-                            <span>{statusMap[step]?.label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Delivery Info */}
-                    {order.receiver_name && (
-                      <div className="delivery-info">
-                        <span>{order.receiver_name}</span>
-                        <span>{order.receiver_phone}</span>
-                        <span>{order.delivery_address}</span>
-                      </div>
-                    )}
-
-                    <div className="order-total">
-                      {order.discount_amount > 0 && (
-                        <span className="order-discount">
-                          쿠폰 할인: -{order.discount_amount.toLocaleString()}원
-                        </span>
-                      )}
-                      총 결제금액: <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="order-actions">
-                      {order.status === 'delivered' ? (
-                        <button
-                          className="confirm-btn"
-                          onClick={async () => {
-                            if (!(await showConfirm('수령완료 하시겠습니까?'))) return;
-                            try {
-                              await api.put(`/orders/${order.id}/confirm`);
-                              showAlert('수령이 완료되었습니다.', 'success');
-                              setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'completed' } : o));
-                            } catch (error) {
-                              if (error instanceof AxiosError) {
-                                showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
-                              }
-                            }
-                          }}
-                        >
-                          수령완료
-                        </button>
-                      ) : (
-                        <button
-                          className="advance-btn"
-                          onClick={async () => {
-                            const nextLabel: Record<string, string> = {
-                              checking: '준비중',
-                              pending: '배송중',
-                              shipped: '배송완료',
-                            };
-                            const label = nextLabel[order.status] || '다음 단계';
-                            if (!(await showConfirm(`'${label}'(으)로 변경하시겠습니까?`))) return;
-                            try {
-                              const res = await api.put(`/orders/${order.id}/advance`);
-                              showAlert(res.data.message, 'success');
-                              setOrders(orders.map(o => o.id === order.id ? { ...o, status: res.data.status } : o));
-                            } catch (error) {
-                              if (error instanceof AxiosError) {
-                                showAlert(error.response?.data?.message || '상태 변경에 실패했습니다.', 'error');
-                              }
-                            }
-                          }}
-                        >
-                          {{
-                            checking: '준비중으로 변경',
-                            pending: '배송중으로 변경',
-                            shipped: '배송완료로 변경',
-                          }[order.status] || '다음 단계'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <OrdersTab
+              orders={activeOrders}
+              allOrders={orders}
+              statusMap={statusMap}
+              setOrders={setOrders}
+            />
           </section>
         )}
 
-        {/* Purchases Tab (completed orders) */}
         {activeTab === 'purchases' && (
           <section className="mypage-section">
-            {completedOrders.length === 0 ? (
-              <p className="empty-message">구매 내역이 없습니다.</p>
-            ) : (
-              <div className="order-list">
-                {completedOrders.map((order) => (
-                  <div key={order.id} className="order-card">
-                    <div className="order-header">
-                      <span className="order-date-title">
-                        {new Date(order.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })} 구매
-                      </span>
-                      <span className={`order-status ${statusMap[order.status]?.className || ''}`}>
-                        {statusMap[order.status]?.label || order.status}
-                      </span>
-                    </div>
-                    {order.items && order.items.length > 0 && (
-                      <ul className="order-items">
-                        {order.items.map((item) => (
-                          <li key={item.id} className="order-item">
-                            <img src={item.image_url} alt={item.name} />
-                            <div className="item-name">
-                              {item.name}
-                              {item.options && item.options.length > 0 && (
-                                <span className="item-options">
-                                  {item.options.map((o: CartItemOption) => `${o.option_name}: ${o.value}`).join(' / ')}
-                                </span>
-                              )}
-                            </div>
-                            <span className="item-qty">{item.quantity}개</span>
-                            <span className="item-price">{(item.price * item.quantity).toLocaleString()}원</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="order-total">
-                      {order.discount_amount > 0 && (
-                        <span className="order-discount">
-                          쿠폰 할인: -{order.discount_amount.toLocaleString()}원
-                        </span>
-                      )}
-                      총 결제금액: <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <PurchasesTab orders={completedOrders} statusMap={statusMap} />
           </section>
         )}
 
-        {/* Coupons Tab */}
         {activeTab === 'coupons' && (
           <section className="mypage-section">
-            <div className="coupon-claim">
-              <input
-                type="text"
-                placeholder="쿠폰 코드를 입력하세요"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleClaimCoupon()}
-              />
-              <button onClick={handleClaimCoupon}>등록</button>
-            </div>
-
-            {availableCoupons.length > 0 && (
-              <>
-                <h4 className="coupon-subtitle">사용 가능 ({availableCoupons.length})</h4>
-                <div className="coupon-list">
-                  {availableCoupons.map(coupon => (
-                    <div key={coupon.id} className="coupon-card">
-                      <div className="coupon-discount-label">{formatCouponDiscount(coupon)}</div>
-                      <div className="coupon-code-label">{coupon.code}</div>
-                      {coupon.min_price && (
-                        <div className="coupon-condition">{coupon.min_price.toLocaleString()}원 이상 구매 시</div>
-                      )}
-                      <div className="coupon-expiry">
-                        {new Date(coupon.expiry_date).toLocaleDateString('ko-KR')} 까지
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {usedOrExpiredCoupons.length > 0 && (
-              <>
-                <h4 className="coupon-subtitle used">사용완료/만료 ({usedOrExpiredCoupons.length})</h4>
-                <div className="coupon-list">
-                  {usedOrExpiredCoupons.map(coupon => (
-                    <div key={coupon.id} className="coupon-card used">
-                      <div className="coupon-discount-label">{formatCouponDiscount(coupon)}</div>
-                      <div className="coupon-code-label">{coupon.code}</div>
-                      <div className="coupon-expiry">
-                        {coupon.is_used ? '사용완료' : '만료됨'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {coupons.length === 0 && (
-              <p className="empty-message">보유한 쿠폰이 없습니다.</p>
-            )}
+            <CouponsTab
+              availableCoupons={availableCoupons}
+              usedOrExpiredCoupons={usedOrExpiredCoupons}
+              couponsTotal={coupons.length}
+              onCouponClaimed={fetchCoupons}
+            />
           </section>
         )}
 
-        {/* Settings Tab */}
         {activeTab === 'settings' && (
           <section className="mypage-section">
-            <div className="settings-block">
-              <h4 className="settings-subtitle">닉네임 변경</h4>
-              <div className="settings-form">
-                <input
-                  type="text"
-                  placeholder={user?.nickname || '새 닉네임'}
-                  value={newNickname}
-                  onChange={(e) => setNewNickname(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleChangeNickname()}
-                />
-                <button onClick={handleChangeNickname} disabled={settingsLoading}>
-                  {settingsLoading ? '변경 중...' : '변경'}
-                </button>
-              </div>
-            </div>
-
-            <div className="settings-block">
-              <h4 className="settings-subtitle">비밀번호 변경</h4>
-              <div className="settings-form vertical">
-                <input
-                  type="password"
-                  placeholder="현재 비밀번호"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                />
-                <input
-                  type="password"
-                  placeholder="새 비밀번호 (4자 이상)"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-                <input
-                  type="password"
-                  placeholder="새 비밀번호 확인"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
-                />
-                <button onClick={handleChangePassword} disabled={settingsLoading}>
-                  {settingsLoading ? '변경 중...' : '비밀번호 변경'}
-                </button>
-              </div>
-            </div>
+            <SettingsTab
+              user={user}
+              onUserUpdate={handleUserUpdate}
+            />
           </section>
         )}
 
-        {/* Gifts Tab */}
         {activeTab === 'gifts' && (
           <section className="mypage-section">
-            <div className="gift-sub-tabs">
-              <button
-                className={`gift-sub-tab ${giftSubTab === 'received' ? 'active' : ''}`}
-                onClick={() => setGiftSubTab('received')}
-              >
-                받은 선물 ({receivedGifts.length})
-              </button>
-              <button
-                className={`gift-sub-tab ${giftSubTab === 'sent' ? 'active' : ''}`}
-                onClick={() => setGiftSubTab('sent')}
-              >
-                보낸 선물 ({sentGifts.length})
-              </button>
-            </div>
-
-            {giftSubTab === 'received' && (
-              receivedGifts.length === 0 ? (
-                <p className="empty-message">받은 선물이 없습니다.</p>
-              ) : (
-                <div className="gift-list">
-                  {receivedGifts.map(gift => (
-                    <div key={gift.id} className={`gift-card gift-status-${gift.status}`}>
-                      <div className="gift-card-header">
-                        <span className="gift-sender">{gift.sender_nickname || '알 수 없음'}님의 선물</span>
-                        <span className={`gift-status-badge ${gift.status}`}>
-                          {gift.status === 'pending' ? '대기중' : gift.status === 'accepted' ? '수락됨' : '거절됨'}
-                        </span>
-                        <span className="gift-date">{new Date(gift.created_at).toLocaleDateString('ko-KR')}</span>
-                      </div>
-                      {gift.message && <p className="gift-message">"{gift.message}"</p>}
-                      {gift.order_items && gift.order_items.length > 0 && (
-                        <ul className="gift-items">
-                          {gift.order_items.map((item, i) => (
-                            <li key={i}>
-                              {item.name} x {item.quantity}개
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {gift.status === 'pending' && (
-                        <div className="gift-actions">
-                          <button className="gift-accept-btn" onClick={() => handleAcceptGift(gift.id)}>수락</button>
-                          <button className="gift-reject-btn" onClick={() => handleRejectGift(gift.id)}>거절</button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-
-            {giftSubTab === 'sent' && (
-              sentGifts.length === 0 ? (
-                <p className="empty-message">보낸 선물이 없습니다.</p>
-              ) : (
-                <div className="gift-list">
-                  {sentGifts.map(gift => (
-                    <div key={gift.id} className={`gift-card gift-status-${gift.status}`}>
-                      <div className="gift-card-header">
-                        <span className="gift-sender">{gift.receiver_nickname || '알 수 없음'}님에게</span>
-                        <span className={`gift-status-badge ${gift.status}`}>
-                          {gift.status === 'pending' ? '대기중' : gift.status === 'accepted' ? '수락됨' : '거절됨'}
-                        </span>
-                        <span className="gift-date">{new Date(gift.created_at).toLocaleDateString('ko-KR')}</span>
-                      </div>
-                      {gift.message && <p className="gift-message">"{gift.message}"</p>}
-                      {gift.order_items && gift.order_items.length > 0 && (
-                        <ul className="gift-items">
-                          {gift.order_items.map((item, i) => (
-                            <li key={i}>
-                              {item.name} x {item.quantity}개
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      <div className="gift-total">
-                        {(gift.final_amount || gift.total_amount || 0).toLocaleString()}원
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+            <GiftsTab
+              sentGifts={sentGifts}
+              receivedGifts={receivedGifts}
+              onGiftAction={fetchGifts}
+            />
           </section>
         )}
       </div>

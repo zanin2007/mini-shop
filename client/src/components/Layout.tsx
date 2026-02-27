@@ -26,38 +26,18 @@ function Layout() {
       if (userData) {
         setUser(JSON.parse(userData));
       }
-      fetchCartCount();
-      fetchMailboxCount();
-      fetchNotifCount();
+      // 병렬로 카운트 조회
+      Promise.all([
+        api.get('/cart').then(r => r.data.length).catch(() => 0),
+        api.get('/mailbox/unread-count').then(r => r.data.count).catch(() => 0),
+        api.get('/notifications/unread-count').then(r => r.data.count).catch(() => 0),
+      ]).then(([cart, mail, notif]) => {
+        setCartCount(cart);
+        setMailboxCount(mail);
+        setNotifCount(notif);
+      });
     }
   }, []);
-
-  const fetchCartCount = async () => {
-    try {
-      const response = await api.get('/cart');
-      setCartCount(response.data.length);
-    } catch {
-      setCartCount(0);
-    }
-  };
-
-  const fetchMailboxCount = async () => {
-    try {
-      const response = await api.get('/mailbox/unread-count');
-      setMailboxCount(response.data.count);
-    } catch {
-      setMailboxCount(0);
-    }
-  };
-
-  const fetchNotifCount = async () => {
-    try {
-      const response = await api.get('/notifications/unread-count');
-      setNotifCount(response.data.count);
-    } catch {
-      setNotifCount(0);
-    }
-  };
 
   const handleLogout = async () => {
     if (!(await showConfirm('로그아웃 하시겠습니까?'))) return;

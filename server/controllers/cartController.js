@@ -12,17 +12,26 @@ exports.getCart = async (req, res) => {
       [req.user.userId]
     );
 
-    // 각 장바구니 아이템의 선택된 옵션 조회
-    for (const item of items) {
-      const [options] = await db.execute(
-        `SELECT cio.option_value_id, pov.value, pov.extra_price, po.option_name
+    if (items.length > 0) {
+      // 모든 장바구니 옵션을 한 번에 조회
+      const cartIds = items.map(i => i.id);
+      const placeholders = cartIds.map(() => '?').join(',');
+      const [allOpts] = await db.execute(
+        `SELECT cio.cart_item_id, cio.option_value_id, pov.value, pov.extra_price, po.option_name
          FROM cart_item_options cio
          JOIN product_option_values pov ON cio.option_value_id = pov.id
          JOIN product_options po ON pov.option_id = po.id
-         WHERE cio.cart_item_id = ?`,
-        [item.id]
+         WHERE cio.cart_item_id IN (${placeholders})`,
+        cartIds
       );
-      item.options = options;
+      const optsMap = new Map();
+      for (const opt of allOpts) {
+        if (!optsMap.has(opt.cart_item_id)) optsMap.set(opt.cart_item_id, []);
+        optsMap.get(opt.cart_item_id).push(opt);
+      }
+      for (const item of items) {
+        item.options = optsMap.get(item.id) || [];
+      }
     }
 
     res.json(items);

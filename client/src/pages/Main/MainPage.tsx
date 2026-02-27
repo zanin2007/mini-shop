@@ -16,9 +16,7 @@ function MainPage() {
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
 
   useEffect(() => {
-    fetchCategories();
-    fetchProducts();
-    fetchWishlistIds();
+    Promise.all([fetchCategories(), fetchProducts(), fetchWishlistIds()]);
   }, []);
 
   const fetchCategories = async () => {
@@ -71,15 +69,27 @@ function MainPage() {
       navigate('/login');
       return;
     }
+    const wasWishlisted = wishlistIds.includes(productId);
+
+    // 낙관적 업데이트: UI 먼저 반영
+    if (wasWishlisted) {
+      setWishlistIds(wishlistIds.filter(id => id !== productId));
+    } else {
+      setWishlistIds([...wishlistIds, productId]);
+    }
+
     try {
-      if (wishlistIds.includes(productId)) {
+      if (wasWishlisted) {
         await api.delete(`/wishlist/${productId}`);
-        setWishlistIds(wishlistIds.filter(id => id !== productId));
       } else {
         await api.post('/wishlist', { productId });
-        setWishlistIds([...wishlistIds, productId]);
       }
     } catch {
+      // 실패 시 원래 상태로 되돌림
+      setWishlistIds(wasWishlisted
+        ? [...wishlistIds]
+        : wishlistIds.filter(id => id !== productId)
+      );
       showAlert('처리에 실패했습니다.', 'error');
     }
   };
@@ -133,7 +143,7 @@ function MainPage() {
             <span className="product-count">{products.length}개</span>
           </h3>
           {loading ? (
-            <div className="loading">로딩 중...</div>
+            <div className="loading"><div className="spinner" />로딩 중...</div>
           ) : products.length === 0 ? (
             <div className="empty-products">검색 결과가 없습니다.</div>
           ) : (

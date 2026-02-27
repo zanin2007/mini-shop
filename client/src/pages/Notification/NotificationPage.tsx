@@ -83,7 +83,7 @@ function NotificationPage() {
     return date.toLocaleDateString('ko-KR');
   };
 
-  if (loading) return <div className="loading">로딩 중...</div>;
+  if (loading) return <div className="loading"><div className="spinner" />로딩 중...</div>;
 
   return (
     <div className="notification-page">

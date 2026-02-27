@@ -13,15 +13,20 @@ exports.getSentGifts = async (req, res) => {
       [req.user.userId]
     );
 
-    for (const gift of gifts) {
-      const [items] = await db.execute(
-        `SELECT oi.*, p.name, p.image_url
-         FROM order_items oi
+    if (gifts.length > 0) {
+      const orderIds = gifts.map(g => g.order_id);
+      const ph = orderIds.map(() => '?').join(',');
+      const [allItems] = await db.execute(
+        `SELECT oi.*, p.name, p.image_url FROM order_items oi
          JOIN products p ON oi.product_id = p.id
-         WHERE oi.order_id = ?`,
-        [gift.order_id]
+         WHERE oi.order_id IN (${ph})`, orderIds
       );
-      gift.order_items = items;
+      const itemsMap = new Map();
+      for (const item of allItems) {
+        if (!itemsMap.has(item.order_id)) itemsMap.set(item.order_id, []);
+        itemsMap.get(item.order_id).push(item);
+      }
+      for (const gift of gifts) gift.order_items = itemsMap.get(gift.order_id) || [];
     }
 
     res.json(gifts);
@@ -44,15 +49,20 @@ exports.getReceivedGifts = async (req, res) => {
       [req.user.userId]
     );
 
-    for (const gift of gifts) {
-      const [items] = await db.execute(
-        `SELECT oi.*, p.name, p.image_url
-         FROM order_items oi
+    if (gifts.length > 0) {
+      const orderIds = gifts.map(g => g.order_id);
+      const ph = orderIds.map(() => '?').join(',');
+      const [allItems] = await db.execute(
+        `SELECT oi.*, p.name, p.image_url FROM order_items oi
          JOIN products p ON oi.product_id = p.id
-         WHERE oi.order_id = ?`,
-        [gift.order_id]
+         WHERE oi.order_id IN (${ph})`, orderIds
       );
-      gift.order_items = items;
+      const itemsMap = new Map();
+      for (const item of allItems) {
+        if (!itemsMap.has(item.order_id)) itemsMap.set(item.order_id, []);
+        itemsMap.get(item.order_id).push(item);
+      }
+      for (const gift of gifts) gift.order_items = itemsMap.get(gift.order_id) || [];
     }
 
     res.json(gifts);

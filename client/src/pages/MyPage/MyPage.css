@@ -767,6 +767,50 @@
   margin-top: 0.25rem;
 }
 
+/* Danger zone (회원탈퇴) */
+.settings-block.danger {
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border-light);
+  border-bottom: none;
+}
+
+.settings-subtitle.danger::before {
+  background: var(--color-error);
+}
+
+.settings-warning {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.danger-btn {
+  padding: 0.75rem 1.75rem;
+  background: var(--color-error);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.25s;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: #c0392b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.25);
+}
+
+.danger-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ===== Gift Section ===== */
 .gift-sub-tabs {
   display: flex;
