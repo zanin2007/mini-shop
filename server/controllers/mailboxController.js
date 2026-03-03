@@ -76,8 +76,21 @@ exports.claimReward = async (req, res) => {
     }
 
     // 보상 종류별 처리
-    if (mail.reward_type === 'coupon' && mail.reward_id) {
-      // 쿠폰 지급
+    if (mail.reward_type === 'coupon') {
+      if (!mail.reward_id) {
+        await connection.rollback();
+        return res.status(400).json({ message: '쿠폰 정보가 누락되어 수령할 수 없습니다.' });
+      }
+      // 쿠폰 존재 확인
+      const [couponCheck] = await connection.execute(
+        `SELECT id FROM coupons WHERE id = ?`,
+        [mail.reward_id]
+      );
+      if (couponCheck.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ message: '해당 쿠폰이 존재하지 않습니다.' });
+      }
+      // 쿠폰 지급 (이미 보유 중이면 스킵 - 배포 쿠폰은 이미 추가됨)
       const [existing] = await connection.execute(
         `SELECT id FROM user_coupons WHERE user_id = ? AND coupon_id = ?`,
         [req.user.userId, mail.reward_id]
@@ -88,6 +101,15 @@ exports.claimReward = async (req, res) => {
           [req.user.userId, mail.reward_id]
         );
       }
+    } else if (mail.reward_type === 'point') {
+      if (!mail.reward_amount || mail.reward_amount <= 0) {
+        await connection.rollback();
+        return res.status(400).json({ message: '포인트 정보가 누락되어 수령할 수 없습니다.' });
+      }
+      await connection.execute(
+        'UPDATE users SET points = points + ? WHERE id = ?',
+        [mail.reward_amount, req.user.userId]
+      );
     }
 
     // 수령 처리
@@ -117,6 +139,20 @@ exports.deleteMail = async (req, res) => {
     res.json({ message: '우편이 삭제되었습니다.' });
   } catch (error) {
     console.error('Delete mail error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 전체 삭제
+exports.deleteAll = async (req, res) => {
+  try {
+    await db.execute(
+      `DELETE FROM mailbox WHERE user_id = ?`,
+      [req.user.userId]
+    );
+    res.json({ message: '전체 우편이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Delete all mails error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
 };

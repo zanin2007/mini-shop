@@ -29,7 +29,7 @@
 
 ---
 
-## 2단계: DB 설계 (19 테이블)
+## 2단계: DB 설계 (21 테이블)
 
 ```
 users                →  회원 (role: user/admin)
@@ -37,7 +37,7 @@ products             →  상품 (user_id로 등록자 추적)
 cart_items           →  장바구니 (is_selected로 선택 구매)
 orders               →  주문 (쿠폰 할인, 배송 정보, completed_at)
 order_items          →  주문 상세 (orders ↔ products)
-reviews              →  리뷰 (구매 확인, 별점 1~5)
+reviews              →  리뷰 (구매 확인, 별점 0.5~5)
 wishlists            →  찜 목록 (users ↔ products)
 coupons              →  쿠폰 (정액/정률 할인)
 user_coupons         →  유저 보유 쿠폰
@@ -51,6 +51,8 @@ mailbox              →  우편함 (보상 수령: 쿠폰/포인트/아이템)
 announcements        →  공지사항 (고정/비고정)
 events               →  이벤트 (선착순/랜덤추첨)
 event_participants   →  이벤트 참여자 (당첨 여부)
+refunds              →  환불 (신청/승인/거부)
+user_penalties       →  회원 제재 (경고/7일/30일/영구정지)
 ```
 
 > 팁: 모든 테이블에 `id` (PK, AUTO_INCREMENT) + `created_at` 기본 포함, 가격은 `INT` (원 단위)
@@ -125,8 +127,15 @@ POST /api/coupons/claim                  → 코드 등록
 
 **선물** (`giftRoutes.js`)
 ```
-GET /api/gifts/sent, /received           → 보낸/받은 선물
+GET /api/gifts/sent, /received           → 보낸/받은 선물 (배송상태 포함)
 PUT /api/gifts/:id/accept, /reject       → 수락/거절
+PUT /api/gifts/:id/confirm               → 선물 수령완료 (받는 사람)
+```
+
+**환불** (`refundRoutes.js`)
+```
+POST /api/refunds                        → 환불 신청
+GET  /api/refunds/:orderId               → 환불 상태 조회
 ```
 
 **알림** (`notificationRoutes.js`)
@@ -153,6 +162,11 @@ POST /api/admin/coupons/distribute       → 쿠폰 전체 배포
 POST/GET/DELETE /api/admin/announcements → 공지 관리
 POST/GET/DELETE /api/admin/events        → 이벤트 관리
 POST /api/admin/events/:id/draw          → 추첨
+GET/PUT /api/admin/refunds               → 환불 관리 (승인/거부)
+GET  /api/admin/users-activity           → 회원 목록 (리뷰/환불/경고 수)
+GET  /api/admin/users/:userId/penalties  → 제재 이력
+POST /api/admin/users/:userId/penalties  → 경고/정지 부여
+PUT  /api/admin/penalties/:id/revoke     → 제재 해제
 ```
 
 **공지/이벤트 (유저용)**
@@ -241,8 +255,12 @@ UPDATE users SET role = 'admin' WHERE email = '관리자이메일';
 #### 계정 설정
 - [ ] 닉네임 변경 → localStorage 반영 / 비밀번호 변경 → 현재 PW 검증
 
+#### 환불
+- [ ] 구매확정 후 환불 신청 / 관리자 승인·거부 / 알림 발송
+
 #### 관리자
 - [ ] 접근 차단 / 주문 상태 / 상품 검색·삭제 / 쿠폰 생성·배포 / 공지 / 이벤트·추첨
+- [ ] 회원 관리: 경고/정지 부여 / 경고 3회 → 자동 7일 정지 / 제재 해제 / 정지 시 로그인 차단
 
 ---
 
@@ -282,6 +300,8 @@ npm run dev
 | 상품 옵션 | ✅ | ✅ | 그룹/값 + 추가금액 + 재고 |
 | 선물하기 | ✅ | ✅ | 유저 검색 + 수락/거절 |
 | 알림 + 우편함 | ✅ | ✅ | 뱃지 + 읽음 + 보상수령 |
-| 관리자 | ✅ | ✅ | 주문/상품/쿠폰/공지/이벤트 |
+| 관리자 | ✅ | ✅ | 주문/상품/쿠폰/공지/이벤트/회원관리 |
 | 이벤트 | ✅ | ✅ | 선착순/랜덤추첨 |
+| 환불 | ✅ | ✅ | 신청/승인/거부 |
+| 회원 제재 | ✅ | ✅ | 경고/7일/30일/영구정지 + 자동정지 |
 | UI 디자인 시스템 | - | ✅ | Refined Korean Contemporary |

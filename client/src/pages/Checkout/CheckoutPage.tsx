@@ -44,6 +44,8 @@ function CheckoutPage() {
   const [delivery, setDelivery] = useState({ receiver_name: '', receiver_phone: '', delivery_address: '', delivery_address_detail: '' });
   const navigate = useNavigate();
 
+  const [userPoints, setUserPoints] = useState(0);
+  const [pointsToUse, setPointsToUse] = useState(0);
   const [isGift, setIsGift] = useState(false);
   const [giftMessage, setGiftMessage] = useState('');
   const [selectedReceiver, setSelectedReceiver] = useState<SearchedUser | null>(null);
@@ -51,11 +53,19 @@ function CheckoutPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      showAlert('로그인이 필요합니다.', 'warning');
-      navigate('/login');
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
       return;
     }
     fetchCart();
+    // 포인트 로드
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      const u = JSON.parse(userData);
+      setUserPoints(u.points || 0);
+    }
   }, []);
 
   const fetchCart = async () => {
@@ -81,7 +91,10 @@ function CheckoutPage() {
   };
   const totalPrice = cartItems.reduce((sum, item) => sum + getItemTotal(item), 0);
   const discountAmount = selectedCoupon?.calculated_discount || 0;
-  const finalPrice = totalPrice - discountAmount;
+  const afterCoupon = totalPrice - discountAmount;
+  const maxPoints = Math.min(userPoints, afterCoupon);
+  const pointDiscount = Math.min(pointsToUse, maxPoints);
+  const finalPrice = afterCoupon - pointDiscount;
 
   useEffect(() => {
     if (totalPrice > 0) {
@@ -127,6 +140,7 @@ function CheckoutPage() {
       const fullAddress = `${delivery.delivery_address} ${delivery.delivery_address_detail}`.trim();
       await api.post('/orders', {
         couponId: selectedCoupon?.user_coupon_id || null,
+        pointsToUse: pointDiscount || 0,
         receiver_name: delivery.receiver_name,
         receiver_phone: delivery.receiver_phone,
         delivery_address: fullAddress,
@@ -134,6 +148,16 @@ function CheckoutPage() {
         receiverId: isGift ? selectedReceiver?.id : undefined,
         giftMessage: isGift ? giftMessage : undefined,
       });
+      // localStorage 포인트 차감
+      if (pointDiscount > 0) {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          u.points = Math.max(0, (u.points || 0) - pointDiscount);
+          localStorage.setItem('user', JSON.stringify(u));
+          window.dispatchEvent(new Event('userUpdated'));
+        }
+      }
       showAlert(isGift ? '선물 주문이 완료되었습니다!' : '주문이 완료되었습니다!', 'success');
       navigate('/mypage');
     } catch (error) {
@@ -194,6 +218,37 @@ function CheckoutPage() {
           <CouponSection coupons={coupons} selectedCoupon={selectedCoupon} onCouponChange={handleCouponChange} />
         </div>
 
+        {userPoints > 0 && (
+          <div className="checkout-section">
+            <h3>포인트 사용</h3>
+            <div className="point-section">
+              <span className="point-balance">보유 {userPoints.toLocaleString()}P</span>
+              <div className="point-input-row">
+                <input
+                  type="number"
+                  className="point-input"
+                  value={pointsToUse || ''}
+                  min={0}
+                  max={maxPoints}
+                  placeholder="0"
+                  onChange={e => {
+                    const val = Math.max(0, Math.min(Number(e.target.value) || 0, maxPoints));
+                    setPointsToUse(val);
+                  }}
+                />
+                <span className="point-unit">P</span>
+                <button
+                  type="button"
+                  className="point-all-btn"
+                  onClick={() => setPointsToUse(maxPoints)}
+                >
+                  전액 사용
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="checkout-section">
           <GiftSection
             isGift={isGift}
@@ -215,6 +270,12 @@ function CheckoutPage() {
             <div className="payment-row payment-discount">
               <span>쿠폰 할인</span>
               <span>-{discountAmount.toLocaleString()}원</span>
+            </div>
+          )}
+          {pointDiscount > 0 && (
+            <div className="payment-row payment-discount">
+              <span>포인트 사용</span>
+              <span>-{pointDiscount.toLocaleString()}원</span>
             </div>
           )}
           <div className="payment-row">

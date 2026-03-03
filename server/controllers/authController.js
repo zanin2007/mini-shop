@@ -65,6 +65,24 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: '이메일 또는 비밀번호가 잘못되었습니다.' });
     }
 
+    // 정지 상태 확인
+    const [penalties] = await db.execute(
+      `SELECT * FROM user_penalties
+       WHERE user_id = ? AND is_active = true AND type != 'warning'
+       AND (suspended_until IS NULL OR suspended_until > NOW())
+       ORDER BY created_at DESC LIMIT 1`,
+      [user.id]
+    );
+
+    if (penalties.length > 0) {
+      const penalty = penalties[0];
+      if (penalty.type === 'permanent') {
+        return res.status(403).json({ message: '영구 정지된 계정입니다. 사유: ' + penalty.reason });
+      }
+      const until = new Date(penalty.suspended_until).toLocaleDateString('ko-KR');
+      return res.status(403).json({ message: `${until}까지 이용 정지된 계정입니다. 사유: ${penalty.reason}` });
+    }
+
     // JWT 토큰 생성
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
@@ -79,7 +97,8 @@ exports.login = async (req, res) => {
         id: user.id,
         email: user.email,
         nickname: user.nickname,
-        role: user.role
+        role: user.role,
+        points: user.points || 0
       }
     });
   } catch (error) {
@@ -189,7 +208,7 @@ exports.deleteAccount = async (req, res) => {
 exports.checkAuth = async (req, res) => {
   try {
     const [users] = await db.execute(
-      'SELECT id, email, nickname FROM users WHERE id = ?',
+      'SELECT id, email, nickname, role, points FROM users WHERE id = ?',
       [req.user.userId]
     );
 

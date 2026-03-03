@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
@@ -37,15 +38,17 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
             <ul className="order-items">
               {order.items.map((item) => (
                 <li key={item.id} className="order-item">
-                  <img src={item.image_url} alt={item.name} />
-                  <div className="item-name">
-                    {item.name}
-                    {item.options && item.options.length > 0 && (
-                      <span className="item-options">
-                        {item.options.map((o: CartItemOption) => `${o.option_name}: ${o.value}`).join(' / ')}
-                      </span>
-                    )}
-                  </div>
+                  <Link to={`/products/${item.product_id}`} className="order-item-link">
+                    <img src={item.image_url} alt={item.name} />
+                    <div className="item-name">
+                      {item.name}
+                      {item.options && item.options.length > 0 && (
+                        <span className="item-options">
+                          {item.options.map((o: CartItemOption) => `${o.option_name}: ${o.value}`).join(' / ')}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
                   <span className="item-qty">{item.quantity}개</span>
                   <span className="item-price">{(item.price * item.quantity).toLocaleString()}원</span>
                 </li>
@@ -84,7 +87,9 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
           </div>
 
           <div className="order-actions">
-            {order.status === 'delivered' ? (
+            {order.is_gift ? (
+              <span className="gift-order-label">선물 주문 (선물 탭에서 확인)</span>
+            ) : order.status === 'delivered' ? (
               <button
                 className="confirm-btn"
                 onClick={async () => {

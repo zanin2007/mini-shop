@@ -17,6 +17,7 @@ const AdminPage = lazy(() => import('./pages/Admin/AdminPage'));
 const MailboxPage = lazy(() => import('./pages/Mailbox/MailboxPage'));
 const NotificationPage = lazy(() => import('./pages/Notification/NotificationPage'));
 const WishlistPage = lazy(() => import('./pages/Wishlist/WishlistPage'));
+const RefundPage = lazy(() => import('./pages/Refund/RefundPage'));
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
             <Route path="mailbox" element={<MailboxPage />} />
             <Route path="notifications" element={<NotificationPage />} />
             <Route path="wishlist" element={<WishlistPage />} />
+            <Route path="refund/:orderId" element={<RefundPage />} />
           </Route>
         </Routes>
       </Suspense>

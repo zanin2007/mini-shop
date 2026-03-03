@@ -26,6 +26,12 @@
   gap: 1rem;
 }
 
+.notification-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .notification-header h2 {
   margin: 0;
   font-size: 1.3rem;
@@ -57,6 +63,23 @@
 
 .read-all-btn:hover {
   background: var(--color-accent);
+  color: var(--color-text-inverse);
+}
+
+.delete-all-btn {
+  background: none;
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.delete-all-btn:hover {
+  background: var(--color-error);
   color: var(--color-text-inverse);
 }
 
@@ -133,6 +156,9 @@
   color: var(--color-text-secondary);
   font-size: 0.85rem;
   margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .notif-time {
@@ -141,11 +167,130 @@
   margin-top: 0.4rem;
 }
 
+/* ===== Event Participate Button ===== */
+.event-participate-btn {
+  padding: 0.45rem 1rem;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.event-participate-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.event-participate-btn.participated {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  cursor: default;
+}
+
 .notification-page .empty-message {
   text-align: center;
   color: var(--color-text-muted);
   padding: 3rem 1rem;
   font-size: 0.95rem;
+}
+
+/* ===== Notification Detail Modal ===== */
+.notif-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.notif-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 500px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.notif-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.notif-modal-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.notif-modal-header h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.notif-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color var(--duration) var(--ease);
+}
+
+.notif-modal-close:hover {
+  color: var(--color-text);
+}
+
+.notif-modal-body {
+  padding: 1.5rem;
+}
+
+.notif-modal-content {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.notif-modal-empty {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.notif-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-surface-alt);
+}
+
+.notif-modal-time {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
 }
 
 /* ===== Mobile ===== */
@@ -162,5 +307,9 @@
 
   .notification-card {
     padding: 1rem;
+  }
+
+  .notif-modal {
+    max-width: 100%;
   }
 }

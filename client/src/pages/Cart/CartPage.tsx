@@ -27,13 +27,15 @@ function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { showAlert, showConfirm } = useAlert();
+  const { showConfirm } = useAlert();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      showAlert('로그인이 필요합니다.', 'warning');
-      navigate('/login');
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
       return;
     }
     fetchCart();

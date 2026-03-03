@@ -9,6 +9,7 @@ router.get('/', mailboxController.getMailbox);
 router.get('/unread-count', mailboxController.getUnreadCount);
 router.put('/:id/read', mailboxController.markAsRead);
 router.post('/:id/claim', mailboxController.claimReward);
+router.delete('/all', mailboxController.deleteAll);
 router.delete('/:id', mailboxController.deleteMail);
 
 module.exports = router;

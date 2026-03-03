@@ -15,9 +15,15 @@
 .mailbox-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  justify-content: space-between;
   padding: 1.5rem 2rem;
   border-bottom: 1px solid var(--color-border-light);
+}
+
+.mailbox-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .mailbox-header h2 {
@@ -26,6 +32,23 @@
   font-weight: 800;
   color: var(--color-text);
   letter-spacing: -0.3px;
+}
+
+.mailbox-page .delete-all-btn {
+  background: none;
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.mailbox-page .delete-all-btn:hover {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
 }
 
 .mailbox-page .back-btn {

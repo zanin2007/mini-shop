@@ -47,7 +47,7 @@ exports.createOrder = async (req, res) => {
     // 쿠폰 적용
     let discountAmount = 0;
     let couponId = null;
-    const { couponId: requestedCouponId, delivery_address, receiver_name, receiver_phone, isGift, receiverId, giftMessage } = req.body || {};
+    const { couponId: requestedCouponId, pointsToUse: requestedPoints, delivery_address, receiver_name, receiver_phone, isGift, receiverId, giftMessage } = req.body || {};
 
     if (requestedCouponId) {
       const [userCoupons] = await connection.execute(
@@ -81,12 +81,34 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    const finalAmount = totalAmount - discountAmount;
+    let finalAmount = totalAmount - discountAmount;
+
+    // 포인트 적용
+    let pointsUsed = 0;
+    if (requestedPoints && requestedPoints > 0) {
+      const [userRows] = await connection.execute(
+        'SELECT points FROM users WHERE id = ?',
+        [req.user.userId]
+      );
+      const userPoints = userRows[0]?.points || 0;
+      if (requestedPoints > userPoints) {
+        await connection.rollback();
+        return res.status(400).json({ message: '보유 포인트가 부족합니다.' });
+      }
+      pointsUsed = Math.min(requestedPoints, finalAmount);
+      finalAmount -= pointsUsed;
+
+      // 포인트 차감
+      await connection.execute(
+        'UPDATE users SET points = points - ? WHERE id = ?',
+        [pointsUsed, req.user.userId]
+      );
+    }
 
     // 주문 생성
     const [orderResult] = await connection.execute(
-      'INSERT INTO orders (user_id, total_amount, discount_amount, final_amount, coupon_id, delivery_address, receiver_name, receiver_phone, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.userId, totalAmount, discountAmount, finalAmount, couponId, delivery_address || '', receiver_name || '', receiver_phone || '', 'checking']
+      'INSERT INTO orders (user_id, total_amount, discount_amount, final_amount, coupon_id, points_used, delivery_address, receiver_name, receiver_phone, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.userId, totalAmount, discountAmount, finalAmount, couponId, pointsUsed, delivery_address || '', receiver_name || '', receiver_phone || '', 'checking']
     );
 
     const orderId = orderResult.insertId;
@@ -262,8 +284,16 @@ exports.getOrders = async (req, res) => {
       if (!itemsMap.has(item.order_id)) itemsMap.set(item.order_id, []);
       itemsMap.get(item.order_id).push(item);
     }
+    // 선물 주문 여부 확인
+    const [giftRows] = await db.execute(
+      `SELECT order_id FROM gifts WHERE order_id IN (${placeholders})`,
+      orderIds
+    );
+    const giftOrderIds = new Set(giftRows.map(g => g.order_id));
+
     for (const order of orders) {
       order.items = itemsMap.get(order.id) || [];
+      order.is_gift = giftOrderIds.has(order.id);
     }
 
     res.json(orders);

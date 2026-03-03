@@ -22,6 +22,8 @@ function ProductDetailPage() {
   const reviewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setLoading(true);
+    setRecommendedProducts([]);
     Promise.all([fetchProduct(), fetchReviews(), checkCanReview(), checkWishlisted()]);
   }, [id]);
 
@@ -30,13 +32,15 @@ function ProductDetailPage() {
       const response = await api.get(`/products/${id}`);
       const prod = response.data;
       setProduct(prod);
+      setLoading(false);
+      // 추천 상품은 메인 로딩과 별도로 비동기 로드
       if (prod.category) {
-        const recRes = await api.get(`/products?category=${encodeURIComponent(prod.category)}`);
-        setRecommendedProducts(recRes.data.filter((p: Product) => p.id !== prod.id).slice(0, 4));
+        api.get(`/products?category=${encodeURIComponent(prod.category)}`).then(recRes => {
+          setRecommendedProducts(recRes.data.filter((p: Product) => p.id !== prod.id).slice(0, 4));
+        }).catch(() => {});
       }
     } catch (error) {
       console.error('상품 조회 실패:', error);
-    } finally {
       setLoading(false);
     }
   };
@@ -75,8 +79,8 @@ function ProductDetailPage() {
   const handleToggleWishlist = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      showAlert('로그인이 필요합니다.', 'warning');
-      navigate('/login');
+      const ok = await showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?');
+      if (ok) navigate('/login');
       return;
     }
     const wasWishlisted = wishlisted;
@@ -115,8 +119,8 @@ function ProductDetailPage() {
   const handleAddToCart = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      showAlert('로그인이 필요합니다.', 'warning');
-      navigate('/login');
+      const ok = await showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?');
+      if (ok) navigate('/login');
       return;
     }
     if (product?.options && product.options.length > 0) {

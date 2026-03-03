@@ -19,6 +19,15 @@ interface AdminEvent {
   created_at: string;
 }
 
+interface AdminCoupon {
+  id: number;
+  code: string;
+  discount_amount: number;
+  discount_percentage: number | null;
+  expiry_date: string;
+  is_active: boolean;
+}
+
 function AdminEventsTab() {
   const { showAlert, showConfirm } = useAlert();
   const [events, setEvents] = useState<AdminEvent[]>([]);
@@ -29,9 +38,11 @@ function AdminEventsTab() {
     max_participants: '', start_date: '', end_date: ''
   });
   const [drawCount, setDrawCount] = useState<Record<number, string>>({});
+  const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
 
   useEffect(() => {
     fetchEvents();
+    fetchCoupons();
   }, []);
 
   const fetchEvents = async () => {
@@ -42,6 +53,15 @@ function AdminEventsTab() {
       console.error('이벤트 조회 실패:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCoupons = async () => {
+    try {
+      const res = await api.get('/admin/coupons');
+      setCoupons(res.data);
+    } catch (error) {
+      console.error('쿠폰 목록 조회 실패:', error);
     }
   };
 
@@ -109,23 +129,35 @@ function AdminEventsTab() {
           </select>
           <select
             value={eventForm.reward_type}
-            onChange={e => setEventForm({ ...eventForm, reward_type: e.target.value })}
+            onChange={e => setEventForm({ ...eventForm, reward_type: e.target.value, reward_id: '', reward_amount: '' })}
           >
             <option value="coupon">쿠폰</option>
             <option value="point">포인트</option>
           </select>
-          <input
-            type="number"
-            placeholder="보상 ID (쿠폰 ID)"
-            value={eventForm.reward_id}
-            onChange={e => setEventForm({ ...eventForm, reward_id: e.target.value })}
-          />
-          <input
-            type="number"
-            placeholder="보상 수량/금액"
-            value={eventForm.reward_amount}
-            onChange={e => setEventForm({ ...eventForm, reward_amount: e.target.value })}
-          />
+          {eventForm.reward_type === 'coupon' ? (
+            <select
+              value={eventForm.reward_id}
+              onChange={e => setEventForm({ ...eventForm, reward_id: e.target.value })}
+              required
+            >
+              <option value="">쿠폰 선택</option>
+              {coupons
+                .filter(c => c.is_active && new Date(c.expiry_date) > new Date())
+                .map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} ({c.discount_percentage ? `${c.discount_percentage}%` : `${c.discount_amount.toLocaleString()}원`} 할인)
+                  </option>
+                ))}
+            </select>
+          ) : (
+            <input
+              type="number"
+              placeholder="포인트 금액 (필수)"
+              value={eventForm.reward_amount}
+              onChange={e => setEventForm({ ...eventForm, reward_amount: e.target.value })}
+              required
+            />
+          )}
           <input
             type="number"
             placeholder="최대 참여 인원"

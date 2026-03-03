@@ -1,4 +1,5 @@
 import { useState, forwardRef } from 'react';
+import Rating from '@mui/material/Rating';
 import type { Review } from '../../types';
 
 interface Props {
@@ -14,12 +15,8 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
     const [showForm, setShowForm] = useState(false);
     const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' });
 
-    const renderStars = (rating: number) => {
-      return '★'.repeat(rating) + '☆'.repeat(5 - rating);
-    };
-
     const avgRating = reviews.length > 0
-      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+      ? (reviews.reduce((sum, r) => sum + Number(r.rating), 0) / reviews.length)
       : null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -35,10 +32,10 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
           <h3>
             리뷰 {reviews.length > 0 && <span className="review-count">({reviews.length})</span>}
           </h3>
-          {avgRating && (
+          {avgRating !== null && (
             <span className="review-avg">
-              <span className="stars">{renderStars(Math.round(Number(avgRating)))}</span>
-              {avgRating}
+              <Rating value={avgRating} precision={0.5} size="small" readOnly />
+              <span className="review-avg-number">{avgRating.toFixed(1)}</span>
             </span>
           )}
         </div>
@@ -53,18 +50,15 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
           <form className="review-form" onSubmit={handleSubmit}>
             <div className="rating-select">
               <span>별점</span>
-              <div className="rating-stars">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    className={`star-btn ${star <= reviewForm.rating ? 'active' : ''}`}
-                    onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
+              <Rating
+                value={reviewForm.rating}
+                precision={0.5}
+                size="large"
+                onChange={(_, value) => {
+                  if (value !== null) setReviewForm({ ...reviewForm, rating: value });
+                }}
+              />
+              <span className="rating-value">{reviewForm.rating}</span>
             </div>
             <textarea
               placeholder="리뷰를 작성해주세요..."
@@ -87,7 +81,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
               <div key={review.id} className="review-item">
                 <div className="review-item-header">
                   <span className="review-author">{review.nickname || review.user?.nickname}</span>
-                  <span className="review-stars">{renderStars(review.rating)}</span>
+                  <Rating value={Number(review.rating)} precision={0.5} size="small" readOnly />
                   <span className="review-date">
                     {new Date(review.created_at).toLocaleDateString('ko-KR')}
                   </span>

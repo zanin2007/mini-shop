@@ -20,13 +20,20 @@ function Layout() {
   const { showConfirm } = useAlert();
 
   useEffect(() => {
+    const loadUser = () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const userData = localStorage.getItem('user');
+        if (userData) setUser(JSON.parse(userData));
+      } else {
+        setUser(null);
+      }
+    };
+
+    loadUser();
+
     const token = localStorage.getItem('token');
     if (token) {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-      // 병렬로 카운트 조회
       Promise.all([
         api.get('/cart').then(r => r.data.length).catch(() => 0),
         api.get('/mailbox/unread-count').then(r => r.data.count).catch(() => 0),
@@ -37,6 +44,15 @@ function Layout() {
         setNotifCount(notif);
       });
     }
+
+    // localStorage 변경 감지 (닉네임 등 실시간 반영)
+    const handleStorageChange = () => loadUser();
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('userUpdated', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userUpdated', handleStorageChange);
+    };
   }, []);
 
   const handleLogout = async () => {

@@ -463,6 +463,399 @@
   border-color: var(--color-success);
 }
 
+/* ===== Refund Management ===== */
+.admin-refund-section {
+  margin-bottom: 2rem;
+}
+
+.admin-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.admin-refund-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-refund-card {
+  padding: 1.25rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-warning, #f39c12);
+}
+
+.admin-refund-card.processed {
+  border-left-color: var(--color-border);
+  opacity: 0.7;
+}
+
+.admin-refund-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-refund-order {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.admin-refund-user {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.admin-refund-date {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.admin-refund-status {
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.admin-refund-status.approved {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.admin-refund-status.rejected {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.admin-refund-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-refund-item {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-alt);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+}
+
+.admin-refund-amount {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.admin-refund-amount strong {
+  color: var(--color-text);
+}
+
+.admin-refund-reason {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+
+.admin-refund-note {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 0.35rem;
+}
+
+.admin-refund-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-refund-note-input {
+  flex: 1;
+  min-width: 150px;
+  padding: 0.4rem 0.6rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--color-text);
+  background: var(--color-surface-alt);
+  transition: border-color var(--duration) var(--ease);
+}
+
+.admin-refund-note-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.admin-refund-approve-btn {
+  padding: 0.4rem 1rem;
+  background: var(--color-success-bg);
+  border: 1px solid rgba(90, 138, 94, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--color-success);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.admin-refund-approve-btn:hover {
+  background: rgba(90, 138, 94, 0.15);
+  border-color: var(--color-success);
+}
+
+.admin-refund-reject-btn {
+  padding: 0.4rem 1rem;
+  background: var(--color-error-bg);
+  border: 1px solid rgba(192, 57, 43, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--color-error);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.admin-refund-reject-btn:hover {
+  background: rgba(192, 57, 43, 0.15);
+  border-color: var(--color-error);
+}
+
+/* ===== User Penalty Management ===== */
+.penalty-warning-count {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.penalty-warning-count.danger {
+  color: var(--color-error);
+}
+
+.penalty-status {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.penalty-status.normal {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.penalty-status.suspended {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.penalty-history-btn {
+  padding: 0.3rem 0.7rem;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.penalty-history-btn:hover {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.penalty-detail-row td {
+  background: var(--color-surface-alt);
+  padding: 1rem !important;
+}
+
+.penalty-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.penalty-issue-form h4,
+.penalty-history h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.penalty-form-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.penalty-form-row select {
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.penalty-form-row input {
+  flex: 1;
+  padding: 0.45rem 0.7rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.penalty-form-row select:focus,
+.penalty-form-row input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.penalty-issue-btn {
+  padding: 0.45rem 1rem;
+  background: var(--color-error-bg);
+  border: 1px solid rgba(192, 57, 43, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--color-error);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration) var(--ease);
+}
+
+.penalty-issue-btn:hover {
+  background: rgba(192, 57, 43, 0.15);
+  border-color: var(--color-error);
+}
+
+.penalty-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.penalty-item {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  position: relative;
+}
+
+.penalty-item.inactive {
+  opacity: 0.55;
+}
+
+.penalty-item.active {
+  border-left: 3px solid var(--color-error);
+}
+
+.penalty-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.penalty-type-badge {
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.penalty-type-badge.warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.penalty-type-badge[class*="day"] {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.penalty-type-badge.permanent {
+  background: #2c0b0e;
+  color: #ff6b6b;
+}
+
+.penalty-date,
+.penalty-until {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.penalty-active-badge {
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.penalty-active-badge.active {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.penalty-reason {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin: 0.25rem 0;
+  line-height: 1.4;
+}
+
+.penalty-admin {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.penalty-revoke-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.penalty-revoke-btn:hover {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
 /* ===== Mobile ===== */
 @media (max-width: 768px) {
   .admin-page {

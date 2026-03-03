@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
 import type { Product } from '../../types';
 import './MainPage.css';
 
+const ITEMS_PER_PAGE = 8;
+
 function MainPage() {
   const navigate = useNavigate();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     Promise.all([fetchCategories(), fetchProducts(), fetchWishlistIds()]);
@@ -46,6 +49,7 @@ function MainPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1);
     fetchProducts(search, selectedCategory);
   };
 
@@ -65,8 +69,8 @@ function MainPage() {
     e.stopPropagation();
     const token = localStorage.getItem('token');
     if (!token) {
-      showAlert('로그인이 필요합니다.', 'warning');
-      navigate('/login');
+      const ok = await showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?');
+      if (ok) navigate('/login');
       return;
     }
     const wasWishlisted = wishlistIds.includes(productId);
@@ -96,8 +100,32 @@ function MainPage() {
 
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
+    setCurrentPage(1);
     fetchProducts(search, category);
   };
+
+  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return products.slice(start, start + ITEMS_PER_PAGE);
+  }, [products, currentPage]);
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    let start = currentPage - 2;
+    let end = currentPage + 2;
+    if (start < 1) {
+      start = 1;
+      end = 5;
+    }
+    if (end > totalPages) {
+      end = totalPages;
+      start = totalPages - 4;
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }, [totalPages, currentPage]);
 
   return (
     <div className="main-page">
@@ -147,37 +175,67 @@ function MainPage() {
           ) : products.length === 0 ? (
             <div className="empty-products">검색 결과가 없습니다.</div>
           ) : (
-            <div className="products-grid">
-              {products.map((product) => (
-                <Link
-                  to={`/products/${product.id}`}
-                  key={product.id}
-                  className={`product-card ${product.stock <= 0 ? 'sold-out' : ''}`}
-                >
-                  <div className="product-image">
-                    <img src={product.image_url} alt={product.name} />
-                    {product.stock <= 0 && (
-                      <div className="sold-out-overlay">
-                        <span>Sold Out</span>
-                      </div>
-                    )}
+            <>
+              <div className="products-grid">
+                {paginatedProducts.map((product) => (
+                  <Link
+                    to={`/products/${product.id}`}
+                    key={product.id}
+                    className={`product-card ${product.stock <= 0 ? 'sold-out' : ''}`}
+                  >
+                    <div className="product-image">
+                      <img src={product.image_url} alt={product.name} />
+                      {product.stock <= 0 && (
+                        <div className="sold-out-overlay">
+                          <span>Sold Out</span>
+                        </div>
+                      )}
+                      <button
+                        className={`product-heart ${wishlistIds.includes(product.id) ? 'active' : ''}`}
+                        onClick={(e) => handleToggleWishlist(e, product.id)}
+                      >
+                        {wishlistIds.includes(product.id) ? '♥' : '♡'}
+                      </button>
+                    </div>
+                    <div className="product-info">
+                      <h4>{product.name}</h4>
+                      <p className="product-category">{product.category}</p>
+                      <p className="product-price">
+                        {product.price.toLocaleString()}원
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="pagination">
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    &lt;
+                  </button>
+                  {pageNumbers.map(page => (
                     <button
-                      className={`product-heart ${wishlistIds.includes(product.id) ? 'active' : ''}`}
-                      onClick={(e) => handleToggleWishlist(e, product.id)}
+                      key={page}
+                      className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                      onClick={() => setCurrentPage(page)}
                     >
-                      {wishlistIds.includes(product.id) ? '♥' : '♡'}
+                      {page}
                     </button>
-                  </div>
-                  <div className="product-info">
-                    <h4>{product.name}</h4>
-                    <p className="product-category">{product.category}</p>
-                    <p className="product-price">
-                      {product.price.toLocaleString()}원
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  ))}
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    &gt;
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

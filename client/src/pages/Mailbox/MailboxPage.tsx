@@ -28,7 +28,10 @@ function MailboxPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
       return;
     }
     fetchMails();
@@ -84,6 +87,17 @@ function MailboxPage() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!(await showConfirm('모든 우편을 삭제하시겠습니까?'))) return;
+    try {
+      await api.delete('/mailbox/all');
+      setMails([]);
+      showAlert('전체 우편이 삭제되었습니다.', 'success');
+    } catch (error) {
+      console.error('전체 삭제 실패:', error);
+    }
+  };
+
   const getRewardLabel = (mail: Mail) => {
     if (!mail.reward_type) return null;
     switch (mail.reward_type) {
@@ -104,8 +118,13 @@ function MailboxPage() {
     <div className="mailbox-page">
       <div className="mailbox-container">
         <div className="mailbox-header">
-          <button className="back-btn" onClick={() => navigate(-1)}>← 뒤로</button>
-          <h2>✉️ 우편함</h2>
+          <div className="mailbox-header-left">
+            <button className="back-btn" onClick={() => navigate(-1)}>← 뒤로</button>
+            <h2>우편함</h2>
+          </div>
+          {mails.length > 0 && (
+            <button className="delete-all-btn" onClick={handleDeleteAll}>전체 삭제</button>
+          )}
         </div>
 
         {mails.length === 0 ? (

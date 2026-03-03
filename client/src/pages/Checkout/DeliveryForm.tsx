@@ -17,9 +17,15 @@ interface Props {
 }
 
 function DeliveryForm({ delivery, setDelivery }: Props) {
+  const formatPhone = (digits: string) => {
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  };
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
-    setDelivery({ ...delivery, receiver_phone: value });
+    const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
+    setDelivery({ ...delivery, receiver_phone: formatPhone(digits) });
   };
 
   const handleAddressSearch = () => {
@@ -46,13 +52,12 @@ function DeliveryForm({ delivery, setDelivery }: Props) {
         <label>연락처</label>
         <input
           type="tel"
-          placeholder="01012345678"
+          placeholder="010-1234-5678"
           value={delivery.receiver_phone}
           onChange={handlePhoneChange}
-          maxLength={11}
+          maxLength={13}
           inputMode="numeric"
         />
-        <span className="field-hint">숫자만 입력 (- 없이)</span>
       </div>
       <div className="delivery-field">
         <label>배송 주소</label>

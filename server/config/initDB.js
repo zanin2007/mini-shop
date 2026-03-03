@@ -32,6 +32,7 @@ async function initializeDatabase() {
       password VARCHAR(255) NOT NULL,
       nickname VARCHAR(100) NOT NULL,
       role VARCHAR(20) NOT NULL DEFAULT 'user',
+      points INT NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -100,6 +101,7 @@ async function initializeDatabase() {
       receiver_name VARCHAR(100),
       receiver_phone VARCHAR(20),
       coupon_id INT DEFAULT NULL,
+      points_used INT NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -172,7 +174,7 @@ async function initializeDatabase() {
       user_id INT NOT NULL,
       product_id INT NOT NULL,
       order_id INT NOT NULL,
-      rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      rating DECIMAL(2,1) NOT NULL,
       content TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -250,18 +252,50 @@ async function initializeDatabase() {
       FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
       FOREIGN KEY (option_value_id) REFERENCES product_option_values(id) ON DELETE CASCADE
     );
-  `);
-  console.log('전체 테이블 확인 완료 (19개)');
 
-  // orders 테이블 completed_at 컬럼 확인 (조건부 ALTER)
-  const [cols] = await connection.execute(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'completed_at'`,
-    [process.env.DB_NAME]
-  );
-  if (cols.length === 0) {
-    await connection.query('ALTER TABLE orders ADD COLUMN completed_at DATETIME DEFAULT NULL');
-  }
+    CREATE TABLE IF NOT EXISTS refunds (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL UNIQUE,
+      user_id INT NOT NULL,
+      reason TEXT NOT NULL,
+      status VARCHAR(50) NOT NULL DEFAULT 'requested',
+      admin_note TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      processed_at DATETIME DEFAULT NULL,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS user_penalties (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      reason TEXT NOT NULL,
+      admin_id INT NOT NULL,
+      suspended_until DATETIME DEFAULT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  console.log('전체 테이블 확인 완료 (21개)');
+
+  // 조건부 컬럼 추가 (기존 DB 호환)
+  const safeAddColumn = async (table, column, definition) => {
+    const [cols] = await connection.execute(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+      [process.env.DB_NAME, table, column]
+    );
+    if (cols.length === 0) {
+      await connection.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  };
+
+  await safeAddColumn('orders', 'completed_at', 'DATETIME DEFAULT NULL');
+  await safeAddColumn('users', 'points', 'INT NOT NULL DEFAULT 0');
+  await safeAddColumn('orders', 'points_used', 'INT NOT NULL DEFAULT 0');
 
   await connection.end();
   console.log('데이터베이스 초기화 완료!');

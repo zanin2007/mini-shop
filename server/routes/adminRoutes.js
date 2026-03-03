@@ -6,7 +6,9 @@ const {
   getAllProducts, deleteProduct,
   createCoupon, getAllCoupons, deleteCoupon, distributeCoupon,
   createAnnouncement, getAllAnnouncements, deleteAnnouncement,
-  createEvent, getAllEvents, deleteEvent, drawEventWinners
+  createEvent, getAllEvents, deleteEvent, drawEventWinners,
+  getAllRefunds, processRefund,
+  getUsersWithActivity, getUserPenalties, issuePenalty, revokePenalty
 } = require('../controllers/adminController');
 
 // 모든 관리자 라우트에 인증 + 관리자 권한 필요
@@ -27,5 +29,11 @@ router.post('/events', createEvent);
 router.get('/events', getAllEvents);
 router.delete('/events/:id', deleteEvent);
 router.post('/events/:id/draw', drawEventWinners);
+router.get('/refunds', getAllRefunds);
+router.put('/refunds/:id', processRefund);
+router.get('/users-activity', getUsersWithActivity);
+router.get('/users/:userId/penalties', getUserPenalties);
+router.post('/users/:userId/penalties', issuePenalty);
+router.put('/penalties/:penaltyId/revoke', revokePenalty);
 
 module.exports = router;

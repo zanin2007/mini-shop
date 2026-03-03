@@ -243,19 +243,38 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ message: '제목과 기간은 필수입니다.' });
     }
 
-    await db.execute(
+    // 쿠폰 보상인 경우 쿠폰 ID 필수 검증
+    if (reward_type === 'coupon') {
+      if (!reward_id) {
+        return res.status(400).json({ message: '쿠폰 보상에는 쿠폰 ID가 필요합니다.' });
+      }
+      const [couponCheck] = await db.execute('SELECT id FROM coupons WHERE id = ?', [reward_id]);
+      if (couponCheck.length === 0) {
+        return res.status(400).json({ message: '존재하지 않는 쿠폰 ID입니다.' });
+      }
+    }
+
+    // 포인트 보상인 경우 금액 필수 검증
+    if (reward_type === 'point') {
+      if (!reward_amount || reward_amount <= 0) {
+        return res.status(400).json({ message: '포인트 보상에는 금액이 필요합니다.' });
+      }
+    }
+
+    const [result] = await db.execute(
       `INSERT INTO events (title, description, type, reward_type, reward_id, reward_amount, max_participants, start_date, end_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [title, description || null, type || 'fcfs', reward_type || null, reward_id || null, reward_amount || null, max_participants || null, start_date, end_date]
     );
+    const eventId = result.insertId;
 
-    // 전체 유저에게 알림
+    // 전체 유저에게 알림 (link에 이벤트 ID 저장)
     const [users] = await db.execute('SELECT id FROM users');
     for (const user of users) {
       await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content)
-         VALUES (?, 'system', ?, ?)`,
-        [user.id, `🎉 새 이벤트: ${title}`, description ? description.substring(0, 100) : '새로운 이벤트가 시작되었습니다!']
+        `INSERT INTO notifications (user_id, type, title, content, link)
+         VALUES (?, 'system', ?, ?, ?)`,
+        [user.id, `🎉 새 이벤트: ${title}`, description ? description.substring(0, 100) : '새로운 이벤트가 시작되었습니다!', `event:${eventId}`]
       );
     }
 
@@ -304,9 +323,10 @@ exports.drawEventWinners = async (req, res) => {
     }
     const event = events[0];
 
+    const limit = parseInt(winner_count) || 1;
     const [participants] = await db.execute(
-      'SELECT * FROM event_participants WHERE event_id = ? AND is_winner = false ORDER BY RAND() LIMIT ?',
-      [id, winner_count || 1]
+      `SELECT * FROM event_participants WHERE event_id = ? AND is_winner = false ORDER BY RAND() LIMIT ${limit}`,
+      [id]
     );
 
     if (participants.length === 0) {
@@ -338,6 +358,237 @@ exports.drawEventWinners = async (req, res) => {
     res.json({ message: `${participants.length}명이 당첨되었습니다.` });
   } catch (error) {
     console.error('Admin draw event winners error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 전체 환불 요청 조회
+exports.getAllRefunds = async (req, res) => {
+  try {
+    const [refunds] = await db.execute(
+      `SELECT r.*, u.nickname, u.email,
+              o.total_amount, o.discount_amount, o.final_amount, o.created_at AS order_date
+       FROM refunds r
+       JOIN users u ON r.user_id = u.id
+       JOIN orders o ON r.order_id = o.id
+       ORDER BY r.created_at DESC`
+    );
+
+    // 각 환불에 주문 상품 정보 포함
+    for (const refund of refunds) {
+      const [items] = await db.execute(
+        `SELECT oi.*, p.name, p.image_url
+         FROM order_items oi
+         JOIN products p ON oi.product_id = p.id
+         WHERE oi.order_id = ?`,
+        [refund.order_id]
+      );
+      refund.items = items;
+    }
+
+    res.json(refunds);
+  } catch (error) {
+    console.error('Admin get refunds error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// ===== 회원 관리 (경고/정지) =====
+
+// 환불/리뷰 작성자 목록 조회
+exports.getUsersWithActivity = async (req, res) => {
+  try {
+    const [users] = await db.execute(
+      `SELECT u.id, u.nickname, u.email, u.role, u.created_at,
+              (SELECT COUNT(*) FROM reviews WHERE user_id = u.id) AS review_count,
+              (SELECT COUNT(*) FROM refunds WHERE user_id = u.id) AS refund_count,
+              (SELECT COUNT(*) FROM user_penalties WHERE user_id = u.id AND type = 'warning' AND is_active = true) AS warning_count,
+              (SELECT p.type FROM user_penalties p
+               WHERE p.user_id = u.id AND p.is_active = true AND p.type != 'warning'
+               AND (p.suspended_until IS NULL OR p.suspended_until > NOW())
+               ORDER BY p.created_at DESC LIMIT 1) AS suspension_type,
+              (SELECT p.suspended_until FROM user_penalties p
+               WHERE p.user_id = u.id AND p.is_active = true AND p.type != 'warning'
+               AND (p.suspended_until IS NULL OR p.suspended_until > NOW())
+               ORDER BY p.created_at DESC LIMIT 1) AS suspended_until
+       FROM users u
+       WHERE u.role != 'admin'
+       AND ((SELECT COUNT(*) FROM reviews WHERE user_id = u.id) > 0
+            OR (SELECT COUNT(*) FROM refunds WHERE user_id = u.id) > 0
+            OR (SELECT COUNT(*) FROM user_penalties WHERE user_id = u.id) > 0)
+       ORDER BY u.created_at DESC`
+    );
+    res.json(users);
+  } catch (error) {
+    console.error('Admin get users activity error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 특정 사용자 제재 이력 조회
+exports.getUserPenalties = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [penalties] = await db.execute(
+      `SELECT p.*, a.nickname AS admin_nickname
+       FROM user_penalties p
+       JOIN users a ON p.admin_id = a.id
+       WHERE p.user_id = ?
+       ORDER BY p.created_at DESC`,
+      [userId]
+    );
+    res.json(penalties);
+  } catch (error) {
+    console.error('Admin get user penalties error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 경고/정지 부여
+exports.issuePenalty = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { type, reason } = req.body;
+
+    if (!['warning', '7day', '30day', 'permanent'].includes(type)) {
+      return res.status(400).json({ message: '유효하지 않은 제재 유형입니다.' });
+    }
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: '사유를 입력해주세요.' });
+    }
+
+    // 대상 사용자 확인
+    const [users] = await db.execute('SELECT id, nickname FROM users WHERE id = ? AND role != ?', [userId, 'admin']);
+    if (users.length === 0) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    let suspendedUntil = null;
+    if (type === '7day') {
+      suspendedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    } else if (type === '30day') {
+      suspendedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    }
+
+    await db.execute(
+      'INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, ?)',
+      [userId, type, reason.trim(), req.user.userId, suspendedUntil]
+    );
+
+    // 알림 발송
+    const typeLabel = { warning: '경고', '7day': '7일 정지', '30day': '30일 정지', permanent: '영구 정지' };
+    await db.execute(
+      `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'system', ?, ?)`,
+      [userId, `${typeLabel[type]}를 받았습니다`, `사유: ${reason.trim()}`]
+    );
+
+    // 경고인 경우 누적 3회 이상 시 자동 7일 정지
+    if (type === 'warning') {
+      const [warnings] = await db.execute(
+        'SELECT COUNT(*) AS cnt FROM user_penalties WHERE user_id = ? AND type = ? AND is_active = true',
+        [userId, 'warning']
+      );
+      if (warnings[0].cnt >= 3) {
+        const autoSuspendUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await db.execute(
+          'INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, ?)',
+          [userId, '7day', '경고 3회 누적으로 인한 자동 정지', req.user.userId, autoSuspendUntil]
+        );
+        await db.execute(
+          `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'system', ?, ?)`,
+          [userId, '경고 누적으로 7일 정지 처리되었습니다', '경고 3회 이상 누적으로 자동 7일 이용 정지되었습니다.']
+        );
+        return res.json({ message: `경고가 부여되었습니다. (누적 ${warnings[0].cnt}회 - 자동 7일 정지 적용)` });
+      }
+    }
+
+    res.json({ message: `${typeLabel[type]}가 부여되었습니다.` });
+  } catch (error) {
+    console.error('Admin issue penalty error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 제재 해제
+exports.revokePenalty = async (req, res) => {
+  try {
+    const { penaltyId } = req.params;
+
+    const [penalties] = await db.execute('SELECT * FROM user_penalties WHERE id = ? AND is_active = true', [penaltyId]);
+    if (penalties.length === 0) {
+      return res.status(404).json({ message: '활성 제재를 찾을 수 없습니다.' });
+    }
+
+    await db.execute('UPDATE user_penalties SET is_active = false WHERE id = ?', [penaltyId]);
+
+    // 알림 발송
+    await db.execute(
+      `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'system', ?, ?)`,
+      [penalties[0].user_id, '제재가 해제되었습니다', '이용 제재가 해제되었습니다.']
+    );
+
+    res.json({ message: '제재가 해제되었습니다.' });
+  } catch (error) {
+    console.error('Admin revoke penalty error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 환불 승인/거부
+exports.processRefund = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, admin_note } = req.body;
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: '유효하지 않은 처리입니다.' });
+    }
+
+    const [refunds] = await db.execute('SELECT * FROM refunds WHERE id = ?', [id]);
+    if (refunds.length === 0) {
+      return res.status(404).json({ message: '환불 요청을 찾을 수 없습니다.' });
+    }
+
+    const refund = refunds[0];
+    if (refund.status !== 'requested') {
+      return res.status(400).json({ message: '이미 처리된 환불 요청입니다.' });
+    }
+
+    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+
+    await db.execute(
+      'UPDATE refunds SET status = ?, admin_note = ?, processed_at = NOW() WHERE id = ?',
+      [newStatus, admin_note || null, id]
+    );
+
+    if (action === 'approve') {
+      await db.execute(
+        'UPDATE orders SET status = ? WHERE id = ?',
+        ['refunded', refund.order_id]
+      );
+    } else {
+      // 거부 시 주문 상태를 다시 completed로 복원
+      await db.execute(
+        'UPDATE orders SET status = ? WHERE id = ?',
+        ['completed', refund.order_id]
+      );
+    }
+
+    // 유저에게 알림
+    const title = action === 'approve'
+      ? '환불이 승인되었습니다.'
+      : '환불 요청이 거부되었습니다.';
+    const content = admin_note || (action === 'approve' ? '환불 처리가 완료되었습니다.' : '환불 요청이 거부되었습니다.');
+
+    await db.execute(
+      `INSERT INTO notifications (user_id, type, title, content)
+       VALUES (?, 'system', ?, ?)`,
+      [refund.user_id, title, content]
+    );
+
+    res.json({ message: action === 'approve' ? '환불이 승인되었습니다.' : '환불이 거부되었습니다.' });
+  } catch (error) {
+    console.error('Admin process refund error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
 };

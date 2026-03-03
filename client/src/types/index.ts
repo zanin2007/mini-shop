@@ -3,6 +3,7 @@ export interface User {
   email: string;
   nickname: string;
   role?: string;
+  points?: number;
 }
 
 export interface Product {
@@ -64,12 +65,26 @@ export interface Order {
   discount_amount: number;
   final_amount: number;
   coupon_id: number | null;
+  points_used?: number;
   delivery_address: string;
   receiver_name: string;
   receiver_phone: string;
   status: string;
   created_at: string;
+  completed_at?: string;
   items?: OrderItem[];
+  is_gift?: boolean;
+}
+
+export interface Refund {
+  id: number;
+  order_id: number;
+  user_id: number;
+  reason: string;
+  status: string;
+  admin_note: string | null;
+  created_at: string;
+  processed_at: string | null;
 }
 
 export interface ProductOption {
@@ -110,6 +125,7 @@ export interface Gift {
   order_items?: OrderItem[];
   total_amount?: number;
   final_amount?: number;
+  order_status?: string;
 }
 
 export interface Coupon {

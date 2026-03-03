@@ -20,6 +20,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const giftRoutes = require('./routes/giftRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
+const refundRoutes = require('./routes/refundRoutes');
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/gifts', giftRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/refunds', refundRoutes);
 
 // 기본 라우트
 app.get('/', (req, res) => {

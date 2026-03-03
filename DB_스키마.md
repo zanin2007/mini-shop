@@ -17,6 +17,7 @@
 | password | VARCHAR(255) | NO | | 비밀번호 (bcrypt 암호화 저장) |
 | nickname | VARCHAR(100) | NO | | 사이트에서 보여질 닉네임 |
 | role | VARCHAR(20) | NO | | 유저 권한 (기본값: 'user', 관리자: 'admin') |
+| points | INT | NO | | 보유 포인트 (기본값: 0, 이벤트 보상/구매 시 사용) |
 | created_at | TIMESTAMP | YES | | 가입 일시 (자동 기록) |
 
 ---
@@ -110,6 +111,7 @@
 | receiver_name | VARCHAR(100) | YES | | 수령인 이름 |
 | receiver_phone | VARCHAR(20) | YES | | 수령인 전화번호 |
 | coupon_id | INT | YES | FK | 사용한 쿠폰 (-> coupons.id) |
+| points_used | INT | NO | | 사용한 포인트 (기본값: 0) |
 | completed_at | DATETIME | YES | | 구매 확정 일시 |
 | created_at | TIMESTAMP | YES | | 주문 일시 (자동 기록) |
 | updated_at | TIMESTAMP | YES | | 상태 변경 일시 (자동 갱신) |
@@ -365,6 +367,51 @@
 
 ---
 
+## 20. refunds (환불)
+- 구매 확정 후 사용자가 환불을 신청하는 테이블
+- 관리자가 승인/거부 처리
+- 코드: `CREATE TABLE refunds ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 환불 고유 번호 (자동 증가) |
+| order_id | INT | NO | FK, UK | 환불 대상 주문 (-> orders.id, 주문당 1건) |
+| user_id | INT | NO | FK | 환불 신청자 (-> users.id) |
+| reason | TEXT | NO | | 환불 사유 |
+| status | VARCHAR(50) | NO | | 상태 (기본값: 'requested') |
+| admin_note | TEXT | YES | | 관리자 메모 |
+| created_at | TIMESTAMP | YES | | 신청 일시 (자동 기록) |
+| processed_at | DATETIME | YES | | 처리 일시 |
+
+> **환불 상태 흐름: requested(신청) → approved(승인) / rejected(거부)**
+
+---
+
+## 21. user_penalties (회원 제재)
+- 관리자가 사용자에게 부여한 경고/정지 기록을 저장하는 테이블
+- 경고 3회 누적 시 자동 7일 정지
+- 정지된 사용자는 로그인 불가
+- 코드: `CREATE TABLE user_penalties ( id INT AUTO_INCREMENT PRIMARY KEY, ... )`
+
+| 컬럼명 | 타입 | NULL | 키 | 설명 |
+|---|---|---|---|---|
+| id | INT | NO | PK | 제재 고유 번호 (자동 증가) |
+| user_id | INT | NO | FK | 제재 대상 사용자 (-> users.id) |
+| type | VARCHAR(20) | NO | | 제재 유형 (warning/7day/30day/permanent) |
+| reason | TEXT | NO | | 제재 사유 |
+| admin_id | INT | NO | FK | 처리한 관리자 (-> users.id) |
+| suspended_until | DATETIME | YES | | 정지 만료일 (warning/permanent는 NULL) |
+| is_active | BOOLEAN | NO | | 활성 여부 (기본값: true, 해제 시 false) |
+| created_at | TIMESTAMP | YES | | 제재 부여 일시 (자동 기록) |
+
+> **제재 유형:**
+> - `warning`: 경고 (로그인 차단 없음, 3회 누적 시 자동 7일 정지)
+> - `7day`: 7일 정지 (suspended_until = 부여일 + 7일)
+> - `30day`: 30일 정지 (suspended_until = 부여일 + 30일)
+> - `permanent`: 영구 정지 (suspended_until = NULL, type으로 구분)
+
+---
+
 ## FK 관계도 (외래키)
 
 > **FK(외래키)란?**
@@ -404,3 +451,7 @@
 | announcements.admin_id | users.id | CASCADE |
 | event_participants.event_id | events.id | CASCADE |
 | event_participants.user_id | users.id | CASCADE |
+| refunds.order_id | orders.id | CASCADE |
+| refunds.user_id | users.id | CASCADE |
+| user_penalties.user_id | users.id | CASCADE |
+| user_penalties.admin_id | users.id | CASCADE |

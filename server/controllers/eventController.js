@@ -31,6 +31,20 @@ exports.getActiveEvents = async (req, res) => {
   }
 };
 
+// 참여한 이벤트 ID 목록
+exports.getMyParticipations = async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      'SELECT event_id FROM event_participants WHERE user_id = ?',
+      [req.user.userId]
+    );
+    res.json(rows.map(r => r.event_id));
+  } catch (error) {
+    console.error('Get my participations error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
 // 이벤트 참여
 exports.participateEvent = async (req, res) => {
   try {

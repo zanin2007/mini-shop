@@ -23,7 +23,10 @@ function WishlistPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
       return;
     }
     fetchWishlist();

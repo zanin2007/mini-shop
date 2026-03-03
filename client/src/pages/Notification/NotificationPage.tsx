@@ -9,6 +9,7 @@ interface Notification {
   type: string;
   title: string;
   content: string | null;
+  link: string | null;
   is_read: boolean;
   created_at: string;
 }
@@ -23,17 +24,23 @@ const typeIcons: Record<string, string> = {
 
 function NotificationPage() {
   const navigate = useNavigate();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [participatedEvents, setParticipatedEvents] = useState<Set<number>>(new Set());
+  const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
       return;
     }
     fetchNotifications();
+    fetchEventParticipation();
   }, []);
 
   const fetchNotifications = async () => {
@@ -47,10 +54,19 @@ function NotificationPage() {
     }
   };
 
+  const fetchEventParticipation = async () => {
+    try {
+      const response = await api.get('/events/my-participations');
+      setParticipatedEvents(new Set<number>(response.data));
+    } catch {
+      // 이벤트 조회 실패해도 알림은 정상 표시
+    }
+  };
+
   const handleRead = async (id: number) => {
     try {
       await api.put(`/notifications/${id}/read`);
-      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (error) {
       console.error('읽음 처리 실패:', error);
     }
@@ -59,11 +75,44 @@ function NotificationPage() {
   const handleReadAll = async () => {
     try {
       await api.put('/notifications/read-all');
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       showAlert('전체 읽음 처리되었습니다.', 'success');
     } catch (error) {
       console.error('전체 읽음 처리 실패:', error);
     }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!(await showConfirm('모든 알림을 삭제하시겠습니까?'))) return;
+    try {
+      await api.delete('/notifications/all');
+      setNotifications([]);
+      showAlert('전체 알림이 삭제되었습니다.', 'success');
+    } catch (error) {
+      console.error('전체 삭제 실패:', error);
+    }
+  };
+
+  const handleParticipate = async (eventId: number) => {
+    try {
+      await api.post(`/events/${eventId}/participate`);
+      setParticipatedEvents(prev => new Set([...prev, eventId]));
+      showAlert('이벤트에 참여했습니다!', 'success');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || '참여에 실패했습니다.';
+      showAlert(msg, 'error');
+    }
+  };
+
+  const handleCardClick = (notif: Notification) => {
+    if (!notif.is_read) handleRead(notif.id);
+    setSelectedNotif(notif);
+  };
+
+  const getEventIdFromLink = (link: string | null): number | null => {
+    if (!link || !link.startsWith('event:')) return null;
+    const id = parseInt(link.split(':')[1], 10);
+    return isNaN(id) ? null : id;
   };
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -91,40 +140,103 @@ function NotificationPage() {
         <div className="notification-header">
           <div className="notification-header-left">
             <button className="back-btn" onClick={() => navigate(-1)}>← 뒤로</button>
-            <h2>🔔 알림</h2>
+            <h2>알림</h2>
             {unreadCount > 0 && <span className="unread-count">{unreadCount}개 안읽음</span>}
           </div>
-          {unreadCount > 0 && (
-            <button className="read-all-btn" onClick={handleReadAll}>전체 읽음</button>
-          )}
+          <div className="notification-header-actions">
+            {unreadCount > 0 && (
+              <button className="read-all-btn" onClick={handleReadAll}>전체 읽음</button>
+            )}
+            {notifications.length > 0 && (
+              <button className="delete-all-btn" onClick={handleDeleteAll}>전체 삭제</button>
+            )}
+          </div>
         </div>
 
         {notifications.length === 0 ? (
           <p className="empty-message">알림이 없습니다.</p>
         ) : (
           <div className="notification-list">
-            {notifications.map(notif => (
-              <div
-                key={notif.id}
-                className={`notification-card ${!notif.is_read ? 'unread' : ''}`}
-                onClick={() => !notif.is_read && handleRead(notif.id)}
-              >
-                <div className="notif-icon">
-                  {typeIcons[notif.type] || '📢'}
-                </div>
-                <div className="notif-body">
-                  <div className="notif-title">
-                    {!notif.is_read && <span className="unread-dot" />}
-                    {notif.title}
+            {notifications.map(notif => {
+              const eventId = getEventIdFromLink(notif.link);
+              const isParticipated = eventId !== null && participatedEvents.has(eventId);
+
+              return (
+                <div
+                  key={notif.id}
+                  className={`notification-card ${!notif.is_read ? 'unread' : ''}`}
+                  onClick={() => handleCardClick(notif)}
+                >
+                  <div className="notif-icon">
+                    {eventId !== null ? '🎉' : (typeIcons[notif.type] || '📢')}
                   </div>
-                  {notif.content && <div className="notif-content">{notif.content}</div>}
-                  <div className="notif-time">{formatTime(notif.created_at)}</div>
+                  <div className="notif-body">
+                    <div className="notif-title">
+                      {!notif.is_read && <span className="unread-dot" />}
+                      {notif.title}
+                    </div>
+                    {notif.content && <div className="notif-content">{notif.content}</div>}
+                    <div className="notif-time">{formatTime(notif.created_at)}</div>
+                  </div>
+                  {eventId !== null && (
+                    <button
+                      className={`event-participate-btn ${isParticipated ? 'participated' : ''}`}
+                      disabled={isParticipated}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isParticipated) handleParticipate(eventId);
+                      }}
+                    >
+                      {isParticipated ? '참여 완료' : '참여하기'}
+                    </button>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* 알림 상세 모달 */}
+      {selectedNotif && (
+        <div className="notif-modal-overlay" onClick={() => setSelectedNotif(null)}>
+          <div className="notif-modal" onClick={e => e.stopPropagation()}>
+            <div className="notif-modal-header">
+              <span className="notif-modal-icon">
+                {getEventIdFromLink(selectedNotif.link) !== null ? '🎉' : (typeIcons[selectedNotif.type] || '📢')}
+              </span>
+              <h3>{selectedNotif.title}</h3>
+              <button className="notif-modal-close" onClick={() => setSelectedNotif(null)}>×</button>
+            </div>
+            <div className="notif-modal-body">
+              {selectedNotif.content ? (
+                <p className="notif-modal-content">{selectedNotif.content}</p>
+              ) : (
+                <p className="notif-modal-empty">추가 내용이 없습니다.</p>
+              )}
+            </div>
+            <div className="notif-modal-footer">
+              <span className="notif-modal-time">
+                {new Date(selectedNotif.created_at).toLocaleString('ko-KR')}
+              </span>
+              {(() => {
+                const eventId = getEventIdFromLink(selectedNotif.link);
+                if (eventId === null) return null;
+                const isParticipated = participatedEvents.has(eventId);
+                return (
+                  <button
+                    className={`event-participate-btn ${isParticipated ? 'participated' : ''}`}
+                    disabled={isParticipated}
+                    onClick={() => { if (!isParticipated) handleParticipate(eventId); }}
+                  >
+                    {isParticipated ? '참여 완료' : '참여하기'}
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

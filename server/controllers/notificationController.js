@@ -55,3 +55,17 @@ exports.markAllAsRead = async (req, res) => {
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
 };
+
+// 전체 삭제
+exports.deleteAll = async (req, res) => {
+  try {
+    await db.execute(
+      `DELETE FROM notifications WHERE user_id = ?`,
+      [req.user.userId]
+    );
+    res.json({ message: '전체 알림이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Delete all notifications error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};

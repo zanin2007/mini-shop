@@ -10,6 +10,18 @@ interface Props {
   onGiftAction: () => void;
 }
 
+const orderStatusMap: Record<string, string> = {
+  checking: '상품확인중',
+  pending: '준비중',
+  shipped: '배송중',
+  delivered: '배송완료',
+  completed: '수령완료',
+  refund_requested: '환불신청',
+  refunded: '환불완료',
+};
+
+const deliverySteps = ['checking', 'pending', 'shipped', 'delivered', 'completed'];
+
 function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
   const { showAlert, showConfirm } = useAlert();
   const [giftSubTab, setGiftSubTab] = useState<'received' | 'sent'>('received');
@@ -19,6 +31,19 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
     try {
       await api.put(`/gifts/${giftId}/accept`);
       showAlert('선물을 수락했습니다.', 'success');
+      onGiftAction();
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
+      }
+    }
+  };
+
+  const handleConfirmGift = async (giftId: number) => {
+    if (!(await showConfirm('수령완료 하시겠습니까?'))) return;
+    try {
+      await api.put(`/gifts/${giftId}/confirm`);
+      showAlert('수령이 완료되었습니다.', 'success');
       onGiftAction();
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -81,10 +106,38 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
                     ))}
                   </ul>
                 )}
+                {gift.order_status && gift.status === 'accepted' && (
+                  <div className="gift-delivery-status">
+                    <div className="gift-delivery-label">
+                      배송 상태: <strong>{orderStatusMap[gift.order_status] || gift.order_status}</strong>
+                    </div>
+                    {!['refund_requested', 'refunded'].includes(gift.order_status) && (
+                      <div className="delivery-progress">
+                        {deliverySteps.map((step, idx) => {
+                          const currentIdx = deliverySteps.indexOf(gift.order_status!);
+                          const isActive = idx <= currentIdx;
+                          return (
+                            <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>
+                              <div className="progress-dot" />
+                              <span>{orderStatusMap[step]}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {gift.status === 'pending' && (
                   <div className="gift-actions">
                     <button className="gift-accept-btn" onClick={() => handleAcceptGift(gift.id)}>수락</button>
                     <button className="gift-reject-btn" onClick={() => handleRejectGift(gift.id)}>거절</button>
+                  </div>
+                )}
+                {gift.status === 'accepted' && gift.order_status === 'delivered' && (
+                  <div className="gift-actions">
+                    <button className="gift-accept-btn" onClick={() => handleConfirmGift(gift.id)}>
+                      수령완료
+                    </button>
                   </div>
                 )}
               </div>
@@ -116,6 +169,27 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
                       </li>
                     ))}
                   </ul>
+                )}
+                {gift.order_status && (
+                  <div className="gift-delivery-status">
+                    <div className="gift-delivery-label">
+                      배송 상태: <strong>{orderStatusMap[gift.order_status] || gift.order_status}</strong>
+                    </div>
+                    {!['refund_requested', 'refunded'].includes(gift.order_status) && (
+                      <div className="delivery-progress">
+                        {deliverySteps.map((step, idx) => {
+                          const currentIdx = deliverySteps.indexOf(gift.order_status!);
+                          const isActive = idx <= currentIdx;
+                          return (
+                            <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>
+                              <div className="progress-dot" />
+                              <span>{orderStatusMap[step]}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
                 <div className="gift-total">
                   {(gift.final_amount || gift.total_amount || 0).toLocaleString()}원

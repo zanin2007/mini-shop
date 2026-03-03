@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAlert } from '../../components/AlertContext';
 import api from '../../api/instance';
-import type { Order, User, UserCoupon, Gift } from '../../types';
+import type { Order, User, UserCoupon, Gift, Refund } from '../../types';
 import OrdersTab from './OrdersTab';
 import PurchasesTab from './PurchasesTab';
 import CouponsTab from './CouponsTab';
@@ -15,10 +16,13 @@ const statusMap: Record<string, { label: string; className: string }> = {
   shipped: { label: '배송중', className: 'status-shipped' },
   delivered: { label: '배송완료', className: 'status-delivered' },
   completed: { label: '수령완료', className: 'status-completed' },
+  refund_requested: { label: '환불신청', className: 'status-refund-requested' },
+  refunded: { label: '환불완료', className: 'status-refunded' },
 };
 
 function MyPage() {
   const navigate = useNavigate();
+  const { showConfirm } = useAlert();
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
@@ -26,17 +30,33 @@ function MyPage() {
   const [activeTab, setActiveTab] = useState<'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings'>('orders');
   const [sentGifts, setSentGifts] = useState<Gift[]>([]);
   const [receivedGifts, setReceivedGifts] = useState<Gift[]>([]);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
       return;
     }
     const userData = localStorage.getItem('user');
     if (userData) setUser(JSON.parse(userData));
-    Promise.all([fetchOrders(), fetchCoupons(), fetchGifts()]);
+    fetchUser();
+    Promise.all([fetchOrders(), fetchCoupons(), fetchGifts(), fetchRefunds()]);
   }, []);
+
+  const fetchUser = async () => {
+    try {
+      const response = await api.get('/auth/check');
+      const freshUser = response.data.user;
+      setUser(freshUser);
+      localStorage.setItem('user', JSON.stringify(freshUser));
+    } catch (error) {
+      console.error('유저 정보 조회 실패:', error);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -71,9 +91,19 @@ function MyPage() {
     }
   }, []);
 
+  const fetchRefunds = useCallback(async () => {
+    try {
+      const response = await api.get('/refunds');
+      setRefunds(response.data);
+    } catch (error) {
+      console.error('환불 조회 실패:', error);
+    }
+  }, []);
+
   const handleUserUpdate = useCallback((updatedUser: User) => {
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
+    window.dispatchEvent(new Event('userUpdated'));
   }, []);
 
   const isCouponExpired = (coupon: UserCoupon) => {
@@ -87,8 +117,8 @@ function MyPage() {
   const availableCoupons = useMemo(() => coupons.filter(c => !c.is_used && !isCouponExpired(c)), [coupons]);
   const usedOrExpiredCoupons = useMemo(() => coupons.filter(c => c.is_used || isCouponExpired(c)), [coupons]);
   const pendingGiftsCount = useMemo(() => receivedGifts.filter(g => g.status === 'pending').length, [receivedGifts]);
-  const activeOrders = useMemo(() => orders.filter(o => o.status !== 'completed'), [orders]);
-  const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed'), [orders]);
+  const activeOrders = useMemo(() => orders.filter(o => !['completed', 'refund_requested', 'refunded'].includes(o.status)), [orders]);
+  const completedOrders = useMemo(() => orders.filter(o => ['completed', 'refund_requested', 'refunded'].includes(o.status)), [orders]);
 
   if (loading) return <div className="loading"><div className="spinner" />로딩 중...</div>;
 
@@ -117,6 +147,10 @@ function MyPage() {
               <div className="hero-stat">
                 <span className="hero-stat-value">{availableCoupons.length}</span>
                 <span className="hero-stat-label">쿠폰</span>
+              </div>
+              <div className="hero-stat">
+                <span className="hero-stat-value">{(user?.points || 0).toLocaleString()}</span>
+                <span className="hero-stat-label">포인트</span>
               </div>
             </div>
           </div>
@@ -170,7 +204,7 @@ function MyPage() {
 
         {activeTab === 'purchases' && (
           <section className="mypage-section">
-            <PurchasesTab orders={completedOrders} statusMap={statusMap} />
+            <PurchasesTab orders={completedOrders} statusMap={statusMap} refunds={refunds} />
           </section>
         )}
 

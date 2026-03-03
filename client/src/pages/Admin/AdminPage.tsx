@@ -6,9 +6,10 @@ import AdminProductsTab from './AdminProductsTab';
 import AdminCouponsTab from './AdminCouponsTab';
 import AdminAnnouncementsTab from './AdminAnnouncementsTab';
 import AdminEventsTab from './AdminEventsTab';
+import AdminUsersTab from './AdminUsersTab';
 import './AdminPage.css';
 
-type Tab = 'orders' | 'products' | 'coupons' | 'announcements' | 'events';
+type Tab = 'orders' | 'products' | 'coupons' | 'announcements' | 'events' | 'users';
 
 const tabLabels: Record<Tab, string> = {
   orders: '주문 관리',
@@ -16,18 +17,22 @@ const tabLabels: Record<Tab, string> = {
   coupons: '쿠폰 관리',
   announcements: '공지 관리',
   events: '이벤트',
+  users: '회원 관리',
 };
 
 function AdminPage() {
   const navigate = useNavigate();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<Tab>('orders');
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (!userData) {
-      navigate('/login');
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
       return;
     }
     const user = JSON.parse(userData);
@@ -64,6 +69,7 @@ function AdminPage() {
           {activeTab === 'coupons' && <AdminCouponsTab />}
           {activeTab === 'announcements' && <AdminAnnouncementsTab />}
           {activeTab === 'events' && <AdminEventsTab />}
+          {activeTab === 'users' && <AdminUsersTab />}
         </div>
       </div>
     </div>
