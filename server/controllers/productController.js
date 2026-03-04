@@ -1,6 +1,15 @@
 const db = require('../config/db');
 
-// 상품 조회 (검색 + 카테고리 필터)
+/**
+ * 상품 컨트롤러
+ * - 상품 목록: 검색어 + 카테고리 필터링
+ * - 상품 상세: 옵션 그룹 + 옵션 값 배치 조회
+ * - 상품 등록: 기본 정보 + 옵션(옵션명, 값, 추가금액) 저장
+ * - 옵션 추가/삭제: 본인 상품만 가능
+ * - 상품 삭제: 본인 상품만 가능 (관리자 삭제는 adminController)
+ */
+
+// 상품 목록 조회 — 검색어 + 카테고리 필터링
 exports.getAllProducts = async (req, res) => {
   try {
     const { search, category } = req.query;

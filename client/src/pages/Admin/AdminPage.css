@@ -165,6 +165,26 @@
   background: var(--color-accent-light);
 }
 
+.status-badge {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-badge.status-refund_requested {
+  color: var(--color-warning);
+  border: 1.5px solid rgba(184, 134, 75, 0.3);
+  background: var(--color-warning-bg);
+}
+
+.status-badge.status-refunded {
+  color: var(--color-error);
+  border: 1.5px solid rgba(180, 80, 80, 0.3);
+  background: var(--color-error-bg);
+}
+
 /* ===== Product Filters ===== */
 .product-filters {
   display: flex;

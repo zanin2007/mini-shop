@@ -1,3 +1,9 @@
+/**
+ * 관리자 주문 관리 탭
+ * - 전체 주문 목록 (유저 정보 + 주문 상품)
+ * - 상태 변경: 드롭다운으로 변경 (환불 상태는 뱃지만 표시, 변경 차단)
+ * - 환불 관리: 환불 요청 조회, 승인/거부 (관리자 메모 입력 가능)
+ */
 import { useEffect, useState } from 'react';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';
@@ -217,19 +223,23 @@ function AdminOrdersTab() {
                     <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
                   </td>
                   <td>
-                    <select
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                      className={`status-select status-${order.status}`}
-                    >
-                      <option value="checking">상품확인중</option>
-                      <option value="pending">준비중</option>
-                      <option value="shipped">배송중</option>
-                      <option value="delivered">배송완료</option>
-                      <option value="completed">수령완료</option>
-                      <option value="refund_requested">환불신청</option>
-                      <option value="refunded">환불완료</option>
-                    </select>
+                    {order.status === 'refund_requested' || order.status === 'refunded' ? (
+                      <span className={`status-badge status-${order.status}`}>
+                        {order.status === 'refund_requested' ? '환불신청' : '환불완료'}
+                      </span>
+                    ) : (
+                      <select
+                        value={order.status}
+                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                        className={`status-select status-${order.status}`}
+                      >
+                        <option value="checking">상품확인중</option>
+                        <option value="pending">준비중</option>
+                        <option value="shipped">배송중</option>
+                        <option value="delivered">배송완료</option>
+                        <option value="completed">수령완료</option>
+                      </select>
+                    )}
                   </td>
                   <td>{new Date(order.created_at).toLocaleDateString('ko-KR')}</td>
                 </tr>

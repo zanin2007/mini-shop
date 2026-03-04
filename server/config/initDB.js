@@ -115,6 +115,7 @@ async function initializeDatabase() {
       title VARCHAR(255) NOT NULL,
       content TEXT,
       is_read BOOLEAN NOT NULL DEFAULT false,
+      is_pinned BOOLEAN NOT NULL DEFAULT false,
       link VARCHAR(500) DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -296,6 +297,7 @@ async function initializeDatabase() {
   await safeAddColumn('orders', 'completed_at', 'DATETIME DEFAULT NULL');
   await safeAddColumn('users', 'points', 'INT NOT NULL DEFAULT 0');
   await safeAddColumn('orders', 'points_used', 'INT NOT NULL DEFAULT 0');
+  await safeAddColumn('notifications', 'is_pinned', 'BOOLEAN NOT NULL DEFAULT false');
 
   await connection.end();
   console.log('데이터베이스 초기화 완료!');

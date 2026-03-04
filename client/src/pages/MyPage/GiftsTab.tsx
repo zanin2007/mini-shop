@@ -1,3 +1,9 @@
+/**
+ * 선물 탭
+ * - 보낸 선물 / 받은 선물 토글
+ * - 받은 선물: 수락/거절 기능 (pending 상태만)
+ * - 선물 메시지, 상태(대기/수락/거절) 표시
+ */
 import { useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';

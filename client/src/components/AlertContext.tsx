@@ -1,3 +1,8 @@
+/**
+ * 전역 알림 시스템 (Context API)
+ * - showAlert: 토스트 알림 (success/error/info/warning), 3초 후 자동 사라짐, 우측 상단
+ * - showConfirm: 확인/취소 모달, Promise<boolean> 반환
+ */
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import './Alert.css';
 

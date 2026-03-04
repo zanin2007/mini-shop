@@ -1,3 +1,9 @@
+/**
+ * 체크아웃 페이지
+ * - 장바구니 선택 상품 확인 → 배송 정보 입력 → 쿠폰/포인트 적용 → 선물 옵션 → 결제
+ * - 결제 금액: 상품금액 - 쿠폰할인 - 포인트사용 = 최종 결제금액
+ * - 주문 완료 시 localStorage 포인트 동기화
+ */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';

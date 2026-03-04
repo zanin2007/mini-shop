@@ -1,3 +1,10 @@
+/**
+ * 관리자 회원 관리 탭
+ * - 활동 유저 목록: 리뷰/환불/제재 이력 있는 유저 (경고 누적, 정지 상태 표시)
+ * - 제재 이력 모달: 특정 유저의 경고/정지 이력 조회
+ * - 경고/정지 부여: warning, 7일, 30일, 영구 (3회 경고 시 자동 7일 정지)
+ * - 제재 해제
+ */
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';

@@ -116,8 +116,10 @@
 | created_at | TIMESTAMP | YES | | 주문 일시 (자동 기록) |
 | updated_at | TIMESTAMP | YES | | 상태 변경 일시 (자동 갱신) |
 
-> **주문 상태 흐름: pending(준비중) → shipped(배송중) → delivered(배송완료) → completed(구매확정)**
-> 관리자가 상태를 변경할 수 있음 (관리자 페이지에서 드롭다운으로 변경)
+> **주문 상태 흐름: checking(확인중) → pending(준비중) → shipped(배송중) → delivered(배송완료) → completed(수령완료)**
+> - 관리자가 상태를 변경할 수 있음 (수령완료/환불 상태는 변경 불가)
+> - 추가 상태: `refund_requested`(환불요청) → `refunded`(환불완료)
+> - 선물 거절 시 자동으로 `refunded` 상태로 변경 (재고/쿠폰/포인트 자동 환불)
 
 ---
 
@@ -244,6 +246,8 @@
 | created_at | TIMESTAMP | YES | | 선물 보낸 일시 (자동 기록) |
 
 > **선물 상태 흐름: pending(대기중) → accepted(수락) / rejected(거절)**
+> - 거절 시 자동 환불: 주문 상태 `refunded`로 변경, 재고 복원, 쿠폰 복원, 포인트 환불
+> - 수락 후 배송완료 → 수령완료(구매확정) 가능
 
 ---
 
@@ -260,7 +264,8 @@
 | title | VARCHAR(255) | NO | | 알림 제목 |
 | content | TEXT | YES | | 알림 내용 |
 | is_read | BOOLEAN | NO | | 읽음 여부 (기본값: false) |
-| link | VARCHAR(500) | YES | | 클릭 시 이동할 경로 |
+| is_pinned | BOOLEAN | NO | | 상단 고정 여부 (기본값: false, 상단 고정 공지 알림용) |
+| link | VARCHAR(500) | YES | | 클릭 시 이동할 경로 (고정 공지: 'pinned:{공지ID}') |
 | created_at | TIMESTAMP | YES | | 알림 생성 일시 (자동 기록) |
 
 > **알림 타입 종류:**
@@ -268,6 +273,11 @@
 > - `gift`: 선물 관련 (선물 도착, 수락/거절)
 > - `coupon`: 쿠폰 관련 (새 쿠폰 발급)
 > - `system`: 시스템 공지
+>
+> **상단 고정 알림 (is_pinned):**
+> - 관리자가 상단 고정 공지를 등록하면 자동 생성
+> - 유저의 "전체 삭제"로 삭제되지 않음 (관리자가 공지 삭제 시에만 삭제)
+> - 알림 목록에서 항상 최상단에 표시 (is_pinned DESC, created_at DESC 정렬)
 
 ---
 

@@ -1,10 +1,16 @@
 const db = require('../config/db');
 
-// 알림 목록 조회
+/**
+ * 알림 컨트롤러
+ * - 알림 조회 (최근 50건), 안읽은 알림 수, 읽음 처리, 전체 읽음, 전체 삭제
+ * - 알림 생성은 각 기능 컨트롤러에서 직접 INSERT (주문/이벤트/공지/쿠폰/환불/선물 등)
+ */
+
+// 알림 목록 조회 — 최근 50건
 exports.getNotifications = async (req, res) => {
   try {
     const [notifications] = await db.execute(
-      `SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
+      `SELECT * FROM notifications WHERE user_id = ? ORDER BY is_pinned DESC, created_at DESC LIMIT 50`,
       [req.user.userId]
     );
     res.json(notifications);
@@ -56,11 +62,16 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
-// 전체 삭제
+// 전체 삭제 — 상단 고정 공지 알림(is_pinned)은 제외
 exports.deleteAll = async (req, res) => {
   try {
     await db.execute(
-      `DELETE FROM notifications WHERE user_id = ?`,
+      `DELETE FROM notifications WHERE user_id = ? AND is_pinned = false`,
+      [req.user.userId]
+    );
+    // 남은 고정 알림도 읽음 처리
+    await db.execute(
+      `UPDATE notifications SET is_read = true WHERE user_id = ? AND is_pinned = true AND is_read = false`,
       [req.user.userId]
     );
     res.json({ message: '전체 알림이 삭제되었습니다.' });

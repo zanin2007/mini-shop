@@ -1,3 +1,8 @@
+/**
+ * 구매 내역 탭 (수령완료/환불 주문)
+ * - 완료된 주문 + 환불 상태(심사중/승인/거부) 표시
+ * - 환불 신청 버튼: 수령완료 후 7일 이내만 (남은 일수 표시)
+ */
 import { Link, useNavigate } from 'react-router-dom';
 import type { Order, CartItemOption, Refund } from '../../types';
 

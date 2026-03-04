@@ -1,6 +1,13 @@
 const db = require('../config/db');
 
-// 진행중인 이벤트 목록 (유저용)
+/**
+ * 이벤트 컨트롤러 (유저용)
+ * - 진행중 이벤트 조회: 기간 내 활성 이벤트 + 본인 참여 여부
+ * - 내 참여 목록: 참여한 이벤트 ID 배열 반환 (알림 페이지 참여 상태 유지용)
+ * - 이벤트 참여: 기간/인원 검증 → 선착순(fcfs)이면 즉시 당첨 + 우편함 보상
+ */
+
+// 진행중인 이벤트 목록 — 활성 + 기간 내 이벤트, 본인 참여 여부 포함
 exports.getActiveEvents = async (req, res) => {
   try {
     const userId = req.user ? req.user.userId : null;

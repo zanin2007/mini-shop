@@ -1,3 +1,9 @@
+/**
+ * 쿠폰 탭
+ * - 사용 가능/사용완료+만료 쿠폰 구분 표시
+ * - 쿠폰 코드 입력으로 쿠폰 등록
+ * - 할인 정보 (할인율 or 정액), 최소 주문금액, 만료일 표시
+ */
 import { useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';

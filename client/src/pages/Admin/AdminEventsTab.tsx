@@ -1,3 +1,9 @@
+/**
+ * 관리자 이벤트 탭
+ * - 이벤트 생성: 선착순(fcfs)/추첨(draw) 타입, 보상(쿠폰 선택/포인트 금액 입력)
+ * - 이벤트 목록: 참여자 수, 기간, 추첨 기능 (draw 타입만)
+ * - 삭제
+ */
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';

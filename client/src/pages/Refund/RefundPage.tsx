@@ -1,3 +1,9 @@
+/**
+ * 환불 신청 페이지
+ * - 주문 정보 + 상품 목록 표시
+ * - 환불 사유 입력 → 환불 신청 API 호출
+ * - 수령완료(completed) 후 7일 이내만 접근 가능
+ */
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';

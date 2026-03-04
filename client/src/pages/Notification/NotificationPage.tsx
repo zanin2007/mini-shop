@@ -1,3 +1,10 @@
+/**
+ * 알림 페이지
+ * - 알림 목록 (읽음/안읽음), 전체 읽음/전체 삭제
+ * - 이벤트 알림: link에 "event:{id}" 형태로 이벤트 ID 저장 → 참여 버튼 표시
+ * - 참여 상태: /events/my-participations로 영구 유지 (만료 이벤트도 참여완료 표시)
+ * - 알림 상세 모달: 카드 클릭 시 확대 보기
+ */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
@@ -11,6 +18,7 @@ interface Notification {
   content: string | null;
   link: string | null;
   is_read: boolean;
+  is_pinned: boolean;
   created_at: string;
 }
 
@@ -46,7 +54,12 @@ function NotificationPage() {
   const fetchNotifications = async () => {
     try {
       const response = await api.get('/notifications');
-      setNotifications(response.data);
+      // 상단 고정 알림이 항상 최상단에 오도록 정렬
+      const sorted = [...response.data].sort((a: Notification, b: Notification) => {
+        if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setNotifications(sorted);
     } catch (error) {
       console.error('알림 조회 실패:', error);
     } finally {
@@ -83,10 +96,11 @@ function NotificationPage() {
   };
 
   const handleDeleteAll = async () => {
-    if (!(await showConfirm('모든 알림을 삭제하시겠습니까?'))) return;
+    if (!(await showConfirm('모든 알림을 삭제하시겠습니까? (상단 고정 공지는 유지됩니다)'))) return;
     try {
       await api.delete('/notifications/all');
-      setNotifications([]);
+      // 고정 알림은 서버에서도 삭제되지 않으므로 로컬에서도 유지 (읽음 처리)
+      setNotifications(prev => prev.filter(n => n.is_pinned).map(n => ({ ...n, is_read: true })));
       showAlert('전체 알림이 삭제되었습니다.', 'success');
     } catch (error) {
       console.error('전체 삭제 실패:', error);
@@ -164,11 +178,11 @@ function NotificationPage() {
               return (
                 <div
                   key={notif.id}
-                  className={`notification-card ${!notif.is_read ? 'unread' : ''}`}
+                  className={`notification-card ${!notif.is_read ? 'unread' : ''} ${notif.is_pinned ? 'pinned' : ''}`}
                   onClick={() => handleCardClick(notif)}
                 >
                   <div className="notif-icon">
-                    {eventId !== null ? '🎉' : (typeIcons[notif.type] || '📢')}
+                    {notif.is_pinned ? '📌' : eventId !== null ? '🎉' : (typeIcons[notif.type] || '📢')}
                   </div>
                   <div className="notif-body">
                     <div className="notif-title">
@@ -203,7 +217,7 @@ function NotificationPage() {
           <div className="notif-modal" onClick={e => e.stopPropagation()}>
             <div className="notif-modal-header">
               <span className="notif-modal-icon">
-                {getEventIdFromLink(selectedNotif.link) !== null ? '🎉' : (typeIcons[selectedNotif.type] || '📢')}
+                {selectedNotif.is_pinned ? '📌' : getEventIdFromLink(selectedNotif.link) !== null ? '🎉' : (typeIcons[selectedNotif.type] || '📢')}
               </span>
               <h3>{selectedNotif.title}</h3>
               <button className="notif-modal-close" onClick={() => setSelectedNotif(null)}>×</button>

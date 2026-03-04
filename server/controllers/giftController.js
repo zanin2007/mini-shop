@@ -106,37 +106,93 @@ exports.acceptGift = async (req, res) => {
   }
 };
 
-// 선물 거절
+// 선물 거절 — 자동 환불 처리 (재고 복원, 쿠폰 복원, 포인트 환불, 주문 상태 변경)
 exports.rejectGift = async (req, res) => {
+  const connection = await db.getConnection();
   try {
-    const [gifts] = await db.execute(
+    await connection.beginTransaction();
+
+    const [gifts] = await connection.execute(
       'SELECT * FROM gifts WHERE id = ? AND receiver_id = ?',
       [req.params.id, req.user.userId]
     );
 
     if (gifts.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: '선물을 찾을 수 없습니다.' });
     }
 
     if (gifts[0].status !== 'pending') {
+      await connection.rollback();
       return res.status(400).json({ message: '이미 처리된 선물입니다.' });
     }
 
-    await db.execute(
+    const gift = gifts[0];
+
+    // 선물 상태 → 거절
+    await connection.execute(
       'UPDATE gifts SET status = ? WHERE id = ?',
       ['rejected', req.params.id]
     );
 
-    // 보낸 사람에게 알림
-    await db.execute(
-      `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'gift', ?, ?)`,
-      [gifts[0].sender_id, '선물이 거절되었습니다', '보내신 선물이 거절되었습니다.']
+    // 주문 정보 조회
+    const [orders] = await connection.execute(
+      'SELECT * FROM orders WHERE id = ?',
+      [gift.order_id]
     );
 
-    res.json({ message: '선물을 거절했습니다.' });
+    if (orders.length > 0) {
+      const order = orders[0];
+
+      // 주문 상태 → 환불완료
+      await connection.execute(
+        'UPDATE orders SET status = ? WHERE id = ?',
+        ['refunded', order.id]
+      );
+
+      // 재고 복원
+      const [orderItems] = await connection.execute(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
+        [order.id]
+      );
+      for (const item of orderItems) {
+        await connection.execute(
+          'UPDATE products SET stock = stock + ? WHERE id = ?',
+          [item.quantity, item.product_id]
+        );
+      }
+
+      // 쿠폰 복원
+      if (order.coupon_id) {
+        await connection.execute(
+          'UPDATE user_coupons SET is_used = false, used_at = NULL WHERE user_id = ? AND coupon_id = ?',
+          [gift.sender_id, order.coupon_id]
+        );
+      }
+
+      // 포인트 환불
+      if (order.points_used > 0) {
+        await connection.execute(
+          'UPDATE users SET points = points + ? WHERE id = ?',
+          [order.points_used, gift.sender_id]
+        );
+      }
+    }
+
+    // 보낸 사람에게 알림 (거절 + 환불 안내)
+    await connection.execute(
+      `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'gift', ?, ?)`,
+      [gift.sender_id, '선물이 거절되었습니다', '보내신 선물이 거절되어 자동으로 환불 처리되었습니다.']
+    );
+
+    await connection.commit();
+    res.json({ message: '선물을 거절했습니다. 보낸 분에게 자동 환불됩니다.' });
   } catch (error) {
+    await connection.rollback();
     console.error('Reject gift error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
 };
 

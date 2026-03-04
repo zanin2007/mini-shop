@@ -1,6 +1,14 @@
 const db = require('../config/db');
 
-// 주문 생성 (장바구니 → 주문)
+/**
+ * 주문 컨트롤러
+ * - 주문 생성: 장바구니 → 재고검증 → 쿠폰/포인트 할인 → 주문 생성 → 선물 처리 (트랜잭션)
+ * - 구매 확정: 배송완료 → 수령완료 상태 변경
+ * - 상태 변경: [테스트용] checking → pending → shipped → delivered → completed 순차 진행
+ * - 주문 조회: 주문 상품 + 옵션 + 선물 여부를 배치 쿼리로 조회
+ */
+
+// 주문 생성 — 장바구니 선택 상품을 주문으로 전환 (트랜잭션)
 exports.createOrder = async (req, res) => {
   const connection = await db.getConnection();
   try {
@@ -30,21 +38,26 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    // 각 장바구니 아이템의 옵션 추가금액 계산
+    // 배치 쿼리: 모든 장바구니 아이템의 옵션 추가금액을 한 번에 조회
+    const cartIds = cartItems.map(item => item.id);
+    const [allCartOpts] = await connection.execute(
+      `SELECT cio.cart_item_id, pov.extra_price FROM cart_item_options cio
+       JOIN product_option_values pov ON cio.option_value_id = pov.id
+       WHERE cio.cart_item_id IN (${cartIds.map(() => '?').join(',')})`,
+      cartIds
+    );
+    const extraPriceMap = new Map();
+    for (const opt of allCartOpts) {
+      extraPriceMap.set(opt.cart_item_id, (extraPriceMap.get(opt.cart_item_id) || 0) + opt.extra_price);
+    }
     for (const item of cartItems) {
-      const [cartOpts] = await connection.execute(
-        `SELECT pov.extra_price FROM cart_item_options cio
-         JOIN product_option_values pov ON cio.option_value_id = pov.id
-         WHERE cio.cart_item_id = ?`,
-        [item.id]
-      );
-      item.extraPrice = cartOpts.reduce((sum, o) => sum + o.extra_price, 0);
+      item.extraPrice = extraPriceMap.get(item.id) || 0;
     }
 
     // 총 금액 계산 (옵션 추가금액 포함)
     const totalAmount = cartItems.reduce((sum, item) => sum + (item.price + item.extraPrice) * item.quantity, 0);
 
-    // 쿠폰 적용
+    // 쿠폰 적용 — 유효성 확인 후 할인율/정액 중 큰 값 적용, 사용처리
     let discountAmount = 0;
     let couponId = null;
     const { couponId: requestedCouponId, pointsToUse: requestedPoints, delivery_address, receiver_name, receiver_phone, isGift, receiverId, giftMessage } = req.body || {};
@@ -83,7 +96,7 @@ exports.createOrder = async (req, res) => {
 
     let finalAmount = totalAmount - discountAmount;
 
-    // 포인트 적용
+    // 포인트 적용 — 보유 포인트 검증 후 결제금액에서 차감
     let pointsUsed = 0;
     if (requestedPoints && requestedPoints > 0) {
       const [userRows] = await connection.execute(
@@ -113,40 +126,55 @@ exports.createOrder = async (req, res) => {
 
     const orderId = orderResult.insertId;
 
-    // 주문 상품 추가, 옵션 복사, 재고 감소
-    for (const item of cartItems) {
-      const [oiResult] = await connection.execute(
-        'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)',
-        [orderId, item.product_id, item.quantity, item.price + item.extraPrice]
-      );
-      const orderItemId = oiResult.insertId;
+    // 모든 장바구니 옵션을 한 번에 조회
+    const [allOptsForCopy] = await connection.execute(
+      `SELECT cart_item_id, option_value_id FROM cart_item_options
+       WHERE cart_item_id IN (${cartIds.map(() => '?').join(',')})`,
+      cartIds
+    );
+    const optsMap = new Map();
+    for (const opt of allOptsForCopy) {
+      if (!optsMap.has(opt.cart_item_id)) optsMap.set(opt.cart_item_id, []);
+      optsMap.get(opt.cart_item_id).push(opt.option_value_id);
+    }
 
-      // 장바구니 옵션 → 주문 옵션으로 복사
-      const [cartOpts] = await connection.execute(
-        'SELECT option_value_id FROM cart_item_options WHERE cart_item_id = ?',
-        [item.id]
+    // 배치 INSERT: 주문 상품 + 옵션 일괄 추가, 재고 병렬 감소
+    if (cartItems.length > 0) {
+      const oiValues = cartItems.map(item => `(${orderId}, ${item.product_id}, ${item.quantity}, ${item.price + item.extraPrice})`).join(',');
+      const [oiResult] = await connection.execute(
+        `INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ${oiValues}`
       );
-      for (const opt of cartOpts) {
+      const firstOiId = oiResult.insertId;
+
+      // 옵션 일괄 복사
+      const optRows = [];
+      for (let i = 0; i < cartItems.length; i++) {
+        const orderItemId = firstOiId + i;
+        const opts = optsMap.get(cartItems[i].id) || [];
+        for (const ovId of opts) {
+          optRows.push(`(${orderItemId}, ${ovId})`);
+        }
+      }
+      if (optRows.length > 0) {
         await connection.execute(
-          'INSERT INTO order_item_options (order_item_id, option_value_id) VALUES (?, ?)',
-          [orderItemId, opt.option_value_id]
+          `INSERT INTO order_item_options (order_item_id, option_value_id) VALUES ${optRows.join(',')}`
         );
       }
 
-      await connection.execute(
-        'UPDATE products SET stock = stock - ? WHERE id = ?',
-        [item.quantity, item.product_id]
+      // 재고 일괄 감소
+      const stockUpdates = cartItems.map(item =>
+        connection.execute('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id])
       );
+      await Promise.all(stockUpdates);
     }
 
     // 주문된 상품만 장바구니에서 삭제
-    const cartIds = cartItems.map(item => item.id);
     await connection.execute(
       `DELETE FROM cart_items WHERE id IN (${cartIds.map(() => '?').join(',')})`,
       cartIds
     );
 
-    // 선물 처리
+    // 선물 처리 — gifts 테이블에 기록 + 받는 사람에게 알림 발송
     if (isGift && receiverId) {
       await connection.execute(
         `INSERT INTO gifts (order_id, sender_id, receiver_id, receiver_name, receiver_phone, message, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
@@ -173,7 +201,7 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// 구매 확정
+// 구매 확정 — 배송완료(delivered) 상태의 주문을 수령완료(completed)로 변경
 exports.confirmOrder = async (req, res) => {
   try {
     const [orders] = await db.execute(
@@ -235,7 +263,7 @@ exports.advanceOrderStatus = async (req, res) => {
   }
 };
 
-// 주문 내역 조회
+// 주문 내역 조회 — 배치 쿼리로 주문 상품/옵션/선물 여부를 한 번에 조회 후 메모리 조합
 exports.getOrders = async (req, res) => {
   try {
     const [orders] = await db.execute(

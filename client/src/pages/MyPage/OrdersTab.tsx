@@ -1,3 +1,9 @@
+/**
+ * 주문 내역 탭 (진행중 주문)
+ * - 주문 상태별 뱃지 + 상품 목록 + 옵션 표시
+ * - 배송완료(delivered) → 구매확정 버튼 (낙관적 업데이트 + completed_at 설정)
+ * - [테스트용] 주문 상태 다음 단계 변경 버튼
+ */
 import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
@@ -97,7 +103,7 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
                   try {
                     await api.put(`/orders/${order.id}/confirm`);
                     showAlert('수령이 완료되었습니다.', 'success');
-                    setOrders(allOrders.map(o => o.id === order.id ? { ...o, status: 'completed' } : o));
+                    setOrders(allOrders.map(o => o.id === order.id ? { ...o, status: 'completed', completed_at: new Date().toISOString() } : o));
                   } catch (error) {
                     if (error instanceof AxiosError) {
                       showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');

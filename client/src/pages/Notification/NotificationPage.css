@@ -124,6 +124,11 @@
   border-bottom: none;
 }
 
+.notification-card.pinned {
+  background: var(--color-surface-alt);
+  border-left: 3px solid var(--color-accent);
+}
+
 .notification-card.unread {
   background: var(--color-accent-light);
 }

@@ -1,6 +1,17 @@
 const db = require('../config/db');
 
-// 전체 주문 목록 조회
+/**
+ * 관리자 컨트롤러
+ * - 주문 관리: 전체 주문 조회, 상태 변경 (환불 상태 변경 차단)
+ * - 상품 관리: 전체 상품 조회, 삭제
+ * - 쿠폰 관리: 생성(할인율/정액), 조회, 삭제, 전체 배포 (우편함+알림)
+ * - 공지사항: 작성(상단고정 최대 3개), 조회, 삭제, 전체 유저 알림
+ * - 이벤트: 생성(쿠폰/포인트 보상), 조회, 삭제, 추첨 (우편함 보상 지급)
+ * - 환불 관리: 전체 조회, 승인/거부 (승인 시 포인트 환불)
+ * - 회원 관리: 활동 유저 조회, 제재 이력, 경고/정지 부여 (3회 경고 시 자동 7일 정지), 해제
+ */
+
+// 전체 주문 목록 조회 — 유저 정보 + 주문 상품 포함
 exports.getAllOrders = async (req, res) => {
   try {
     const [orders] = await db.execute(
@@ -28,7 +39,7 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-// 주문 상태 변경
+// 주문 상태 변경 — 환불 처리중/완료 상태는 변경 차단
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -39,9 +50,18 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({ message: '유효하지 않은 상태입니다.' });
     }
 
-    const [orders] = await db.execute('SELECT id FROM orders WHERE id = ?', [id]);
+    const [orders] = await db.execute('SELECT id, status FROM orders WHERE id = ?', [id]);
     if (orders.length === 0) {
       return res.status(404).json({ message: '주문을 찾을 수 없습니다.' });
+    }
+
+    const currentStatus = orders[0].status;
+    if (currentStatus === 'refund_requested' || currentStatus === 'refunded') {
+      return res.status(400).json({ message: '환불 처리 중이거나 환불 완료된 주문은 상태를 변경할 수 없습니다.' });
+    }
+
+    if (currentStatus === 'completed') {
+      return res.status(400).json({ message: '수령완료된 주문은 상태를 변경할 수 없습니다.' });
     }
 
     await db.execute('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
@@ -80,7 +100,7 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
-// 쿠폰 생성
+// 쿠폰 생성 — 할인율 또는 정액 할인, 최소 주문금액/만료일/최대 배포수 설정
 exports.createCoupon = async (req, res) => {
   try {
     const { code, discount_amount, discount_percentage, min_price, expiry_date, max_uses } = req.body;
@@ -130,7 +150,7 @@ exports.deleteCoupon = async (req, res) => {
   }
 };
 
-// 쿠폰 전체 배포
+// 쿠폰 전체 배포 — 전체 유저에게 쿠폰 지급 + 우편함/알림 발송 (이미 보유 시 스킵)
 exports.distributeCoupon = async (req, res) => {
   try {
     const { coupon_id } = req.body;
@@ -178,7 +198,7 @@ exports.distributeCoupon = async (req, res) => {
 
 // ===== 공지사항 =====
 
-// 공지 작성
+// 공지 작성 — 상단 고정 공지 최대 3개 제한, 전체 유저 알림 발송
 exports.createAnnouncement = async (req, res) => {
   try {
     const { title, content, is_pinned } = req.body;
@@ -186,18 +206,32 @@ exports.createAnnouncement = async (req, res) => {
       return res.status(400).json({ message: '제목과 내용을 입력해주세요.' });
     }
 
+    // 상단 고정 공지 최대 3개 제한
+    if (is_pinned) {
+      const [pinnedRows] = await db.execute(
+        'SELECT COUNT(*) as cnt FROM announcements WHERE is_pinned = true'
+      );
+      if (pinnedRows[0].cnt >= 3) {
+        return res.status(400).json({ message: '상단 고정 공지는 최대 3개까지만 등록할 수 있습니다. 기존 상단 공지를 삭제 후 다시 시도해주세요.' });
+      }
+    }
+
     await db.execute(
       'INSERT INTO announcements (admin_id, title, content, is_pinned) VALUES (?, ?, ?, ?)',
       [req.user.userId, title, content, is_pinned || false]
     );
 
-    // 전체 유저에게 알림
+    const announcementId = (await db.execute(
+      'SELECT LAST_INSERT_ID() as id'
+    ))[0][0].id;
+
+    // 전체 유저에게 알림 (상단 고정이면 is_pinned=true → 유저가 삭제 불가)
     const [users] = await db.execute('SELECT id FROM users');
     for (const user of users) {
       await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content)
-         VALUES (?, 'system', ?, ?)`,
-        [user.id, `📢 ${title}`, content.substring(0, 100)]
+        `INSERT INTO notifications (user_id, type, title, content, is_pinned, link)
+         VALUES (?, 'system', ?, ?, ?, ?)`,
+        [user.id, `📢 ${title}`, content.substring(0, 100), is_pinned ? true : false, is_pinned ? `pinned:${announcementId}` : null]
       );
     }
 
@@ -221,10 +255,12 @@ exports.getAllAnnouncements = async (req, res) => {
   }
 };
 
-// 공지 삭제
+// 공지 삭제 — 상단 고정 공지 삭제 시 연결된 고정 알림도 함께 삭제
 exports.deleteAnnouncement = async (req, res) => {
   try {
     const { id } = req.params;
+    // 상단 고정 공지의 알림도 삭제 (link = 'pinned:{id}')
+    await db.execute('DELETE FROM notifications WHERE link = ? AND is_pinned = true', [`pinned:${id}`]);
     await db.execute('DELETE FROM announcements WHERE id = ?', [id]);
     res.json({ message: '공지가 삭제되었습니다.' });
   } catch (error) {
@@ -235,7 +271,7 @@ exports.deleteAnnouncement = async (req, res) => {
 
 // ===== 이벤트 =====
 
-// 이벤트 생성
+// 이벤트 생성 — 쿠폰/포인트 보상 검증, 전체 유저 알림 (link에 이벤트 ID 저장)
 exports.createEvent = async (req, res) => {
   try {
     const { title, description, type, reward_type, reward_id, reward_amount, max_participants, start_date, end_date } = req.body;
@@ -311,7 +347,7 @@ exports.deleteEvent = async (req, res) => {
   }
 };
 
-// 이벤트 추첨
+// 이벤트 추첨 — 랜덤 당첨자 선정 + 우편함 보상 지급 + 알림 발송
 exports.drawEventWinners = async (req, res) => {
   try {
     const { id } = req.params;
@@ -362,7 +398,7 @@ exports.drawEventWinners = async (req, res) => {
   }
 };
 
-// 전체 환불 요청 조회
+// 전체 환불 요청 조회 — 유저/주문 정보 + 주문 상품 포함
 exports.getAllRefunds = async (req, res) => {
   try {
     const [refunds] = await db.execute(
@@ -395,7 +431,7 @@ exports.getAllRefunds = async (req, res) => {
 
 // ===== 회원 관리 (경고/정지) =====
 
-// 환불/리뷰 작성자 목록 조회
+// 회원 활동 목록 — 리뷰/환불/제재 이력이 있는 유저 조회 (경고 누적, 정지 상태 포함)
 exports.getUsersWithActivity = async (req, res) => {
   try {
     const [users] = await db.execute(
@@ -444,7 +480,7 @@ exports.getUserPenalties = async (req, res) => {
   }
 };
 
-// 경고/정지 부여
+// 경고/정지 부여 — 경고 3회 누적 시 자동 7일 정지, 알림 발송
 exports.issuePenalty = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -509,7 +545,7 @@ exports.issuePenalty = async (req, res) => {
   }
 };
 
-// 제재 해제
+// 제재 해제 — is_active를 false로 변경 + 알림 발송
 exports.revokePenalty = async (req, res) => {
   try {
     const { penaltyId } = req.params;
@@ -534,7 +570,7 @@ exports.revokePenalty = async (req, res) => {
   }
 };
 
-// 환불 승인/거부
+// 환불 승인/거부 — 승인 시 주문 상태 환불완료 + 포인트 환불, 거부 시 수령완료로 복원
 exports.processRefund = async (req, res) => {
   try {
     const { id } = req.params;
@@ -562,12 +598,25 @@ exports.processRefund = async (req, res) => {
     );
 
     if (action === 'approve') {
+      // 주문 상태 환불완료로 변경
       await db.execute(
         'UPDATE orders SET status = ? WHERE id = ?',
         ['refunded', refund.order_id]
       );
+      // 포인트 환불
+      const [orderRows] = await db.execute(
+        'SELECT points_used FROM orders WHERE id = ?',
+        [refund.order_id]
+      );
+      const pointsUsed = orderRows[0]?.points_used || 0;
+      if (pointsUsed > 0) {
+        await db.execute(
+          'UPDATE users SET points = points + ? WHERE id = ?',
+          [pointsUsed, refund.user_id]
+        );
+      }
     } else {
-      // 거부 시 주문 상태를 다시 completed로 복원
+      // 거부 시 주문 상태를 수령완료로 복원
       await db.execute(
         'UPDATE orders SET status = ? WHERE id = ?',
         ['completed', refund.order_id]

@@ -1,3 +1,9 @@
+/**
+ * 관리자 공지사항 탭
+ * - 공지 작성: 상단 고정(is_pinned) 최대 3개 제한, 전체 유저 알림 발송
+ * - 공지 목록: 고정(📌)/일반 구분, 등록일 표시
+ * - 삭제: 상단 고정 공지 삭제 시 고정 슬롯 해제
+ */
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
@@ -58,6 +64,8 @@ function AdminAnnouncementsTab() {
     }
   };
 
+  const pinnedCount = announcements.filter(a => a.is_pinned).length;
+
   if (loading) return <div className="loading"><div className="spinner" />불러오는 중...</div>;
 
   return (
@@ -83,8 +91,12 @@ function AdminAnnouncementsTab() {
               type="checkbox"
               checked={form.is_pinned}
               onChange={e => setForm({ ...form, is_pinned: e.target.checked })}
+              disabled={!form.is_pinned && pinnedCount >= 3}
             />
-            상단 고정
+            상단 고정 ({pinnedCount}/3)
+            {pinnedCount >= 3 && !form.is_pinned && (
+              <span className="pin-limit-warn"> - 최대 3개 도달, 기존 상단 공지를 삭제해주세요</span>
+            )}
           </label>
         </div>
         <button type="submit" className="coupon-create-btn">공지 등록</button>

@@ -128,7 +128,7 @@ POST /api/coupons/claim                  → 코드 등록
 **선물** (`giftRoutes.js`)
 ```
 GET /api/gifts/sent, /received           → 보낸/받은 선물 (배송상태 포함)
-PUT /api/gifts/:id/accept, /reject       → 수락/거절
+PUT /api/gifts/:id/accept, /reject       → 수락/거절 (거절 시 자동 환불: 재고·쿠폰·포인트 복원)
 PUT /api/gifts/:id/confirm               → 선물 수령완료 (받는 사람)
 ```
 
@@ -140,10 +140,11 @@ GET  /api/refunds/:orderId               → 환불 상태 조회
 
 **알림** (`notificationRoutes.js`)
 ```
-GET /api/notifications                   → 목록 (최근 50개)
-GET /api/notifications/unread-count      → 안읽은 수
-PUT /api/notifications/:id/read          → 읽음
-PUT /api/notifications/read-all          → 전체 읽음
+GET    /api/notifications                → 목록 (최근 50개, 고정 알림 최상단)
+GET    /api/notifications/unread-count   → 안읽은 수
+PUT    /api/notifications/:id/read       → 읽음
+PUT    /api/notifications/read-all       → 전체 읽음
+DELETE /api/notifications/all            → 전체 삭제 (고정 알림 제외, 남은 고정 알림 읽음 처리)
 ```
 
 **우편함** (`mailboxRoutes.js`)
@@ -155,7 +156,7 @@ POST /api/mailbox/:id/claim              → 보상 수령
 
 **관리자** (`adminRoutes.js`) — `isAdmin` 미들웨어
 ```
-GET/PUT    /api/admin/orders             → 주문 관리 + 상태 변경
+GET/PUT    /api/admin/orders             → 주문 관리 + 상태 변경 (수령완료/환불 상태 변경 불가)
 GET/DELETE /api/admin/products           → 상품 관리
 GET/POST/DELETE /api/admin/coupons       → 쿠폰 관리
 POST /api/admin/coupons/distribute       → 쿠폰 전체 배포
@@ -242,12 +243,14 @@ UPDATE users SET role = 'admin' WHERE email = '관리자이메일';
 
 #### 알림 & 우편함
 - [ ] 뱃지 / 읽음·전체 읽음 / 보상 수령 / 만료 처리
+- [ ] 상단 고정 알림: 항상 최상단 / 전체 삭제 시 유지 / 관리자 공지 삭제 시에만 삭제
 
 #### 상품 옵션
 - [ ] 옵션 등록 / 드롭다운 / 추가금액 / 다른 옵션 → 별도 항목
 
 #### 선물하기
 - [ ] 유저 검색 / 메시지 / 알림·우편함 도착 / 수락·거절
+- [ ] 선물 거절 시 자동 환불: 주문 환불완료 + 재고·쿠폰·포인트 복원 + 보낸 사람 알림
 
 #### 위시리스트
 - [ ] 메인 하트 / 상세 토글 / 비로그인 알림 / 찜 목록·해제
@@ -259,7 +262,7 @@ UPDATE users SET role = 'admin' WHERE email = '관리자이메일';
 - [ ] 구매확정 후 환불 신청 / 관리자 승인·거부 / 알림 발송
 
 #### 관리자
-- [ ] 접근 차단 / 주문 상태 / 상품 검색·삭제 / 쿠폰 생성·배포 / 공지 / 이벤트·추첨
+- [ ] 접근 차단 / 주문 상태 (수령완료·환불 상태 변경 불가) / 상품 검색·삭제 / 쿠폰 생성·배포 / 공지 (상단고정 최대 3개) / 이벤트·추첨
 - [ ] 회원 관리: 경고/정지 부여 / 경고 3회 → 자동 7일 정지 / 제재 해제 / 정지 시 로그인 차단
 
 ---
@@ -298,9 +301,9 @@ npm run dev
 | 리뷰 | ✅ | ✅ | 구매검증 + 별점 1~5 |
 | 쿠폰 | ✅ | ✅ | 등록 + 적용 + 전체배포 |
 | 상품 옵션 | ✅ | ✅ | 그룹/값 + 추가금액 + 재고 |
-| 선물하기 | ✅ | ✅ | 유저 검색 + 수락/거절 |
-| 알림 + 우편함 | ✅ | ✅ | 뱃지 + 읽음 + 보상수령 |
-| 관리자 | ✅ | ✅ | 주문/상품/쿠폰/공지/이벤트/회원관리 |
+| 선물하기 | ✅ | ✅ | 유저 검색 + 수락/거절 + 거절 시 자동 환불 |
+| 알림 + 우편함 | ✅ | ✅ | 뱃지 + 읽음 + 보상수령 + 상단고정 알림 |
+| 관리자 | ✅ | ✅ | 주문(수령완료 변경불가)/상품/쿠폰/공지(상단고정 3개)/이벤트/회원관리 |
 | 이벤트 | ✅ | ✅ | 선착순/랜덤추첨 |
 | 환불 | ✅ | ✅ | 신청/승인/거부 |
 | 회원 제재 | ✅ | ✅ | 경고/7일/30일/영구정지 + 자동정지 |

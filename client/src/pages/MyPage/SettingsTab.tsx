@@ -1,3 +1,9 @@
+/**
+ * 계정 설정 탭
+ * - 닉네임 변경: 즉시 반영 (localStorage + 헤더 동기화)
+ * - 비밀번호 변경: 현재 비밀번호 확인 후 변경
+ * - 회원탈퇴: 비밀번호 재확인 후 삭제 (CASCADE)
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';

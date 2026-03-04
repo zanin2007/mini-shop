@@ -1,5 +1,12 @@
 const db = require('../config/db');
 
+/**
+ * 우편함 컨트롤러
+ * - 우편함 조회/읽음 처리/삭제/전체 삭제
+ * - 보상 수령: 쿠폰 → user_coupons에 추가, 포인트 → users.points 증가 (트랜잭션)
+ * - 만료/중복 수령 방지
+ */
+
 // 우편함 목록 조회
 exports.getMailbox = async (req, res) => {
   try {

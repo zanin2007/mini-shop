@@ -1,3 +1,9 @@
+/**
+ * 관리자 상품 관리 탭
+ * - 전체 상품 목록 (판매자 닉네임 포함)
+ * - 카테고리 필터 + 검색
+ * - 관리자 권한으로 상품 삭제
+ */
 import { useEffect, useState, useMemo } from 'react';
 import api from '../../api/instance';
 import { useAlert } from '../../components/AlertContext';

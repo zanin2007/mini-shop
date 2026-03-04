@@ -1,3 +1,9 @@
+/**
+ * 우편함 페이지
+ * - 우편 목록 (이벤트 보상/쿠폰 지급), 읽음 처리, 전체 삭제
+ * - 보상 수령: 쿠폰 또는 포인트 수령 (만료/수령완료 상태 구분)
+ * - 아이콘: 수령완료(✅), 만료(⏰), 안읽음(📩), 읽음(📧)
+ */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';

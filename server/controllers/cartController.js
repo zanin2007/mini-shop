@@ -1,6 +1,13 @@
 const db = require('../config/db');
 
-// 장바구니 조회 (옵션 포함)
+/**
+ * 장바구니 컨트롤러
+ * - 조회: 상품 + 옵션 배치 쿼리
+ * - 추가: 같은 상품+같은 옵션 조합이면 수량 증가, 아니면 새 아이템 추가
+ * - 수량 변경/삭제/선택 토글/전체 선택
+ */
+
+// 장바구니 조회 — 배치 쿼리로 모든 아이템의 옵션을 한 번에 조회
 exports.getCart = async (req, res) => {
   try {
     const [items] = await db.execute(

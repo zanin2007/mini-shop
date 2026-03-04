@@ -1,3 +1,13 @@
+/**
+ * 마이페이지
+ * - 프로필 (주문/구매/쿠폰/포인트 통계), 탭 네비게이션
+ * - 주문 내역: 진행중 주문 (checking~delivered)
+ * - 구매 내역: 완료/환불 주문 (completed, refund_requested, refunded) + 환불 신청
+ * - 쿠폰: 사용 가능/만료 쿠폰, 쿠폰 코드 등록
+ * - 선물: 보낸/받은 선물 관리
+ * - 계정 설정: 닉네임/비밀번호 변경, 회원탈퇴
+ * - fetchUser로 최신 유저 정보 동기화 (role, points 등)
+ */
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlert } from '../../components/AlertContext';

@@ -1,6 +1,6 @@
 const db = require('../config/db');
 
-// 활성 공지 목록 (유저용)
+// 활성 공지 목록 (유저용) — is_active=true만, 상단 고정 → 최신순 정렬
 exports.getAnnouncements = async (req, res) => {
   try {
     const [announcements] = await db.execute(

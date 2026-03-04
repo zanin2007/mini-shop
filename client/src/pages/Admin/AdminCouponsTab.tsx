@@ -1,3 +1,9 @@
+/**
+ * 관리자 쿠폰 관리 탭
+ * - 쿠폰 생성: 할인율(%) / 정액(원) 선택, 최소주문금액, 만료일, 최대 배포수 설정
+ * - 쿠폰 목록: 할인 정보, 사용/만료 상태 표시
+ * - 전체 유저 배포 / 개별 삭제
+ */
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
@@ -19,6 +25,7 @@ function AdminCouponsTab() {
   const { showAlert, showConfirm } = useAlert();
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [couponForm, setCouponForm] = useState({
     code: '', discount_amount: '', discount_percentage: '',
     min_price: '', expiry_date: '', max_uses: ''
@@ -44,14 +51,15 @@ function AdminCouponsTab() {
     try {
       await api.post('/admin/coupons', {
         code: couponForm.code,
-        discount_amount: Number(couponForm.discount_amount) || 0,
-        discount_percentage: Number(couponForm.discount_percentage) || null,
+        discount_amount: discountType === 'fixed' ? Number(couponForm.discount_amount) || 0 : 0,
+        discount_percentage: discountType === 'percentage' ? Number(couponForm.discount_percentage) || null : null,
         min_price: Number(couponForm.min_price) || null,
         expiry_date: couponForm.expiry_date,
         max_uses: Number(couponForm.max_uses) || null,
       });
       showAlert('쿠폰이 생성되었습니다.', 'success');
       setCouponForm({ code: '', discount_amount: '', discount_percentage: '', min_price: '', expiry_date: '', max_uses: '' });
+      setDiscountType('percentage');
       fetchCoupons();
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -95,18 +103,33 @@ function AdminCouponsTab() {
             onChange={e => setCouponForm({ ...couponForm, code: e.target.value })}
             required
           />
-          <input
-            type="number"
-            placeholder="할인 금액 (원)"
-            value={couponForm.discount_amount}
-            onChange={e => setCouponForm({ ...couponForm, discount_amount: e.target.value })}
-          />
-          <input
-            type="number"
-            placeholder="할인율 (%)"
-            value={couponForm.discount_percentage}
-            onChange={e => setCouponForm({ ...couponForm, discount_percentage: e.target.value })}
-          />
+          <select
+            value={discountType}
+            onChange={e => {
+              setDiscountType(e.target.value as 'percentage' | 'fixed');
+              setCouponForm({ ...couponForm, discount_amount: '', discount_percentage: '' });
+            }}
+          >
+            <option value="percentage">할인율 (%)</option>
+            <option value="fixed">금액 할인 (원)</option>
+          </select>
+          {discountType === 'percentage' ? (
+            <input
+              type="number"
+              placeholder="할인율 (%)"
+              value={couponForm.discount_percentage}
+              onChange={e => setCouponForm({ ...couponForm, discount_percentage: e.target.value })}
+              required
+            />
+          ) : (
+            <input
+              type="number"
+              placeholder="할인 금액 (원)"
+              value={couponForm.discount_amount}
+              onChange={e => setCouponForm({ ...couponForm, discount_amount: e.target.value })}
+              required
+            />
+          )}
           <input
             type="number"
             placeholder="최소 주문금액"

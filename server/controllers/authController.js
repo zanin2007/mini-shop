@@ -2,7 +2,15 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
-// 회원가입
+/**
+ * 인증 컨트롤러
+ * - 회원가입/로그인/로그아웃: JWT 기반 인증
+ * - 유저 검색: 선물하기용 닉네임/이메일 검색
+ * - 계정 관리: 닉네임 변경, 비밀번호 변경, 회원탈퇴
+ * - 인증 확인: 토큰 유효성 검증 및 최신 유저 정보 반환 (role, points 포함)
+ */
+
+// 회원가입 — 이메일 중복 확인 후 bcrypt 해싱하여 저장
 exports.signup = async (req, res) => {
   try {
     const email = (req.body.email || '').trim();
@@ -40,7 +48,7 @@ exports.signup = async (req, res) => {
   }
 };
 
-// 로그인
+// 로그인 — 비밀번호 검증 → 정지 상태 확인 → JWT 토큰 발급 (7일 유효)
 exports.login = async (req, res) => {
   try {
     const email = (req.body.email || '').trim();
@@ -112,7 +120,7 @@ exports.logout = (req, res) => {
   res.json({ message: '로그아웃 되었습니다.' });
 };
 
-// 유저 검색 (선물하기용)
+// 유저 검색 — 선물하기용, 닉네임/이메일로 본인 제외 최대 10명 검색
 exports.searchUser = async (req, res) => {
   try {
     const { q } = req.query;
@@ -130,7 +138,7 @@ exports.searchUser = async (req, res) => {
   }
 };
 
-// 닉네임 변경
+// 닉네임 변경 — 로그인된 유저의 닉네임 업데이트
 exports.changeNickname = async (req, res) => {
   try {
     const nickname = (req.body.nickname || '').trim();
@@ -145,7 +153,7 @@ exports.changeNickname = async (req, res) => {
   }
 };
 
-// 비밀번호 변경
+// 비밀번호 변경 — 현재 비밀번호 확인 후 새 비밀번호로 변경 (최소 4자)
 exports.changePassword = async (req, res) => {
   try {
     const currentPassword = (req.body.currentPassword || '').trim();
@@ -178,7 +186,7 @@ exports.changePassword = async (req, res) => {
   }
 };
 
-// 회원탈퇴
+// 회원탈퇴 — 비밀번호 재확인 후 계정 삭제 (CASCADE로 연관 데이터 삭제)
 exports.deleteAccount = async (req, res) => {
   try {
     const password = (req.body.password || '').trim();
@@ -204,7 +212,7 @@ exports.deleteAccount = async (req, res) => {
   }
 };
 
-// 인증 확인
+// 인증 확인 — JWT 토큰 유효성 검증 후 최신 유저 정보 반환 (role, points 포함)
 exports.checkAuth = async (req, res) => {
   try {
     const [users] = await db.execute(

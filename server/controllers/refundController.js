@@ -1,6 +1,12 @@
 const db = require('../config/db');
 
-// 환불 신청
+/**
+ * 환불 컨트롤러
+ * - 환불 신청: 수령완료(completed) 후 7일 이내만 가능, 중복 신청 차단
+ * - 내 환불 목록 조회: 환불 상태(심사중/승인/거부) 확인
+ */
+
+// 환불 신청 — 주문 상태/기간/중복 검증 → refunds INSERT + 주문 상태를 refund_requested로 변경
 exports.requestRefund = async (req, res) => {
   try {
     const { orderId } = req.params;
