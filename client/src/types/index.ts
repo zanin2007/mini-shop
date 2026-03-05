@@ -107,6 +107,24 @@ export interface CartItemOption {
   option_name: string;
   value: string;
   extra_price: number;
+  option_stock?: number;
+}
+
+export interface CartPageItem {
+  id: number;
+  product_id: number;
+  quantity: number;
+  is_selected: boolean;
+  name: string;
+  price: number;
+  image_url: string;
+  stock: number;
+  options?: CartItemOption[];
+}
+
+export interface SearchedUser {
+  id: number;
+  nickname: string;
 }
 
 export interface Gift {

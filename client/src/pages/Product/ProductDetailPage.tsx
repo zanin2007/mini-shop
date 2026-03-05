@@ -1,7 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import QuantityInput from '../../components/QuantityInput';
 import type { Product, Review } from '../../types';
 import ReviewSection from './ReviewSection';
 import RecommendedProducts from './RecommendedProducts';
@@ -18,16 +21,12 @@ function ProductDetailPage() {
   const [canReview, setCanReview] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [wishlisted, setWishlisted] = useState(false);
+  const [wishlistProcessing, setWishlistProcessing] = useState(false);
+  const [cartProcessing, setCartProcessing] = useState(false);
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const reviewRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    setRecommendedProducts([]);
-    Promise.all([fetchProduct(), fetchReviews(), checkCanReview(), checkWishlisted()]);
-  }, [id]);
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       const response = await api.get(`/products/${id}`);
       const prod = response.data;
@@ -43,18 +42,18 @@ function ProductDetailPage() {
       console.error('상품 조회 실패:', error);
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     try {
       const response = await api.get(`/reviews/product/${id}`);
       setReviews(response.data);
     } catch (error) {
       console.error('리뷰 조회 실패:', error);
     }
-  };
+  }, [id]);
 
-  const checkCanReview = async () => {
+  const checkCanReview = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
@@ -63,9 +62,9 @@ function ProductDetailPage() {
     } catch {
       setCanReview(false);
     }
-  };
+  }, [id]);
 
-  const checkWishlisted = async () => {
+  const checkWishlisted = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
@@ -74,15 +73,25 @@ function ProductDetailPage() {
     } catch {
       setWishlisted(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    setLoading(true);
+    setRecommendedProducts([]);
+    setSelectedOptions({});
+    setQuantity(1);
+    Promise.all([fetchProduct(), fetchReviews(), checkCanReview(), checkWishlisted()]);
+  }, [id, fetchProduct, fetchReviews, checkCanReview, checkWishlisted]);
 
   const handleToggleWishlist = async () => {
+    if (wishlistProcessing) return;
     const token = localStorage.getItem('token');
     if (!token) {
       const ok = await showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?');
       if (ok) navigate('/login');
       return;
     }
+    setWishlistProcessing(true);
     const wasWishlisted = wishlisted;
     setWishlisted(!wasWishlisted);
     try {
@@ -90,17 +99,22 @@ function ProductDetailPage() {
         await api.delete(`/wishlist/${product?.id}`);
       } else {
         await api.post('/wishlist', { productId: product?.id });
+        showAlert('찜 목록에 추가되었습니다.', 'success');
       }
     } catch {
       setWishlisted(wasWishlisted);
       showAlert('처리에 실패했습니다.', 'error');
+    } finally {
+      setWishlistProcessing(false);
     }
   };
 
-  const currentUser = (() => {
-    const data = localStorage.getItem('user');
-    return data ? JSON.parse(data) : null;
-  })();
+  const [currentUser] = useState(() => {
+    try {
+      const data = localStorage.getItem('user');
+      return data ? JSON.parse(data) : null;
+    } catch { return null; }
+  });
 
   const isOwner = currentUser && product?.user_id === currentUser.id;
 
@@ -117,6 +131,7 @@ function ProductDetailPage() {
   };
 
   const handleAddToCart = async () => {
+    if (cartProcessing) return;
     const token = localStorage.getItem('token');
     if (!token) {
       const ok = await showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?');
@@ -136,14 +151,20 @@ function ProductDetailPage() {
           valueId,
         }))
       : undefined;
+    setCartProcessing(true);
     try {
       await api.post('/cart', { productId: product?.id, quantity, selectedOptions: optionsPayload });
       if (await showConfirm('장바구니에 담았습니다. 장바구니로 이동할까요?')) {
         navigate('/cart');
       }
     } catch (error) {
-      console.error('장바구니 담기 실패:', error);
-      showAlert('장바구니 담기에 실패했습니다.', 'error');
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '장바구니 담기에 실패했습니다.', 'error');
+      } else {
+        showAlert('장바구니 담기에 실패했습니다.', 'error');
+      }
+    } finally {
+      setCartProcessing(false);
     }
   };
 
@@ -156,7 +177,7 @@ function ProductDetailPage() {
       await api.post('/reviews', { productId: Number(id), rating, content });
       showAlert('리뷰가 등록되었습니다.', 'success');
       setCanReview(false);
-      fetchReviews();
+      await fetchReviews();
     } catch (error) {
       console.error('리뷰 등록 실패:', error);
       showAlert('리뷰 등록에 실패했습니다.', 'error');
@@ -167,15 +188,16 @@ function ProductDetailPage() {
     if (!(await showConfirm('리뷰를 삭제하시겠습니까?'))) return;
     try {
       await api.delete(`/reviews/${reviewId}`);
-      fetchReviews();
+      await fetchReviews();
       setCanReview(true);
     } catch (error) {
       console.error('리뷰 삭제 실패:', error);
+      showAlert('리뷰 삭제에 실패했습니다.', 'error');
     }
   };
 
   if (loading) {
-    return <div className="loading"><div className="spinner" />로딩 중...</div>;
+    return <LoadingSpinner />;
   }
 
   if (!product) {
@@ -189,11 +211,27 @@ function ProductDetailPage() {
     return sum + (val?.extra_price || 0);
   }, 0) || 0;
 
+  // 선택된 옵션의 최소 재고와 상품 재고 중 작은 값
+  const maxQuantity = (() => {
+    if (!product?.options || product.options.length === 0) return product?.stock ?? 0;
+    const selectedStocks = product.options
+      .map(opt => {
+        const valId = selectedOptions[opt.id];
+        if (!valId) return null;
+        const val = opt.values.find(v => v.id === valId);
+        return val?.stock ?? 0;
+      })
+      .filter((s): s is number => s !== null);
+    if (selectedStocks.length === 0) return product.stock;
+    return Math.min(product.stock, ...selectedStocks);
+  })();
+
   return (
     <div className="detail-page">
       <div className="detail-container">
         <button className="back-btn" onClick={() => navigate(-1)}>
-          ← 뒤로가기
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          뒤로가기
         </button>
 
         <div className="detail-content">
@@ -218,17 +256,22 @@ function ProductDetailPage() {
                     <label>{option.option_name}</label>
                     <select
                       value={selectedOptions[option.id] || ''}
-                      onChange={(e) => setSelectedOptions({
-                        ...selectedOptions,
-                        [option.id]: Number(e.target.value),
-                      })}
+                      onChange={(e) => {
+                        const newOptions = { ...selectedOptions, [option.id]: Number(e.target.value) };
+                        setSelectedOptions(newOptions);
+                        // 선택된 옵션 재고에 맞게 수량 조정
+                        const val = option.values.find(v => v.id === Number(e.target.value));
+                        if (val && quantity > val.stock) {
+                          setQuantity(Math.max(1, val.stock));
+                        }
+                      }}
                     >
                       <option value="">선택해주세요</option>
                       {option.values.map((val) => (
-                        <option key={val.id} value={val.id}>
+                        <option key={val.id} value={val.id} disabled={val.stock <= 0}>
                           {val.value}
                           {val.extra_price > 0 ? ` (+${val.extra_price.toLocaleString()}원)` : ''}
-                          {val.stock <= 0 ? ' (품절)' : val.stock <= 5 ? ` (${val.stock}개 남음)` : ''}
+                          {val.stock <= 0 ? ' (품절)' : ` (재고: ${val.stock}개)`}
                         </option>
                       ))}
                     </select>
@@ -239,21 +282,7 @@ function ProductDetailPage() {
 
             <div className="quantity-selector">
               <span className="quantity-label">수량</span>
-              <div className="quantity-controls">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  disabled={quantity <= 1}
-                >
-                  -
-                </button>
-                <span className="quantity-value">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                  disabled={quantity >= product.stock}
-                >
-                  +
-                </button>
-              </div>
+              <QuantityInput value={quantity} max={maxQuantity} onChange={setQuantity} />
             </div>
 
             <div className="detail-total">
@@ -269,16 +298,16 @@ function ProductDetailPage() {
               <button
                 className="add-to-cart-btn"
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={product.stock === 0 || cartProcessing}
               >
-                {product.stock === 0 ? '품절' : '장바구니 담기'}
+                {product.stock === 0 ? '품절' : cartProcessing ? '담는 중...' : '장바구니 담기'}
               </button>
               <button
                 className={`wishlist-btn ${wishlisted ? 'active' : ''}`}
                 onClick={handleToggleWishlist}
                 title={wishlisted ? '찜 해제' : '찜하기'}
               >
-                {wishlisted ? '♥' : '♡'}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={wishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
               </button>
               {reviews.length > 0 && (
                 <button

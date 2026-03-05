@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
 import './AuthPages.css';
 
 function SignupPage() {
@@ -13,6 +13,7 @@ function SignupPage() {
     nickname: '',
   });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { showAlert } = useAlert();
 
@@ -20,7 +21,7 @@ function SignupPage() {
     if (localStorage.getItem('token')) {
       navigate('/', { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -33,24 +34,34 @@ function SignupPage() {
     e.preventDefault();
     setError('');
 
+    if (formData.password.length < 6) {
+      setError('비밀번호는 6자 이상이어야 합니다.');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('비밀번호가 일치하지 않습니다.');
       return;
     }
 
+    setSubmitting(true);
     try {
       await api.post('/auth/signup', {
         email: formData.email.trim(),
-        password: formData.password.trim(),
+        password: formData.password,
         nickname: formData.nickname.trim(),
-      }); 
+      });
 
       showAlert('회원가입이 완료되었습니다!', 'success');
       navigate('/login');
     } catch (err) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.message || '회원가입에 실패했습니다.');
+      } else {
+        setError('회원가입에 실패했습니다.');
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -60,8 +71,9 @@ function SignupPage() {
         <h2>회원가입</h2>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>이메일</label>
+            <label htmlFor="signup-email">이메일</label>
             <input
+              id="signup-email"
               type="email"
               name="email"
               value={formData.email}
@@ -71,8 +83,9 @@ function SignupPage() {
             />
           </div>
           <div className="form-group">
-            <label>닉네임</label>
+            <label htmlFor="signup-nickname">닉네임</label>
             <input
+              id="signup-nickname"
               type="text"
               name="nickname"
               value={formData.nickname}
@@ -82,8 +95,9 @@ function SignupPage() {
             />
           </div>
           <div className="form-group">
-            <label>비밀번호</label>
+            <label htmlFor="signup-password">비밀번호</label>
             <input
+              id="signup-password"
               type="password"
               name="password"
               value={formData.password}
@@ -93,8 +107,9 @@ function SignupPage() {
             />
           </div>
           <div className="form-group">
-            <label>비밀번호 확인</label>
+            <label htmlFor="signup-confirm-password">비밀번호 확인</label>
             <input
+              id="signup-confirm-password"
               type="password"
               name="confirmPassword"
               value={formData.confirmPassword}
@@ -104,8 +119,8 @@ function SignupPage() {
             />
           </div>
           {error && <div className="error-message">{error}</div>}
-          <button type="submit" className="submit-btn">
-            회원가입
+          <button type="submit" className="submit-btn" disabled={submitting}>
+            {submitting ? '가입 중...' : '회원가입'}
           </button>
         </form>
         <p className="auth-link">

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
 import type { User } from '../../types';
 
 interface Props {
@@ -35,7 +35,8 @@ function SettingsTab({ user, onUserUpdate }: Props) {
     try {
       const res = await api.put('/auth/nickname', { nickname: newNickname.trim() });
       showAlert(res.data.message, 'success');
-      const updatedUser = { ...user!, nickname: res.data.nickname };
+      if (!user) return;
+      const updatedUser = { ...user, nickname: res.data.nickname };
       onUserUpdate(updatedUser);
       setNewNickname('');
     } catch (error) {
@@ -52,8 +53,8 @@ function SettingsTab({ user, onUserUpdate }: Props) {
       showAlert('현재 비밀번호와 새 비밀번호를 모두 입력해주세요.', 'warning');
       return;
     }
-    if (newPassword.length < 4) {
-      showAlert('새 비밀번호는 4자 이상이어야 합니다.', 'warning');
+    if (newPassword.length < 6) {
+      showAlert('새 비밀번호는 6자 이상이어야 합니다.', 'warning');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -127,7 +128,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
           />
           <input
             type="password"
-            placeholder="새 비밀번호 (4자 이상)"
+            placeholder="새 비밀번호 (6자 이상)"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />

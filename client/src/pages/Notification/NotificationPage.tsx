@@ -5,10 +5,12 @@
  * - 참여 상태: /events/my-participations로 영구 유지 (만료 이벤트도 참여완료 표시)
  * - 알림 상세 모달: 카드 클릭 시 확대 보기
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import './NotificationPage.css';
 
 interface Notification {
@@ -38,20 +40,7 @@ function NotificationPage() {
   const [participatedEvents, setParticipatedEvents] = useState<Set<number>>(new Set());
   const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
-        if (ok) navigate('/login');
-        else navigate(-1);
-      });
-      return;
-    }
-    fetchNotifications();
-    fetchEventParticipation();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const response = await api.get('/notifications');
       // 상단 고정 알림이 항상 최상단에 오도록 정렬
@@ -65,16 +54,39 @@ function NotificationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchEventParticipation = async () => {
+  const fetchEventParticipation = useCallback(async () => {
     try {
       const response = await api.get('/events/my-participations');
       setParticipatedEvents(new Set<number>(response.data));
     } catch {
       // 이벤트 조회 실패해도 알림은 정상 표시
     }
-  };
+  }, []);
+
+  // F-H2: ESC 키로 모달 닫기
+  useEffect(() => {
+    if (!selectedNotif) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedNotif(null);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [selectedNotif]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
+      return;
+    }
+    fetchNotifications();
+    fetchEventParticipation();
+  }, [navigate, showConfirm, fetchNotifications, fetchEventParticipation]);
 
   const handleRead = async (id: number) => {
     try {
@@ -112,9 +124,10 @@ function NotificationPage() {
       await api.post(`/events/${eventId}/participate`);
       setParticipatedEvents(prev => new Set([...prev, eventId]));
       showAlert('이벤트에 참여했습니다!', 'success');
-    } catch (error: any) {
-      const msg = error.response?.data?.message || '참여에 실패했습니다.';
-      showAlert(msg, 'error');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        showAlert(error.response?.data?.message || '참여에 실패했습니다.', 'error');
+      }
     }
   };
 
@@ -146,14 +159,14 @@ function NotificationPage() {
     return date.toLocaleDateString('ko-KR');
   };
 
-  if (loading) return <div className="loading"><div className="spinner" />로딩 중...</div>;
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="notification-page">
       <div className="notification-container">
         <div className="notification-header">
           <div className="notification-header-left">
-            <button className="back-btn" onClick={() => navigate(-1)}>← 뒤로</button>
+            <button className="back-btn" onClick={() => navigate(-1)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 뒤로</button>
             <h2>알림</h2>
             {unreadCount > 0 && <span className="unread-count">{unreadCount}개 안읽음</span>}
           </div>
@@ -182,7 +195,7 @@ function NotificationPage() {
                   onClick={() => handleCardClick(notif)}
                 >
                   <div className="notif-icon">
-                    {notif.is_pinned ? '📌' : eventId !== null ? '🎉' : (typeIcons[notif.type] || '📢')}
+                    {notif.is_pinned ? '📌' : (typeIcons[notif.type] || '🔔')}
                   </div>
                   <div className="notif-body">
                     <div className="notif-title">
@@ -217,7 +230,7 @@ function NotificationPage() {
           <div className="notif-modal" onClick={e => e.stopPropagation()}>
             <div className="notif-modal-header">
               <span className="notif-modal-icon">
-                {selectedNotif.is_pinned ? '📌' : getEventIdFromLink(selectedNotif.link) !== null ? '🎉' : (typeIcons[selectedNotif.type] || '📢')}
+                {selectedNotif.is_pinned ? '📌' : (typeIcons[selectedNotif.type] || '🔔')}
               </span>
               <h3>{selectedNotif.title}</h3>
               <button className="notif-modal-close" onClick={() => setSelectedNotif(null)}>×</button>

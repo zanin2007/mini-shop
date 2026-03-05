@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
 import './AuthPages.css';
 
 function LoginPage() {
@@ -11,14 +11,16 @@ function LoginPage() {
     password: '',
   });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { showAlert } = useAlert();
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
       navigate('/', { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -30,22 +32,31 @@ function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
 
     try {
       const response = await api.post('/auth/login', {
         email: formData.email.trim(),
-        password: formData.password.trim(),
+        password: formData.password,
       });
 
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
 
       showAlert('로그인 성공!', 'success');
-      window.location.href = '/'; // 페이지 새로고침으로 레이아웃 업데이트
+      window.dispatchEvent(new Event('userUpdated'));
+      const params = new URLSearchParams(location.search);
+      const redirect = params.get('redirect') || '/';
+      const safeRedirect = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/';
+      navigate(safeRedirect, { replace: true });
     } catch (err) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.message || '로그인에 실패했습니다.');
+      } else {
+        setError('로그인에 실패했습니다.');
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -55,8 +66,9 @@ function LoginPage() {
         <h2>로그인</h2>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>이메일</label>
+            <label htmlFor="login-email">이메일</label>
             <input
+              id="login-email"
               type="email"
               name="email"
               value={formData.email}
@@ -66,8 +78,9 @@ function LoginPage() {
             />
           </div>
           <div className="form-group">
-            <label>비밀번호</label>
+            <label htmlFor="login-password">비밀번호</label>
             <input
+              id="login-password"
               type="password"
               name="password"
               value={formData.password}
@@ -77,8 +90,8 @@ function LoginPage() {
             />
           </div>
           {error && <div className="error-message">{error}</div>}
-          <button type="submit" className="submit-btn">
-            로그인
+          <button type="submit" className="submit-btn" disabled={submitting}>
+            {submitting ? '로그인 중...' : '로그인'}
           </button>
         </form>
         <p className="auth-link">

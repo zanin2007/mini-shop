@@ -1,33 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import QuantityInput from '../../components/QuantityInput';
+import type { CartPageItem } from '../../types';
 import './CartPage.css';
 
-interface CartItemOption {
-  option_value_id: number;
-  option_name: string;
-  value: string;
-  extra_price: number;
-}
-
-interface CartItem {
-  id: number;
-  product_id: number;
-  quantity: number;
-  is_selected: boolean;
-  name: string;
-  price: number;
-  image_url: string;
-  stock: number;
-  options?: CartItemOption[];
-}
-
 function CartPage() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartPageItems] = useState<CartPageItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectingIds, setSelectingIds] = useState<Set<number>>(new Set());
   const navigate = useNavigate();
-  const { showConfirm } = useAlert();
+  const { showConfirm, showAlert } = useAlert();
+
+  const fetchCart = useCallback(async () => {
+    try {
+      const response = await api.get('/cart');
+      setCartPageItems(response.data);
+    } catch (error) {
+      console.error('장바구니 조회 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -39,27 +35,25 @@ function CartPage() {
       return;
     }
     fetchCart();
-  }, []);
-
-  const fetchCart = async () => {
-    try {
-      const response = await api.get('/cart');
-      setCartItems(response.data);
-    } catch (error) {
-      console.error('장바구니 조회 실패:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [navigate, showConfirm, fetchCart]);
 
   const handleToggleSelect = async (id: number) => {
+    if (selectingIds.has(id)) return;
+    setSelectingIds(prev => new Set(prev).add(id));
     try {
       await api.put(`/cart/${id}/select`);
-      setCartItems(cartItems.map(item =>
+      setCartPageItems(prev => prev.map(item =>
         item.id === id ? { ...item, is_selected: !item.is_selected } : item
       ));
     } catch (error) {
       console.error('선택 변경 실패:', error);
+      showAlert('선택 변경에 실패했습니다.', 'error');
+    } finally {
+      setSelectingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -67,35 +61,56 @@ function CartPage() {
     const allSelected = cartItems.every(item => item.is_selected);
     try {
       await api.put('/cart/select-all', { is_selected: !allSelected });
-      setCartItems(cartItems.map(item => ({ ...item, is_selected: !allSelected })));
+      setCartPageItems(prev => prev.map(item => ({ ...item, is_selected: !allSelected })));
+      window.dispatchEvent(new Event('cartUpdated'));
     } catch (error) {
       console.error('전체 선택 변경 실패:', error);
     }
   };
 
-  const handleUpdateQuantity = async (id: number, quantity: number) => {
-    if (quantity < 1) return;
-    try {
-      await api.put(`/cart/${id}`, { quantity });
-      setCartItems(cartItems.map(item =>
-        item.id === id ? { ...item, quantity } : item
-      ));
-    } catch (error) {
-      console.error('수량 변경 실패:', error);
-    }
+  const getMaxStock = (item: CartPageItem) => {
+    if (!item.options || item.options.length === 0) return item.stock;
+    const minOptionStock = Math.min(...item.options.map(o => o.option_stock ?? item.stock));
+    return Math.min(item.stock, minOptionStock);
   };
+
+  const qtyTimers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  const handleUpdateQuantity = useCallback((id: number, quantity: number) => {
+    const item = cartItems.find(i => i.id === id);
+    if (!item || quantity < 1 || quantity > getMaxStock(item)) return;
+
+    // 즉시 UI 반영 (낙관적 업데이트)
+    setCartPageItems(prev => prev.map(i =>
+      i.id === id ? { ...i, quantity } : i
+    ));
+
+    // API 호출 디바운스 (300ms)
+    const prev = qtyTimers.current.get(id);
+    if (prev) clearTimeout(prev);
+    qtyTimers.current.set(id, setTimeout(async () => {
+      qtyTimers.current.delete(id);
+      try {
+        await api.put(`/cart/${id}`, { quantity });
+      } catch {
+        showAlert('수량 변경에 실패했습니다.', 'error');
+        fetchCart();
+      }
+    }, 300));
+  }, [cartItems, showAlert, fetchCart]);
 
   const handleRemove = async (id: number) => {
     if (!(await showConfirm('이 상품을 장바구니에서 삭제할까요?'))) return;
     try {
       await api.delete(`/cart/${id}`);
-      setCartItems(cartItems.filter(item => item.id !== id));
+      setCartPageItems(prev => prev.filter(item => item.id !== id));
+      window.dispatchEvent(new Event('cartUpdated'));
     } catch (error) {
       console.error('삭제 실패:', error);
     }
   };
 
-  const getItemExtraPrice = (item: CartItem) =>
+  const getItemExtraPrice = (item: CartPageItem) =>
     item.options?.reduce((sum, o) => sum + o.extra_price, 0) || 0;
 
   const selectedItems = cartItems.filter(item => item.is_selected);
@@ -103,7 +118,7 @@ function CartPage() {
   const allSelected = cartItems.length > 0 && cartItems.every(item => item.is_selected);
 
   if (loading) {
-    return <div className="loading"><div className="spinner" />로딩 중...</div>;
+    return <LoadingSpinner />;
   }
 
   return (
@@ -136,6 +151,7 @@ function CartPage() {
                     type="checkbox"
                     className="cart-item-checkbox"
                     checked={item.is_selected}
+                    disabled={selectingIds.has(item.id)}
                     onChange={() => handleToggleSelect(item.id)}
                   />
 
@@ -156,9 +172,11 @@ function CartPage() {
                   </div>
 
                   <div className="cart-item-quantity">
-                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} disabled={item.quantity <= 1}>-</button>
-                    <span>{item.quantity}</span>
-                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} disabled={item.quantity >= item.stock}>+</button>
+                    <QuantityInput
+                      value={item.quantity}
+                      max={getMaxStock(item)}
+                      onChange={(qty) => handleUpdateQuantity(item.id, qty)}
+                    />
                   </div>
 
                   <div className="cart-item-subtotal">

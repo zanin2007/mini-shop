@@ -14,7 +14,7 @@ function CouponSection({ coupons, selectedCoupon, onCouponChange }: Props) {
     } else {
       label += `${coupon.discount_amount.toLocaleString()}원 할인`;
     }
-    label += ` (-${coupon.calculated_discount.toLocaleString()}원)`;
+    label += ` (-${(coupon.calculated_discount ?? 0).toLocaleString()}원)`;
     return label;
   };
 

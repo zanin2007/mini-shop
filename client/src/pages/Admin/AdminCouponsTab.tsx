@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminCoupon {
   id: number;
@@ -48,6 +49,25 @@ function AdminCouponsTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 쿠폰 폼 유효성 검증
+    if (couponForm.expiry_date && new Date(couponForm.expiry_date) < new Date()) {
+      showAlert('만료일은 현재 시간 이후여야 합니다.', 'error');
+      return;
+    }
+    if (discountType === 'percentage') {
+      const pct = Number(couponForm.discount_percentage);
+      if (!pct || pct < 1 || pct > 100) {
+        showAlert('할인율은 1~100 사이여야 합니다.', 'error');
+        return;
+      }
+    }
+    if (discountType === 'fixed') {
+      const amt = Number(couponForm.discount_amount);
+      if (!amt || amt <= 0) {
+        showAlert('할인 금액은 0보다 커야 합니다.', 'error');
+        return;
+      }
+    }
     try {
       await api.post('/admin/coupons', {
         code: couponForm.code,
@@ -75,6 +95,7 @@ function AdminCouponsTab() {
       setCoupons(prev => prev.filter(c => c.id !== id));
     } catch (error) {
       console.error('쿠폰 삭제 실패:', error);
+      showAlert('삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -90,7 +111,7 @@ function AdminCouponsTab() {
     }
   };
 
-  if (loading) return <div className="loading"><div className="spinner" />불러오는 중...</div>;
+  if (loading) return <LoadingSpinner text="불러오는 중..." />;
 
   return (
     <>

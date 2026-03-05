@@ -4,10 +4,12 @@
  * - 환불 사유 입력 → 환불 신청 API 호출
  * - 수령완료(completed) 후 7일 이내만 접근 가능
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Order } from '../../types';
 import './RefundPage.css';
 
@@ -20,19 +22,7 @@ function RefundPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
-        if (ok) navigate('/login');
-        else navigate(-1);
-      });
-      return;
-    }
-    fetchOrder();
-  }, [orderId]);
-
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     try {
       const response = await api.get('/orders');
       const found = response.data.find((o: Order) => o.id === Number(orderId));
@@ -53,7 +43,19 @@ function RefundPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId, navigate, showAlert]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
+      return;
+    }
+    fetchOrder();
+  }, [orderId, navigate, showConfirm, fetchOrder]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,21 +68,23 @@ function RefundPage() {
       await api.post(`/refunds/${orderId}`, { reason });
       showAlert('환불 신청이 완료되었습니다.', 'success');
       navigate('/mypage');
-    } catch (error: any) {
-      const msg = error.response?.data?.message || '환불 신청에 실패했습니다.';
+    } catch (error) {
+      const msg = error instanceof AxiosError
+        ? error.response?.data?.message || '환불 신청에 실패했습니다.'
+        : '환불 신청에 실패했습니다.';
       showAlert(msg, 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="loading"><div className="spinner" />로딩 중...</div>;
+  if (loading) return <LoadingSpinner />;
   if (!order) return null;
 
   return (
     <div className="refund-page">
       <div className="refund-container">
-        <button className="back-btn" onClick={() => navigate(-1)}>← 뒤로가기</button>
+        <button className="back-btn" onClick={() => navigate(-1)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg> 뒤로가기</button>
         <h2>환불 신청</h2>
 
         <div className="refund-order-info">

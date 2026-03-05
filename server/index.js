@@ -1,7 +1,10 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 
 // DB 초기화
 const initializeDatabase = require('./config/initDB');
@@ -22,18 +25,24 @@ const eventRoutes = require('./routes/eventRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const refundRoutes = require('./routes/refundRoutes');
 
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 미들웨어
+const allowedOrigins = process.env.CORS_ORIGIN;
 app.use(cors({
-  origin: true, // 개발 환경: 모든 origin 허용
+  origin: allowedOrigins || true,
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+
+// Rate Limiting
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { message: '너무 많은 요청입니다. 15분 후 다시 시도해주세요.' } });
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/signup', authLimiter);
 
 // 라우트
 app.use('/api/auth', authRoutes);

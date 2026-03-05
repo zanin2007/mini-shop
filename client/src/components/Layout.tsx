@@ -1,57 +1,103 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../api/instance';
-import { useAlert } from './AlertContext';
+import { useAlert } from './useAlert';
+import type { User } from '../types';
 import './Layout.css';
 
-interface User {
-  id: number;
-  email: string;
-  nickname: string;
-  role?: string;
-}
-
 function Layout() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    } catch {
+      return null;
+    }
+  });
   const [cartCount, setCartCount] = useState(0);
   const [mailboxCount, setMailboxCount] = useState(0);
   const [notifCount, setNotifCount] = useState(0);
   const navigate = useNavigate();
-  const { showConfirm } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
+  const prevMailboxCount = useRef(0);
+  const prevNotifCount = useRef(0);
+  const isFirstFetch = useRef(true);
 
+  const fetchCounts = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const [cartRes, mailRes, notifRes] = await Promise.all([
+        api.get('/cart').catch(() => ({ data: [] })),
+        api.get('/mailbox/unread-count').catch(() => ({ data: { count: 0 } })),
+        api.get('/notifications/unread-count').catch(() => ({ data: { count: 0 } })),
+      ]);
+      const newCartCount = cartRes.data.length ?? 0;
+      const newMailboxCount = mailRes.data.count ?? 0;
+      const newNotifCount = notifRes.data.count ?? 0;
+
+      setCartCount(newCartCount);
+      setMailboxCount(newMailboxCount);
+      setNotifCount(newNotifCount);
+
+      // 새 알림/우편 도착 시 토스트 표시 (최초 로드 제외)
+      if (!isFirstFetch.current) {
+        if (newNotifCount > prevNotifCount.current) {
+          showAlert('새 알림이 도착했습니다!', 'info');
+        }
+        if (newMailboxCount > prevMailboxCount.current) {
+          showAlert('새 우편이 도착했습니다!', 'info');
+        }
+      }
+      isFirstFetch.current = false;
+      prevMailboxCount.current = newMailboxCount;
+      prevNotifCount.current = newNotifCount;
+    } catch { /* ignore */ }
+  }, [showAlert]);
+
+  // 초기 로드 + 폴링 + 커스텀 이벤트 구독 (로그인 시에만)
+  useEffect(() => {
+    if (!localStorage.getItem('token')) return;
+    void setTimeout(fetchCounts, 0); // 초기 로드 (비동기로 호출하여 cascading render 방지)
+    const interval = setInterval(fetchCounts, 30000);
+
+    const handleCountsUpdate = () => { fetchCounts(); };
+    window.addEventListener('cartUpdated', handleCountsUpdate);
+    window.addEventListener('notificationUpdated', handleCountsUpdate);
+    window.addEventListener('mailboxUpdated', handleCountsUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('cartUpdated', handleCountsUpdate);
+      window.removeEventListener('notificationUpdated', handleCountsUpdate);
+      window.removeEventListener('mailboxUpdated', handleCountsUpdate);
+    };
+  }, [fetchCounts]);
+
+  // localStorage 변경 감지 (닉네임 등 실시간 반영)
   useEffect(() => {
     const loadUser = () => {
       const token = localStorage.getItem('token');
       if (token) {
-        const userData = localStorage.getItem('user');
-        if (userData) setUser(JSON.parse(userData));
+        try {
+          const userData = localStorage.getItem('user');
+          if (userData) setUser(JSON.parse(userData));
+        } catch {
+          localStorage.removeItem('user');
+          setUser(null);
+        }
       } else {
         setUser(null);
       }
     };
 
-    loadUser();
-
-    const token = localStorage.getItem('token');
-    if (token) {
-      Promise.all([
-        api.get('/cart').then(r => r.data.length).catch(() => 0),
-        api.get('/mailbox/unread-count').then(r => r.data.count).catch(() => 0),
-        api.get('/notifications/unread-count').then(r => r.data.count).catch(() => 0),
-      ]).then(([cart, mail, notif]) => {
-        setCartCount(cart);
-        setMailboxCount(mail);
-        setNotifCount(notif);
-      });
-    }
-
-    // localStorage 변경 감지 (닉네임 등 실시간 반영)
-    const handleStorageChange = () => loadUser();
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('userUpdated', handleStorageChange);
+    window.addEventListener('storage', loadUser);
+    window.addEventListener('userUpdated', loadUser);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('userUpdated', handleStorageChange);
+      window.removeEventListener('storage', loadUser);
+      window.removeEventListener('userUpdated', loadUser);
     };
   }, []);
 
@@ -75,10 +121,12 @@ function Layout() {
               <>
                 <span className="user-info">{user.nickname}님</span>
                 <Link to="/mailbox" className="icon-link" title="우편함">
-                  ✉️{mailboxCount > 0 && <span className="icon-badge">{mailboxCount}</span>}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                  {mailboxCount > 0 && <span className="icon-badge">{mailboxCount}</span>}
                 </Link>
                 <Link to="/notifications" className="icon-link" title="알림">
-                  🔔{notifCount > 0 && <span className="icon-badge">{notifCount}</span>}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                  {notifCount > 0 && <span className="icon-badge">{notifCount}</span>}
                 </Link>
                 <Link to="/wishlist">찜</Link>
                 <Link to="/cart">장바구니{cartCount > 0 && <span className="cart-badge">{cartCount}</span>}</Link>
@@ -107,7 +155,7 @@ function Layout() {
       </main>
       <footer className="footer">
         <div className="container">
-          <p>&copy; 2025 Mini Shop. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Mini Shop. All rights reserved.</p>
         </div>
       </footer>
     </div>

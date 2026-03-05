@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { AlertProvider } from './components/AlertContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
+import LoadingSpinner from './components/LoadingSpinner';
 import MainPage from './pages/Main/MainPage';
 import './App.css';
 
@@ -23,7 +25,8 @@ function App() {
   return (
     <BrowserRouter>
     <AlertProvider>
-      <Suspense fallback={<div className="loading"><div className="spinner" />로딩 중...</div>}>
+      <ErrorBoundary>
+      <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<MainPage />} />
@@ -39,9 +42,17 @@ function App() {
             <Route path="notifications" element={<NotificationPage />} />
             <Route path="wishlist" element={<WishlistPage />} />
             <Route path="refund/:orderId" element={<RefundPage />} />
+            <Route path="*" element={
+              <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+                <h2>페이지를 찾을 수 없습니다</h2>
+                <p>요청하신 페이지가 존재하지 않습니다.</p>
+                <Link to="/" style={{ color: 'var(--color-primary)' }}>홈으로 돌아가기</Link>
+              </div>
+            } />
           </Route>
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </AlertProvider>
     </BrowserRouter>
   );

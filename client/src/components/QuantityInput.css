@@ -1,0 +1,59 @@
+.qty-input {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: var(--color-surface-alt);
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: background var(--duration) var(--ease);
+  user-select: none;
+  -webkit-user-select: none;
+  flex-shrink: 0;
+}
+
+.qty-btn:hover:not(:disabled) {
+  background: var(--color-border-light);
+}
+
+.qty-btn:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.qty-value {
+  width: 44px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: text;
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 36px;
+}
+
+.qty-value:hover {
+  background: var(--color-surface-alt);
+}
+
+.qty-text {
+  width: 44px;
+  height: 36px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border: none;
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}

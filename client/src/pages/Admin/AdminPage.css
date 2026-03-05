@@ -53,7 +53,7 @@
   border-radius: var(--radius-lg);
   padding: 1.5rem;
   border: 1px solid var(--color-border-light);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
 }
 
 .empty-msg {
@@ -128,7 +128,7 @@
 
 .status-select {
   padding: 0.3rem 0.5rem;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   border: 1.5px solid var(--color-border);
   font-size: 0.8rem;
   font-weight: 600;
@@ -168,7 +168,7 @@
 .status-badge {
   display: inline-block;
   padding: 0.3rem 0.7rem;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -244,7 +244,7 @@
   padding: 0.3rem 0.7rem;
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   font-size: 0.75rem;
   cursor: pointer;
@@ -337,7 +337,7 @@
   padding: 0.3rem 0.7rem;
   background: var(--color-info-bg);
   border: 1px solid rgba(90, 127, 166, 0.3);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   color: var(--color-info);
   font-size: 0.75rem;
   font-weight: 600;
@@ -455,7 +455,7 @@
   width: 50px;
   padding: 0.25rem 0.4rem;
   border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   text-align: center;
   color: var(--color-text);
@@ -470,7 +470,7 @@
   padding: 0.3rem 0.6rem;
   background: var(--color-success-bg);
   border: 1px solid rgba(90, 138, 94, 0.3);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   color: var(--color-success);
   font-size: 0.75rem;
   font-weight: 600;
@@ -570,7 +570,7 @@
   color: var(--color-text-secondary);
   background: var(--color-surface-alt);
   padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 
 .admin-refund-amount {
@@ -688,7 +688,7 @@
   padding: 0.3rem 0.7rem;
   background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -863,7 +863,7 @@
   padding: 0.2rem 0.6rem;
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   font-size: 0.72rem;
   cursor: pointer;

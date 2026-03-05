@@ -14,12 +14,13 @@ exports.createOrder = async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 선택된 장바구니 상품 조회
+    // 선택된 장바구니 상품 조회 (FOR UPDATE로 재고 행 잠금 → Race Condition 방지)
     const [cartItems] = await connection.execute(
       `SELECT c.id, c.quantity, c.product_id, p.name, p.price, p.stock
        FROM cart_items c
        JOIN products p ON c.product_id = p.id
-       WHERE c.user_id = ? AND c.is_selected = true`,
+       WHERE c.user_id = ? AND c.is_selected = true
+       FOR UPDATE`,
       [req.user.userId]
     );
 
@@ -38,11 +39,14 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    // 배치 쿼리: 모든 장바구니 아이템의 옵션 추가금액을 한 번에 조회
+    // 배치 쿼리: 모든 장바구니 아이템의 옵션 추가금액 + 재고를 한 번에 조회
     const cartIds = cartItems.map(item => item.id);
     const [allCartOpts] = await connection.execute(
-      `SELECT cio.cart_item_id, pov.extra_price FROM cart_item_options cio
+      `SELECT cio.cart_item_id, pov.extra_price, pov.stock as option_stock, pov.value as option_value,
+              po.option_name
+       FROM cart_item_options cio
        JOIN product_option_values pov ON cio.option_value_id = pov.id
+       JOIN product_options po ON pov.option_id = po.id
        WHERE cio.cart_item_id IN (${cartIds.map(() => '?').join(',')})`,
       cartIds
     );
@@ -54,6 +58,19 @@ exports.createOrder = async (req, res) => {
       item.extraPrice = extraPriceMap.get(item.id) || 0;
     }
 
+    // 옵션 재고 검증 (B-C1)
+    for (const opt of allCartOpts) {
+      if (opt.option_stock > 0 || opt.option_stock === 0) {
+        const cartItem = cartItems.find(ci => ci.id === opt.cart_item_id);
+        if (cartItem && opt.option_stock < cartItem.quantity) {
+          await connection.rollback();
+          return res.status(400).json({
+            message: `'${cartItem.name}' 상품의 옵션(${opt.option_name}: ${opt.option_value}) 재고가 부족합니다. (재고: ${opt.option_stock}개)`
+          });
+        }
+      }
+    }
+
     // 총 금액 계산 (옵션 추가금액 포함)
     const totalAmount = cartItems.reduce((sum, item) => sum + (item.price + item.extraPrice) * item.quantity, 0);
 
@@ -61,6 +78,27 @@ exports.createOrder = async (req, res) => {
     let discountAmount = 0;
     let couponId = null;
     const { couponId: requestedCouponId, pointsToUse: requestedPoints, delivery_address, receiver_name, receiver_phone, isGift, receiverId, giftMessage } = req.body || {};
+
+    // 선물 메시지 길이 검증 (재고/쿠폰 처리 전 조기 검증)
+    if (giftMessage && giftMessage.length > 500) {
+      await connection.rollback();
+      return res.status(400).json({ message: '선물 메시지는 500자 이하여야 합니다.' });
+    }
+
+    // 선물 수신자 검증
+    if (isGift) {
+      if (receiverId === req.user.userId) {
+        await connection.rollback();
+        return res.status(400).json({ message: '자기 자신에게는 선물할 수 없습니다.' });
+      }
+      if (receiverId) {
+        const [receiverRows] = await connection.execute('SELECT id FROM users WHERE id = ?', [receiverId]);
+        if (receiverRows.length === 0) {
+          await connection.rollback();
+          return res.status(400).json({ message: '선물 받을 사용자를 찾을 수 없습니다.' });
+        }
+      }
+    }
 
     if (requestedCouponId) {
       const [userCoupons] = await connection.execute(
@@ -78,16 +116,20 @@ exports.createOrder = async (req, res) => {
             if (uc.discount_percentage) {
               discountAmount = Math.floor(totalAmount * uc.discount_percentage / 100);
             }
-            if (uc.discount_amount && uc.discount_amount > discountAmount) {
+            if (uc.discount_amount != null && uc.discount_amount > discountAmount) {
               discountAmount = uc.discount_amount;
             }
             discountAmount = Math.min(discountAmount, totalAmount);
             couponId = uc.coupon_id;
 
-            // 쿠폰 사용 처리
+            // 쿠폰 사용 처리 + 전체 사용 횟수 증가
             await connection.execute(
               'UPDATE user_coupons SET is_used = true, used_at = NOW() WHERE id = ?',
               [requestedCouponId]
+            );
+            await connection.execute(
+              'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ?',
+              [uc.coupon_id]
             );
           }
         }
@@ -138,34 +180,69 @@ exports.createOrder = async (req, res) => {
       optsMap.get(opt.cart_item_id).push(opt.option_value_id);
     }
 
-    // 배치 INSERT: 주문 상품 + 옵션 일괄 추가, 재고 병렬 감소
+    // 배치 INSERT: 주문 상품 + 옵션 일괄 추가, 재고 감소 (파라미터화된 쿼리 사용)
     if (cartItems.length > 0) {
-      const oiValues = cartItems.map(item => `(${orderId}, ${item.product_id}, ${item.quantity}, ${item.price + item.extraPrice})`).join(',');
-      const [oiResult] = await connection.execute(
-        `INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ${oiValues}`
+      const oiPlaceholders = cartItems.map(() => '(?, ?, ?, ?)').join(',');
+      const oiValues = cartItems.flatMap(item => [orderId, item.product_id, item.quantity, item.price + item.extraPrice]);
+      await connection.execute(
+        `INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ${oiPlaceholders}`,
+        oiValues
       );
-      const firstOiId = oiResult.insertId;
+      // 실제 생성된 order_item ID 조회 (auto_increment 연속 가정 방지)
+      const [insertedOiRows] = await connection.execute(
+        'SELECT id FROM order_items WHERE order_id = ? ORDER BY id ASC',
+        [orderId]
+      );
 
-      // 옵션 일괄 복사
-      const optRows = [];
+      // 옵션 일괄 복사 (파라미터화)
+      const optPlaceholders = [];
+      const optValues = [];
       for (let i = 0; i < cartItems.length; i++) {
-        const orderItemId = firstOiId + i;
+        const orderItemId = insertedOiRows[i].id;
         const opts = optsMap.get(cartItems[i].id) || [];
         for (const ovId of opts) {
-          optRows.push(`(${orderItemId}, ${ovId})`);
+          optPlaceholders.push('(?, ?)');
+          optValues.push(orderItemId, ovId);
         }
       }
-      if (optRows.length > 0) {
+      if (optPlaceholders.length > 0) {
         await connection.execute(
-          `INSERT INTO order_item_options (order_item_id, option_value_id) VALUES ${optRows.join(',')}`
+          `INSERT INTO order_item_options (order_item_id, option_value_id) VALUES ${optPlaceholders.join(',')}`,
+          optValues
         );
       }
 
-      // 재고 일괄 감소
-      const stockUpdates = cartItems.map(item =>
-        connection.execute('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id])
-      );
-      await Promise.all(stockUpdates);
+      // 재고 감소 (WHERE stock >= ? 조건으로 초과 판매 방지)
+      for (const item of cartItems) {
+        const [result] = await connection.execute(
+          'UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?',
+          [item.quantity, item.product_id, item.quantity]
+        );
+        if (result.affectedRows === 0) {
+          await connection.rollback();
+          return res.status(400).json({ message: `'${item.name}' 상품의 재고가 부족합니다.` });
+        }
+      }
+
+      // 옵션 재고 감소
+      const optValuesByCart = new Map();
+      for (const opt of allOptsForCopy) {
+        if (!optValuesByCart.has(opt.cart_item_id)) optValuesByCart.set(opt.cart_item_id, []);
+        optValuesByCart.get(opt.cart_item_id).push(opt.option_value_id);
+      }
+      for (const item of cartItems) {
+        const ovIds = optValuesByCart.get(item.id) || [];
+        for (const ovId of ovIds) {
+          const [optResult] = await connection.execute(
+            'UPDATE product_option_values SET stock = stock - ? WHERE id = ? AND stock >= ?',
+            [item.quantity, ovId, item.quantity]
+          );
+          if (optResult.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: `'${item.name}' 상품의 옵션 재고가 부족합니다.` });
+          }
+        }
+      }
     }
 
     // 주문된 상품만 장바구니에서 삭제
@@ -233,12 +310,18 @@ exports.confirmOrder = async (req, res) => {
 exports.advanceOrderStatus = async (req, res) => {
   try {
     const [orders] = await db.execute(
-      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.userId]
+      'SELECT * FROM orders WHERE id = ?',
+      [req.params.id]
     );
 
     if (orders.length === 0) {
       return res.status(404).json({ message: '주문을 찾을 수 없습니다.' });
+    }
+
+    // 선물 주문인 경우 수락 여부 확인
+    const [gifts] = await db.execute('SELECT status FROM gifts WHERE order_id = ?', [req.params.id]);
+    if (gifts.length > 0 && gifts[0].status !== 'accepted') {
+      return res.status(400).json({ message: '선물이 수락되지 않은 주문은 상태를 변경할 수 없습니다.' });
     }
 
     const statusFlow = ['checking', 'pending', 'shipped', 'delivered', 'completed'];

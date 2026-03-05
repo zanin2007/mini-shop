@@ -21,15 +21,23 @@ exports.getAllOrders = async (req, res) => {
        ORDER BY o.created_at DESC`
     );
 
-    for (const order of orders) {
-      const [items] = await db.execute(
-        `SELECT oi.*, p.name, p.image_url
-         FROM order_items oi
+    if (orders.length > 0) {
+      const orderIds = orders.map(o => o.id);
+      const ph = orderIds.map(() => '?').join(',');
+      const [allItems] = await db.execute(
+        `SELECT oi.*, p.name, p.image_url FROM order_items oi
          JOIN products p ON oi.product_id = p.id
-         WHERE oi.order_id = ?`,
-        [order.id]
+         WHERE oi.order_id IN (${ph})`,
+        orderIds
       );
-      order.items = items;
+      const itemsMap = new Map();
+      for (const item of allItems) {
+        if (!itemsMap.has(item.order_id)) itemsMap.set(item.order_id, []);
+        itemsMap.get(item.order_id).push(item);
+      }
+      for (const order of orders) {
+        order.items = itemsMap.get(order.id) || [];
+      }
     }
 
     res.json(orders);
@@ -64,7 +72,14 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({ message: '수령완료된 주문은 상태를 변경할 수 없습니다.' });
     }
 
-    await db.execute('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    // 정방향 전이만 허용
+    const statusOrder = { checking: 0, pending: 1, shipped: 2, delivered: 3, completed: 4 };
+    if (statusOrder[status] <= statusOrder[currentStatus]) {
+      return res.status(400).json({ message: '현재 상태보다 이전 단계로 변경할 수 없습니다.' });
+    }
+
+    const extra = status === 'completed' ? ', completed_at = NOW()' : '';
+    await db.execute(`UPDATE orders SET status = ?${extra} WHERE id = ?`, [status, id]);
     res.json({ message: '주문 상태가 변경되었습니다.' });
   } catch (error) {
     console.error('Admin update order error:', error);
@@ -92,7 +107,23 @@ exports.getAllProducts = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.execute('DELETE FROM products WHERE id = ?', [id]);
+
+    // 활성 주문이 있는 상품은 삭제 차단
+    const [activeItems] = await db.execute(
+      `SELECT oi.id FROM order_items oi
+       JOIN orders o ON oi.order_id = o.id
+       WHERE oi.product_id = ? AND o.status NOT IN ('completed', 'refunded')
+       LIMIT 1`,
+      [id]
+    );
+    if (activeItems.length > 0) {
+      return res.status(400).json({ message: '진행중인 주문이 있는 상품은 삭제할 수 없습니다.' });
+    }
+
+    const [result] = await db.execute('DELETE FROM products WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
+    }
     res.json({ message: '상품이 삭제되었습니다.' });
   } catch (error) {
     console.error('Admin delete product error:', error);
@@ -110,6 +141,10 @@ exports.createCoupon = async (req, res) => {
     }
     if (!discount_amount && !discount_percentage) {
       return res.status(400).json({ message: '할인 금액 또는 할인율을 입력해주세요.' });
+    }
+
+    if (new Date(expiry_date) < new Date()) {
+      return res.status(400).json({ message: '만료일은 현재 이후여야 합니다.' });
     }
 
     await db.execute(
@@ -154,8 +189,8 @@ exports.deleteCoupon = async (req, res) => {
 exports.distributeCoupon = async (req, res) => {
   try {
     const { coupon_id } = req.body;
-    if (!coupon_id) {
-      return res.status(400).json({ message: '쿠폰을 선택해주세요.' });
+    if (!coupon_id || !Number.isInteger(Number(coupon_id)) || Number(coupon_id) <= 0) {
+      return res.status(400).json({ message: '유효한 쿠폰을 선택해주세요.' });
     }
 
     const [coupons] = await db.execute('SELECT * FROM coupons WHERE id = ?', [coupon_id]);
@@ -185,7 +220,11 @@ exports.distributeCoupon = async (req, res) => {
         );
         distributed++;
       } catch (err) {
-        // 이미 보유한 쿠폰은 건너뜀 (UNIQUE 제약)
+        if (err.code === 'ER_DUP_ENTRY') {
+          // 이미 보유한 쿠폰은 건너뜀 (UNIQUE 제약)
+        } else {
+          throw err; // 예상치 못한 에러는 상위로 전파
+        }
       }
     }
 
@@ -216,22 +255,24 @@ exports.createAnnouncement = async (req, res) => {
       }
     }
 
-    await db.execute(
+    const [annResult] = await db.execute(
       'INSERT INTO announcements (admin_id, title, content, is_pinned) VALUES (?, ?, ?, ?)',
       [req.user.userId, title, content, is_pinned || false]
     );
+    const announcementId = annResult.insertId;
 
-    const announcementId = (await db.execute(
-      'SELECT LAST_INSERT_ID() as id'
-    ))[0][0].id;
-
-    // 전체 유저에게 알림 (상단 고정이면 is_pinned=true → 유저가 삭제 불가)
+    // 전체 유저에게 알림 — 배치 INSERT (상단 고정이면 is_pinned=true → 유저가 삭제 불가)
     const [users] = await db.execute('SELECT id FROM users');
-    for (const user of users) {
+    if (users.length > 0) {
+      const notifTitle = `📢 ${title}`;
+      const notifContent = content.substring(0, 100);
+      const isPinned = is_pinned ? true : false;
+      const link = is_pinned ? `pinned:${announcementId}` : null;
+      const ph = users.map(() => '(?, ?, ?, ?, ?, ?)').join(',');
+      const vals = users.flatMap(u => [u.id, 'system', notifTitle, notifContent, isPinned, link]);
       await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content, is_pinned, link)
-         VALUES (?, 'system', ?, ?, ?, ?)`,
-        [user.id, `📢 ${title}`, content.substring(0, 100), is_pinned ? true : false, is_pinned ? `pinned:${announcementId}` : null]
+        `INSERT INTO notifications (user_id, type, title, content, is_pinned, link) VALUES ${ph}`,
+        vals
       );
     }
 
@@ -279,6 +320,10 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ message: '제목과 기간은 필수입니다.' });
     }
 
+    if (new Date(start_date) >= new Date(end_date)) {
+      return res.status(400).json({ message: '시작일은 종료일보다 이전이어야 합니다.' });
+    }
+
     // 쿠폰 보상인 경우 쿠폰 ID 필수 검증
     if (reward_type === 'coupon') {
       if (!reward_id) {
@@ -304,13 +349,17 @@ exports.createEvent = async (req, res) => {
     );
     const eventId = result.insertId;
 
-    // 전체 유저에게 알림 (link에 이벤트 ID 저장)
+    // 전체 유저에게 알림 — 배치 INSERT (link에 이벤트 ID 저장)
     const [users] = await db.execute('SELECT id FROM users');
-    for (const user of users) {
+    if (users.length > 0) {
+      const notifTitle = `🎉 새 이벤트: ${title}`;
+      const notifContent = description ? description.substring(0, 100) : '새로운 이벤트가 시작되었습니다!';
+      const link = `event:${eventId}`;
+      const ph = users.map(() => '(?, ?, ?, ?, ?)').join(',');
+      const vals = users.flatMap(u => [u.id, 'system', notifTitle, notifContent, link]);
       await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content, link)
-         VALUES (?, 'system', ?, ?, ?)`,
-        [user.id, `🎉 새 이벤트: ${title}`, description ? description.substring(0, 100) : '새로운 이벤트가 시작되었습니다!', `event:${eventId}`]
+        `INSERT INTO notifications (user_id, type, title, content, link) VALUES ${ph}`,
+        vals
       );
     }
 
@@ -359,7 +408,11 @@ exports.drawEventWinners = async (req, res) => {
     }
     const event = events[0];
 
-    const limit = parseInt(winner_count) || 1;
+    const limit = parseInt(winner_count, 10) || 1;
+    if (limit < 1 || limit > 1000) {
+      return res.status(400).json({ message: '당첨 인원은 1~1000명이어야 합니다.' });
+    }
+    // NOTE: LIMIT에는 파라미터 바인딩 불가, parseInt로 검증 완료
     const [participants] = await db.execute(
       `SELECT * FROM event_participants WHERE event_id = ? AND is_winner = false ORDER BY RAND() LIMIT ${limit}`,
       [id]
@@ -410,16 +463,23 @@ exports.getAllRefunds = async (req, res) => {
        ORDER BY r.created_at DESC`
     );
 
-    // 각 환불에 주문 상품 정보 포함
-    for (const refund of refunds) {
-      const [items] = await db.execute(
-        `SELECT oi.*, p.name, p.image_url
-         FROM order_items oi
+    if (refunds.length > 0) {
+      const orderIds = refunds.map(r => r.order_id);
+      const ph = orderIds.map(() => '?').join(',');
+      const [allItems] = await db.execute(
+        `SELECT oi.*, p.name, p.image_url FROM order_items oi
          JOIN products p ON oi.product_id = p.id
-         WHERE oi.order_id = ?`,
-        [refund.order_id]
+         WHERE oi.order_id IN (${ph})`,
+        orderIds
       );
-      refund.items = items;
+      const itemsMap = new Map();
+      for (const item of allItems) {
+        if (!itemsMap.has(item.order_id)) itemsMap.set(item.order_id, []);
+        itemsMap.get(item.order_id).push(item);
+      }
+      for (const refund of refunds) {
+        refund.items = itemsMap.get(refund.order_id) || [];
+      }
     }
 
     res.json(refunds);
@@ -436,22 +496,29 @@ exports.getUsersWithActivity = async (req, res) => {
   try {
     const [users] = await db.execute(
       `SELECT u.id, u.nickname, u.email, u.role, u.created_at,
-              (SELECT COUNT(*) FROM reviews WHERE user_id = u.id) AS review_count,
-              (SELECT COUNT(*) FROM refunds WHERE user_id = u.id) AS refund_count,
-              (SELECT COUNT(*) FROM user_penalties WHERE user_id = u.id AND type = 'warning' AND is_active = true) AS warning_count,
-              (SELECT p.type FROM user_penalties p
-               WHERE p.user_id = u.id AND p.is_active = true AND p.type != 'warning'
-               AND (p.suspended_until IS NULL OR p.suspended_until > NOW())
-               ORDER BY p.created_at DESC LIMIT 1) AS suspension_type,
-              (SELECT p.suspended_until FROM user_penalties p
-               WHERE p.user_id = u.id AND p.is_active = true AND p.type != 'warning'
-               AND (p.suspended_until IS NULL OR p.suspended_until > NOW())
-               ORDER BY p.created_at DESC LIMIT 1) AS suspended_until
+              COALESCE(rv.cnt, 0) AS review_count,
+              COALESCE(rf.cnt, 0) AS refund_count,
+              COALESCE(wc.cnt, 0) AS warning_count,
+              sp.type AS suspension_type,
+              sp.suspended_until
        FROM users u
+       LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM reviews GROUP BY user_id) rv ON rv.user_id = u.id
+       LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM refunds GROUP BY user_id) rf ON rf.user_id = u.id
+       LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM user_penalties WHERE type = 'warning' AND is_active = true GROUP BY user_id) wc ON wc.user_id = u.id
+       LEFT JOIN (
+         SELECT p1.user_id, p1.type, p1.suspended_until
+         FROM user_penalties p1
+         INNER JOIN (
+           SELECT user_id, MAX(created_at) AS max_created
+           FROM user_penalties
+           WHERE is_active = true AND type != 'warning'
+             AND (suspended_until IS NULL OR suspended_until > NOW())
+           GROUP BY user_id
+         ) p2 ON p1.user_id = p2.user_id AND p1.created_at = p2.max_created
+         WHERE p1.is_active = true AND p1.type != 'warning'
+       ) sp ON sp.user_id = u.id
        WHERE u.role != 'admin'
-       AND ((SELECT COUNT(*) FROM reviews WHERE user_id = u.id) > 0
-            OR (SELECT COUNT(*) FROM refunds WHERE user_id = u.id) > 0
-            OR (SELECT COUNT(*) FROM user_penalties WHERE user_id = u.id) > 0)
+         AND (rv.cnt > 0 OR rf.cnt > 0 OR EXISTS (SELECT 1 FROM user_penalties WHERE user_id = u.id))
        ORDER BY u.created_at DESC`
     );
     res.json(users);
@@ -570,74 +637,126 @@ exports.revokePenalty = async (req, res) => {
   }
 };
 
-// 환불 승인/거부 — 승인 시 주문 상태 환불완료 + 포인트 환불, 거부 시 수령완료로 복원
+// 환불 승인/거부 — 트랜잭션: 승인 시 주문 상태 환불완료 + 포인트 환불, 거부 시 수령완료로 복원
 exports.processRefund = async (req, res) => {
+  const { id } = req.params;
+  const { action, admin_note } = req.body;
+
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ message: '유효하지 않은 처리입니다.' });
+  }
+
+  const connection = await db.getConnection();
   try {
-    const { id } = req.params;
-    const { action, admin_note } = req.body;
+    await connection.beginTransaction();
 
-    if (!['approve', 'reject'].includes(action)) {
-      return res.status(400).json({ message: '유효하지 않은 처리입니다.' });
-    }
-
-    const [refunds] = await db.execute('SELECT * FROM refunds WHERE id = ?', [id]);
+    const [refunds] = await connection.execute('SELECT * FROM refunds WHERE id = ? FOR UPDATE', [id]);
     if (refunds.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: '환불 요청을 찾을 수 없습니다.' });
     }
 
     const refund = refunds[0];
     if (refund.status !== 'requested') {
+      await connection.rollback();
       return res.status(400).json({ message: '이미 처리된 환불 요청입니다.' });
     }
 
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
-    await db.execute(
+    await connection.execute(
       'UPDATE refunds SET status = ?, admin_note = ?, processed_at = NOW() WHERE id = ?',
       [newStatus, admin_note || null, id]
     );
 
     if (action === 'approve') {
-      // 주문 상태 환불완료로 변경
-      await db.execute(
+      // 주문 행 잠금 후 상태 변경 (동시 상태 변경 방지)
+      const [orderRows] = await connection.execute(
+        'SELECT * FROM orders WHERE id = ? FOR UPDATE',
+        [refund.order_id]
+      );
+
+      if (orderRows.length === 0 || orderRows[0].status === 'refunded') {
+        await connection.rollback();
+        return res.status(400).json({ message: '이미 환불 처리된 주문입니다.' });
+      }
+
+      await connection.execute(
         'UPDATE orders SET status = ? WHERE id = ?',
         ['refunded', refund.order_id]
       );
+      const order = orderRows[0];
+
       // 포인트 환불
-      const [orderRows] = await db.execute(
-        'SELECT points_used FROM orders WHERE id = ?',
-        [refund.order_id]
-      );
-      const pointsUsed = orderRows[0]?.points_used || 0;
+      const pointsUsed = order?.points_used || 0;
       if (pointsUsed > 0) {
-        await db.execute(
-          'UPDATE users SET points = points + ? WHERE id = ?',
+        await connection.execute(
+          'UPDATE users SET points = LEAST(points + ?, 9999999) WHERE id = ?',
           [pointsUsed, refund.user_id]
         );
       }
+
+      // 쿠폰 복원
+      if (order?.coupon_id) {
+        await connection.execute(
+          'UPDATE user_coupons SET is_used = false, used_at = NULL WHERE user_id = ? AND coupon_id = ?',
+          [refund.user_id, order.coupon_id]
+        );
+        await connection.execute(
+          'UPDATE coupons SET current_uses = GREATEST(current_uses - 1, 0) WHERE id = ?',
+          [order.coupon_id]
+        );
+      }
+
+      // 재고 복원
+      const [orderItems] = await connection.execute(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
+        [refund.order_id]
+      );
+      for (const item of orderItems) {
+        await connection.execute(
+          'UPDATE products SET stock = stock + ? WHERE id = ?',
+          [item.quantity, item.product_id]
+        );
+      }
+
+      // 옵션 재고 복원
+      const [optionItems] = await connection.execute(
+        `SELECT oio.option_value_id, oi.quantity FROM order_item_options oio
+         JOIN order_items oi ON oio.order_item_id = oi.id WHERE oi.order_id = ?`,
+        [refund.order_id]
+      );
+      for (const opt of optionItems) {
+        await connection.execute(
+          'UPDATE product_option_values SET stock = stock + ? WHERE id = ?',
+          [opt.quantity, opt.option_value_id]
+        );
+      }
     } else {
-      // 거부 시 주문 상태를 수령완료로 복원
-      await db.execute(
+      await connection.execute(
         'UPDATE orders SET status = ? WHERE id = ?',
         ['completed', refund.order_id]
       );
     }
 
-    // 유저에게 알림
     const title = action === 'approve'
       ? '환불이 승인되었습니다.'
       : '환불 요청이 거부되었습니다.';
     const content = admin_note || (action === 'approve' ? '환불 처리가 완료되었습니다.' : '환불 요청이 거부되었습니다.');
 
-    await db.execute(
+    await connection.execute(
       `INSERT INTO notifications (user_id, type, title, content)
        VALUES (?, 'system', ?, ?)`,
       [refund.user_id, title, content]
     );
 
+    await connection.commit();
     res.json({ message: action === 'approve' ? '환불이 승인되었습니다.' : '환불이 거부되었습니다.' });
   } catch (error) {
+    await connection.rollback();
     console.error('Admin process refund error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
 };

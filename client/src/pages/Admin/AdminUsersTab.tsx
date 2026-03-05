@@ -5,10 +5,11 @@
  * - 경고/정지 부여: warning, 7일, 30일, 영구 (3회 경고 시 자동 7일 정지)
  * - 제재 해제
  */
-import { useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface UserActivity {
   id: number;
@@ -47,7 +48,7 @@ function AdminUsersTab() {
   const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [penaltyForm, setPenaltyForm] = useState<{ type: string; reason: string }>({ type: 'warning', reason: '' });
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await api.get('/admin/users-activity');
       setUsers(res.data);
@@ -56,9 +57,9 @@ function AdminUsersTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showAlert]);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const toggleHistory = async (userId: number) => {
     if (expandedUser === userId) {
@@ -69,6 +70,7 @@ function AdminUsersTab() {
       const res = await api.get(`/admin/users/${userId}/penalties`);
       setPenalties(res.data);
       setExpandedUser(userId);
+      setPenaltyForm({ type: 'warning', reason: '' });
     } catch {
       showAlert('제재 이력을 불러오지 못했습니다.', 'error');
     }
@@ -110,7 +112,7 @@ function AdminUsersTab() {
     }
   };
 
-  if (loading) return <div className="loading"><div className="spinner" />로딩 중...</div>;
+  if (loading) return <LoadingSpinner />;
   if (users.length === 0) return <p className="empty-msg">대상 사용자가 없습니다.</p>;
 
   return (
@@ -129,8 +131,8 @@ function AdminUsersTab() {
           </thead>
           <tbody>
             {users.map(user => (
-              <>
-                <tr key={user.id}>
+              <Fragment key={user.id}>
+                <tr>
                   <td>
                     <div className="order-customer">
                       <span>{user.nickname}</span>
@@ -225,7 +227,7 @@ function AdminUsersTab() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>

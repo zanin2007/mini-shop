@@ -3,10 +3,10 @@
  * - showAlert: 토스트 알림 (success/error/info/warning), 3초 후 자동 사라짐, 우측 상단
  * - showConfirm: 확인/취소 모달, Promise<boolean> 반환
  */
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { AlertContext } from './useAlert';
+import type { AlertType } from './useAlert';
 import './Alert.css';
-
-type AlertType = 'success' | 'error' | 'info' | 'warning';
 
 interface Toast {
   id: number;
@@ -20,30 +20,21 @@ interface ConfirmState {
   resolve: ((value: boolean) => void) | null;
 }
 
-interface AlertContextType {
-  showAlert: (message: string, type?: AlertType) => void;
-  showConfirm: (message: string) => Promise<boolean>;
-}
-
-const AlertContext = createContext<AlertContextType | null>(null);
-
-export function useAlert() {
-  const ctx = useContext(AlertContext);
-  if (!ctx) throw new Error('useAlert must be used within AlertProvider');
-  return ctx;
-}
-
 export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [confirm, setConfirm] = useState<ConfirmState>({ show: false, message: '', resolve: null });
   const idRef = useRef(0);
 
+  const timerMap = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
   const showAlert = useCallback((message: string, type: AlertType = 'info') => {
     const id = ++idRef.current;
     setToasts(prev => [...prev, { id, type, message }]);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
+      timerMap.current.delete(id);
     }, 3000);
+    timerMap.current.set(id, timer);
   }, []);
 
   const showConfirm = useCallback((message: string): Promise<boolean> => {
@@ -76,7 +67,11 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
             <span className="toast-message">{toast.message}</span>
             <button
               className="toast-close"
-              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              onClick={() => {
+                const timer = timerMap.current.get(toast.id);
+                if (timer) { clearTimeout(timer); timerMap.current.delete(toast.id); }
+                setToasts(prev => prev.filter(t => t.id !== toast.id));
+              }}
             >
               ×
             </button>

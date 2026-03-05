@@ -22,6 +22,32 @@ exports.signup = async (req, res) => {
       return res.status(400).json({ message: '모든 필드를 입력해주세요.' });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: '유효한 이메일 형식이 아닙니다.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: '비밀번호는 6자 이상이어야 합니다.' });
+    }
+
+    if (nickname.length < 2 || nickname.length > 20) {
+      return res.status(400).json({ message: '닉네임은 2~20자여야 합니다.' });
+    }
+
+    if (!/^[가-힣a-zA-Z0-9_]+$/.test(nickname)) {
+      return res.status(400).json({ message: '닉네임은 한글, 영문, 숫자, 밑줄만 사용할 수 있습니다.' });
+    }
+
+    // 닉네임 중복 확인
+    const [existingNickname] = await db.execute(
+      'SELECT id FROM users WHERE nickname = ?',
+      [nickname]
+    );
+    if (existingNickname.length > 0) {
+      return res.status(400).json({ message: '이미 사용 중인 닉네임입니다.' });
+    }
+
     // 이메일 중복 확인
     const [existingUser] = await db.execute(
       'SELECT * FROM users WHERE email = ?',
@@ -120,16 +146,17 @@ exports.logout = (req, res) => {
   res.json({ message: '로그아웃 되었습니다.' });
 };
 
-// 유저 검색 — 선물하기용, 닉네임/이메일로 본인 제외 최대 10명 검색
+// 유저 검색 — 선물하기용, 닉네임으로 본인 제외 최대 10명 검색
 exports.searchUser = async (req, res) => {
   try {
     const { q } = req.query;
     if (!q || q.trim().length < 2) {
       return res.json([]);
     }
+    const escaped = q.replace(/[%_\\]/g, '\\$&');
     const [users] = await db.execute(
-      `SELECT id, nickname, email FROM users WHERE id != ? AND (nickname LIKE ? OR email LIKE ?) LIMIT 10`,
-      [req.user.userId, `%${q}%`, `%${q}%`]
+      `SELECT id, nickname FROM users WHERE id != ? AND nickname LIKE ? LIMIT 10`,
+      [req.user.userId, `%${escaped}%`]
     );
     res.json(users);
   } catch (error) {
@@ -144,6 +171,16 @@ exports.changeNickname = async (req, res) => {
     const nickname = (req.body.nickname || '').trim();
     if (!nickname) {
       return res.status(400).json({ message: '닉네임을 입력해주세요.' });
+    }
+    if (nickname.length < 2 || nickname.length > 20) {
+      return res.status(400).json({ message: '닉네임은 2~20자여야 합니다.' });
+    }
+    if (!/^[가-힣a-zA-Z0-9_]+$/.test(nickname)) {
+      return res.status(400).json({ message: '닉네임은 한글, 영문, 숫자, 밑줄만 사용할 수 있습니다.' });
+    }
+    const [existing] = await db.execute('SELECT id FROM users WHERE nickname = ? AND id != ?', [nickname, req.user.userId]);
+    if (existing.length > 0) {
+      return res.status(400).json({ message: '이미 사용 중인 닉네임입니다.' });
     }
     await db.execute('UPDATE users SET nickname = ? WHERE id = ?', [nickname, req.user.userId]);
     res.json({ message: '닉네임이 변경되었습니다.', nickname });
@@ -162,8 +199,8 @@ exports.changePassword = async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.' });
     }
-    if (newPassword.length < 4) {
-      return res.status(400).json({ message: '새 비밀번호는 4자 이상이어야 합니다.' });
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: '새 비밀번호는 6자 이상이어야 합니다.' });
     }
 
     const [users] = await db.execute('SELECT password FROM users WHERE id = ?', [req.user.userId]);
@@ -202,6 +239,15 @@ exports.deleteAccount = async (req, res) => {
     const isMatch = await bcrypt.compare(password, users[0].password);
     if (!isMatch) {
       return res.status(400).json({ message: '비밀번호가 일치하지 않습니다.' });
+    }
+
+    // 진행중인 주문이 있으면 탈퇴 차단
+    const [activeOrders] = await db.execute(
+      "SELECT id FROM orders WHERE user_id = ? AND status NOT IN ('completed', 'refunded')",
+      [req.user.userId]
+    );
+    if (activeOrders.length > 0) {
+      return res.status(400).json({ message: '진행중인 주문이 있어 탈퇴할 수 없습니다.' });
     }
 
     await db.execute('DELETE FROM users WHERE id = ?', [req.user.userId]);

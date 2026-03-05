@@ -24,11 +24,15 @@ exports.createReview = async (req, res) => {
   try {
     const { productId, rating, content } = req.body;
 
-    // 구매 여부 확인
+    if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: '별점은 1~5 사이의 정수여야 합니다.' });
+    }
+
+    // 구매 여부 확인 (환불된 주문 제외)
     const [orders] = await db.execute(
       `SELECT o.id FROM orders o
        JOIN order_items oi ON o.id = oi.order_id
-       WHERE o.user_id = ? AND oi.product_id = ?`,
+       WHERE o.user_id = ? AND oi.product_id = ? AND o.status NOT IN ('refund_requested', 'refunded')`,
       [req.user.userId, productId]
     );
 

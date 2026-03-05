@@ -294,6 +294,15 @@ async function initializeDatabase() {
     }
   };
 
+  // 인덱스 추가 (이미 존재하면 무시)
+  const safeCreateIndex = async (sql) => { await connection.query(sql).catch(() => {}); };
+  await safeCreateIndex('CREATE UNIQUE INDEX idx_users_nickname ON users(nickname)');
+  await safeCreateIndex('CREATE INDEX idx_orders_user_status ON orders(user_id, status)');
+  await safeCreateIndex('CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read)');
+  await safeCreateIndex('CREATE INDEX idx_mailbox_user_read ON mailbox(user_id, is_read)');
+  await safeCreateIndex('CREATE INDEX idx_cart_items_user ON cart_items(user_id)');
+  await safeCreateIndex('CREATE INDEX idx_user_penalties_user_active ON user_penalties(user_id, is_active)');
+
   await safeAddColumn('orders', 'completed_at', 'DATETIME DEFAULT NULL');
   await safeAddColumn('users', 'points', 'INT NOT NULL DEFAULT 0');
   await safeAddColumn('orders', 'points_used', 'INT NOT NULL DEFAULT 0');

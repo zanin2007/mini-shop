@@ -4,10 +4,11 @@
  * - 배송완료(delivered) → 구매확정 버튼 (낙관적 업데이트 + completed_at 설정)
  * - [테스트용] 주문 상태 다음 단계 변경 버튼
  */
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
 import type { Order, CartItemOption } from '../../types';
 
 interface StatusInfo {
@@ -24,6 +25,7 @@ interface Props {
 
 function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
   const { showAlert, showConfirm } = useAlert();
+  const [processingId, setProcessingId] = useState<number | null>(null);
   if (orders.length === 0) {
     return <p className="empty-message">진행중인 주문이 없습니다.</p>;
   }
@@ -45,7 +47,7 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
               {order.items.map((item) => (
                 <li key={item.id} className="order-item">
                   <Link to={`/products/${item.product_id}`} className="order-item-link">
-                    <img src={item.image_url} alt={item.name} />
+                    <img src={item.image_url} alt={item.name} loading="lazy" />
                     <div className="item-name">
                       {item.name}
                       {item.options && item.options.length > 0 && (
@@ -98,8 +100,10 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
             ) : order.status === 'delivered' ? (
               <button
                 className="confirm-btn"
+                disabled={processingId === order.id}
                 onClick={async () => {
                   if (!(await showConfirm('수령완료 하시겠습니까?'))) return;
+                  setProcessingId(order.id);
                   try {
                     await api.put(`/orders/${order.id}/confirm`);
                     showAlert('수령이 완료되었습니다.', 'success');
@@ -108,14 +112,17 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
                     if (error instanceof AxiosError) {
                       showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
                     }
+                  } finally {
+                    setProcessingId(null);
                   }
                 }}
               >
-                수령완료
+                {processingId === order.id ? '처리중...' : '수령완료'}
               </button>
             ) : (
               <button
                 className="advance-btn"
+                disabled={processingId === order.id}
                 onClick={async () => {
                   const nextLabel: Record<string, string> = {
                     checking: '준비중',
@@ -124,6 +131,7 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
                   };
                   const label = nextLabel[order.status] || '다음 단계';
                   if (!(await showConfirm(`'${label}'(으)로 변경하시겠습니까?`))) return;
+                  setProcessingId(order.id);
                   try {
                     const res = await api.put(`/orders/${order.id}/advance`);
                     showAlert(res.data.message, 'success');
@@ -132,14 +140,16 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
                     if (error instanceof AxiosError) {
                       showAlert(error.response?.data?.message || '상태 변경에 실패했습니다.', 'error');
                     }
+                  } finally {
+                    setProcessingId(null);
                   }
                 }}
               >
-                {{
+                {processingId === order.id ? '처리중...' : ({
                   checking: '준비중으로 변경',
                   pending: '배송중으로 변경',
                   shipped: '배송완료로 변경',
-                }[order.status] || '다음 단계'}
+                }[order.status] || '다음 단계')}
               </button>
             )}
           </div>

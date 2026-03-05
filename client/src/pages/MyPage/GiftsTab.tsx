@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
 import type { Gift } from '../../types';
 
 interface Props {
@@ -31,9 +31,12 @@ const deliverySteps = ['checking', 'pending', 'shipped', 'delivered', 'completed
 function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
   const { showAlert, showConfirm } = useAlert();
   const [giftSubTab, setGiftSubTab] = useState<'received' | 'sent'>('received');
+  const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
 
   const handleAcceptGift = async (giftId: number) => {
+    if (processingIds.has(giftId)) return;
     if (!(await showConfirm('선물을 수락하시겠습니까?'))) return;
+    setProcessingIds(prev => new Set(prev).add(giftId));
     try {
       await api.put(`/gifts/${giftId}/accept`);
       showAlert('선물을 수락했습니다.', 'success');
@@ -42,11 +45,15 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
       if (error instanceof AxiosError) {
         showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
       }
+    } finally {
+      setProcessingIds(prev => { const next = new Set(prev); next.delete(giftId); return next; });
     }
   };
 
   const handleConfirmGift = async (giftId: number) => {
+    if (processingIds.has(giftId)) return;
     if (!(await showConfirm('수령완료 하시겠습니까?'))) return;
+    setProcessingIds(prev => new Set(prev).add(giftId));
     try {
       await api.put(`/gifts/${giftId}/confirm`);
       showAlert('수령이 완료되었습니다.', 'success');
@@ -55,11 +62,15 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
       if (error instanceof AxiosError) {
         showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
       }
+    } finally {
+      setProcessingIds(prev => { const next = new Set(prev); next.delete(giftId); return next; });
     }
   };
 
   const handleRejectGift = async (giftId: number) => {
+    if (processingIds.has(giftId)) return;
     if (!(await showConfirm('선물을 거절하시겠습니까?'))) return;
+    setProcessingIds(prev => new Set(prev).add(giftId));
     try {
       await api.put(`/gifts/${giftId}/reject`);
       showAlert('선물을 거절했습니다.', 'success');
@@ -68,6 +79,8 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
       if (error instanceof AxiosError) {
         showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
       }
+    } finally {
+      setProcessingIds(prev => { const next = new Set(prev); next.delete(giftId); return next; });
     }
   };
 
@@ -135,14 +148,18 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
                 )}
                 {gift.status === 'pending' && (
                   <div className="gift-actions">
-                    <button className="gift-accept-btn" onClick={() => handleAcceptGift(gift.id)}>수락</button>
-                    <button className="gift-reject-btn" onClick={() => handleRejectGift(gift.id)}>거절</button>
+                    <button className="gift-accept-btn" disabled={processingIds.has(gift.id)} onClick={() => handleAcceptGift(gift.id)}>
+                      {processingIds.has(gift.id) ? '처리중...' : '수락'}
+                    </button>
+                    <button className="gift-reject-btn" disabled={processingIds.has(gift.id)} onClick={() => handleRejectGift(gift.id)}>
+                      {processingIds.has(gift.id) ? '처리중...' : '거절'}
+                    </button>
                   </div>
                 )}
                 {gift.status === 'accepted' && gift.order_status === 'delivered' && (
                   <div className="gift-actions">
-                    <button className="gift-accept-btn" onClick={() => handleConfirmGift(gift.id)}>
-                      수령완료
+                    <button className="gift-accept-btn" disabled={processingIds.has(gift.id)} onClick={() => handleConfirmGift(gift.id)}>
+                      {processingIds.has(gift.id) ? '처리중...' : '수령완료'}
                     </button>
                   </div>
                 )}

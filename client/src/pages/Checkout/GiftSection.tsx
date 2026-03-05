@@ -1,11 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import api from '../../api/instance';
-
-interface SearchedUser {
-  id: number;
-  nickname: string;
-  email: string;
-}
+import type { SearchedUser } from '../../types';
 
 interface Props {
   isGift: boolean;
@@ -19,25 +14,37 @@ interface Props {
 function GiftSection({ isGift, setIsGift, giftMessage, setGiftMessage, selectedReceiver, setSelectedReceiver }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
-  const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleSearchUser = (query: string) => {
     setSearchQuery(query);
     setSelectedReceiver(null);
-    if (searchTimer) clearTimeout(searchTimer);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    abortControllerRef.current?.abort();
     if (query.trim().length < 2) {
       setSearchResults([]);
       return;
     }
-    const timer = setTimeout(async () => {
+    searchTimerRef.current = setTimeout(async () => {
+      abortControllerRef.current = new AbortController();
       try {
-        const response = await api.get(`/auth/search?q=${encodeURIComponent(query)}`);
+        const response = await api.get(`/auth/search?q=${encodeURIComponent(query)}`, {
+          signal: abortControllerRef.current.signal,
+        });
         setSearchResults(response.data);
       } catch (error) {
+        if (error instanceof Error && error.name === 'CanceledError') return;
         console.error('유저 검색 실패:', error);
       }
     }, 300);
-    setSearchTimer(timer);
   };
 
   const handleSelectReceiver = (user: SearchedUser) => {
@@ -85,7 +92,6 @@ function GiftSection({ isGift, setIsGift, giftMessage, setGiftMessage, selectedR
                 {searchResults.map(user => (
                   <li key={user.id} onClick={() => handleSelectReceiver(user)}>
                     <strong>{user.nickname}</strong>
-                    <span>{user.email}</span>
                   </li>
                 ))}
               </ul>

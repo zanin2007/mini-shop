@@ -13,6 +13,9 @@
 }
 
 .refund-page .back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   background: none;
   border: none;
   color: var(--color-text-muted);
@@ -177,7 +180,6 @@
 
 .refund-submit-btn:hover:not(:disabled) {
   opacity: 0.9;
-  transform: translateY(-1px);
 }
 
 .refund-submit-btn:disabled {

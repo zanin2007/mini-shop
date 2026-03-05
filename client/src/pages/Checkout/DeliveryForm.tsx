@@ -29,6 +29,10 @@ function DeliveryForm({ delivery, setDelivery }: Props) {
   };
 
   const handleAddressSearch = () => {
+    if (!window.daum?.Postcode) {
+      console.warn('주소 검색 서비스를 불러올 수 없습니다.');
+      return;
+    }
     new window.daum.Postcode({
       oncomplete: (data: DaumPostcodeData) => {
         const address = data.roadAddress || data.jibunAddress;
@@ -40,8 +44,9 @@ function DeliveryForm({ delivery, setDelivery }: Props) {
   return (
     <div className="delivery-form">
       <div className="delivery-field">
-        <label>수령인</label>
+        <label htmlFor="delivery-receiver">수령인</label>
         <input
+          id="delivery-receiver"
           type="text"
           placeholder="이름을 입력하세요"
           value={delivery.receiver_name}
@@ -49,8 +54,9 @@ function DeliveryForm({ delivery, setDelivery }: Props) {
         />
       </div>
       <div className="delivery-field">
-        <label>연락처</label>
+        <label htmlFor="delivery-phone">연락처</label>
         <input
+          id="delivery-phone"
           type="tel"
           placeholder="010-1234-5678"
           value={delivery.receiver_phone}
@@ -60,9 +66,10 @@ function DeliveryForm({ delivery, setDelivery }: Props) {
         />
       </div>
       <div className="delivery-field">
-        <label>배송 주소</label>
+        <label htmlFor="delivery-address">배송 주소</label>
         <div className="address-search-row">
           <input
+            id="delivery-address"
             type="text"
             placeholder="주소 검색을 눌러주세요"
             value={delivery.delivery_address}
@@ -74,8 +81,9 @@ function DeliveryForm({ delivery, setDelivery }: Props) {
         </div>
       </div>
       <div className="delivery-field">
-        <label>상세 주소</label>
+        <label htmlFor="delivery-address-detail">상세 주소</label>
         <input
+          id="delivery-address-detail"
           type="text"
           placeholder="동/호수 등 상세주소를 입력하세요"
           value={delivery.delivery_address_detail}

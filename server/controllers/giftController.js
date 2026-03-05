@@ -72,32 +72,35 @@ exports.getReceivedGifts = async (req, res) => {
   }
 };
 
-// 선물 수락
+// 선물 수락 — 원자적 UPDATE로 동시 요청 방지
 exports.acceptGift = async (req, res) => {
   try {
-    const [gifts] = await db.execute(
-      'SELECT * FROM gifts WHERE id = ? AND receiver_id = ?',
+    // 원자적 UPDATE: status = 'pending' 조건으로 중복 처리 방지
+    const [result] = await db.execute(
+      "UPDATE gifts SET status = 'accepted', accepted_at = NOW() WHERE id = ? AND receiver_id = ? AND status = 'pending'",
       [req.params.id, req.user.userId]
     );
 
-    if (gifts.length === 0) {
-      return res.status(404).json({ message: '선물을 찾을 수 없습니다.' });
-    }
-
-    if (gifts[0].status !== 'pending') {
+    if (result.affectedRows === 0) {
+      // 선물 존재 여부 확인
+      const [gifts] = await db.execute(
+        'SELECT id, status FROM gifts WHERE id = ? AND receiver_id = ?',
+        [req.params.id, req.user.userId]
+      );
+      if (gifts.length === 0) {
+        return res.status(404).json({ message: '선물을 찾을 수 없습니다.' });
+      }
       return res.status(400).json({ message: '이미 처리된 선물입니다.' });
     }
 
-    await db.execute(
-      'UPDATE gifts SET status = ?, accepted_at = NOW() WHERE id = ?',
-      ['accepted', req.params.id]
-    );
-
     // 보낸 사람에게 알림
-    await db.execute(
-      `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'gift', ?, ?)`,
-      [gifts[0].sender_id, '선물이 수락되었습니다', '보내신 선물이 수락되었습니다.']
-    );
+    const [gifts] = await db.execute('SELECT sender_id FROM gifts WHERE id = ?', [req.params.id]);
+    if (gifts.length > 0) {
+      await db.execute(
+        `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'gift', ?, ?)`,
+        [gifts[0].sender_id, '선물이 수락되었습니다', '보내신 선물이 수락되었습니다.']
+      );
+    }
 
     res.json({ message: '선물을 수락했습니다.' });
   } catch (error) {
@@ -135,14 +138,20 @@ exports.rejectGift = async (req, res) => {
       ['rejected', req.params.id]
     );
 
-    // 주문 정보 조회
+    // 주문 정보 조회 (FOR UPDATE로 행 잠금 — 동시 환불 방지)
     const [orders] = await connection.execute(
-      'SELECT * FROM orders WHERE id = ?',
+      'SELECT * FROM orders WHERE id = ? FOR UPDATE',
       [gift.order_id]
     );
 
     if (orders.length > 0) {
       const order = orders[0];
+
+      // 이미 환불된 주문이면 이중 환불 방지
+      if (order.status === 'refunded') {
+        await connection.rollback();
+        return res.status(400).json({ message: '이미 환불된 주문입니다.' });
+      }
 
       // 주문 상태 → 환불완료
       await connection.execute(
@@ -162,18 +171,35 @@ exports.rejectGift = async (req, res) => {
         );
       }
 
+      // 옵션 재고 복원
+      const [optionItems] = await connection.execute(
+        `SELECT oio.option_value_id, oi.quantity FROM order_item_options oio
+         JOIN order_items oi ON oio.order_item_id = oi.id WHERE oi.order_id = ?`,
+        [order.id]
+      );
+      for (const opt of optionItems) {
+        await connection.execute(
+          'UPDATE product_option_values SET stock = stock + ? WHERE id = ?',
+          [opt.quantity, opt.option_value_id]
+        );
+      }
+
       // 쿠폰 복원
       if (order.coupon_id) {
         await connection.execute(
           'UPDATE user_coupons SET is_used = false, used_at = NULL WHERE user_id = ? AND coupon_id = ?',
           [gift.sender_id, order.coupon_id]
         );
+        await connection.execute(
+          'UPDATE coupons SET current_uses = GREATEST(current_uses - 1, 0) WHERE id = ?',
+          [order.coupon_id]
+        );
       }
 
       // 포인트 환불
       if (order.points_used > 0) {
         await connection.execute(
-          'UPDATE users SET points = points + ? WHERE id = ?',
+          'UPDATE users SET points = LEAST(points + ?, 9999999) WHERE id = ?',
           [order.points_used, gift.sender_id]
         );
       }

@@ -6,7 +6,8 @@
  */
 import { useEffect, useState } from 'react';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminOrder {
   id: number;
@@ -46,6 +47,7 @@ function AdminOrdersTab() {
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [adminNotes, setAdminNotes] = useState<Record<number, string>>({});
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([fetchOrders(), fetchRefunds()]).finally(() => setLoading(false));
@@ -70,12 +72,16 @@ function AdminOrdersTab() {
   };
 
   const handleStatusChange = async (orderId: number, status: string) => {
+    if (updatingId !== null) return;
+    setUpdatingId(orderId);
     try {
       await api.put(`/admin/orders/${orderId}/status`, { status });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     } catch (error) {
       console.error('상태 변경 실패:', error);
       showAlert('상태 변경에 실패했습니다.', 'error');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -96,7 +102,7 @@ function AdminOrdersTab() {
     }
   };
 
-  if (loading) return <div className="loading"><div className="spinner" />불러오는 중...</div>;
+  if (loading) return <LoadingSpinner text="불러오는 중..." />;
 
   const pendingRefunds = refunds.filter(r => r.status === 'requested');
   const processedRefunds = refunds.filter(r => r.status !== 'requested');
@@ -223,21 +229,28 @@ function AdminOrdersTab() {
                     <strong>{(order.final_amount || order.total_amount).toLocaleString()}원</strong>
                   </td>
                   <td>
-                    {order.status === 'refund_requested' || order.status === 'refunded' ? (
+                    {order.status === 'refund_requested' || order.status === 'refunded' || order.status === 'completed' ? (
                       <span className={`status-badge status-${order.status}`}>
-                        {order.status === 'refund_requested' ? '환불신청' : '환불완료'}
+                        {order.status === 'refund_requested' ? '환불신청' : order.status === 'refunded' ? '환불완료' : '수령완료'}
                       </span>
                     ) : (
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                        disabled={updatingId === order.id}
                         className={`status-select status-${order.status}`}
                       >
-                        <option value="checking">상품확인중</option>
-                        <option value="pending">준비중</option>
-                        <option value="shipped">배송중</option>
-                        <option value="delivered">배송완료</option>
-                        <option value="completed">수령완료</option>
+                        {['checking', 'pending', 'shipped', 'delivered'].map(s => {
+                          const labels: Record<string, string> = { checking: '상품확인중', pending: '준비중', shipped: '배송중', delivered: '배송완료' };
+                          const flow = ['checking', 'pending', 'shipped', 'delivered'];
+                          const currentIdx = flow.indexOf(order.status);
+                          const optIdx = flow.indexOf(s);
+                          return (
+                            <option key={s} value={s} disabled={optIdx < currentIdx}>
+                              {labels[s]}
+                            </option>
+                          );
+                        })}
                       </select>
                     )}
                   </td>

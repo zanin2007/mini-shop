@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
 import OptionsEditor from './OptionsEditor';
 import './ProductRegisterPage.css';
 
@@ -9,13 +9,25 @@ function ProductRegisterPage() {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
 
+  const [authorized, setAuthorized] = useState(false);
+
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (!userData || JSON.parse(userData).role !== 'admin') {
-      showAlert('관리자만 접근할 수 있습니다.', 'error');
-      navigate('/', { replace: true });
+    if (!localStorage.getItem('token')) {
+      showAlert('로그인이 필요합니다.', 'error');
+      navigate('/login', { replace: true });
+      return;
     }
-  }, []);
+    api.get('/auth/check').then(res => {
+      if (res.data.user.role === 'admin') {
+        setAuthorized(true);
+      } else {
+        showAlert('관리자만 접근할 수 있습니다.', 'error');
+        navigate('/', { replace: true });
+      }
+    }).catch(() => {
+      navigate('/login', { replace: true });
+    });
+  }, [navigate, showAlert]);
 
   const [form, setForm] = useState({
     name: '',
@@ -36,6 +48,10 @@ function ProductRegisterPage() {
     e.preventDefault();
     if (!form.name || !form.price) {
       showAlert('상품명과 가격은 필수입니다.', 'warning');
+      return;
+    }
+    if (Number(form.price) < 0 || (form.stock && Number(form.stock) < 0)) {
+      showAlert('가격과 재고는 0 이상이어야 합니다.', 'warning');
       return;
     }
     setLoading(true);
@@ -63,14 +79,17 @@ function ProductRegisterPage() {
     }
   };
 
+  if (!authorized) return null;
+
   return (
     <div className="register-page">
       <div className="register-container">
         <h2 className="register-title">상품 등록</h2>
         <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">
-            <label>상품명 *</label>
+            <label htmlFor="product-name">상품명 *</label>
             <input
+              id="product-name"
               type="text"
               name="name"
               value={form.name}
@@ -79,8 +98,9 @@ function ProductRegisterPage() {
             />
           </div>
           <div className="form-group">
-            <label>설명</label>
+            <label htmlFor="product-description">설명</label>
             <textarea
+              id="product-description"
               name="description"
               value={form.description}
               onChange={handleChange}
@@ -90,8 +110,9 @@ function ProductRegisterPage() {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>가격 (원) *</label>
+              <label htmlFor="product-price">가격 (원) *</label>
               <input
+                id="product-price"
                 type="number"
                 name="price"
                 value={form.price}
@@ -101,8 +122,9 @@ function ProductRegisterPage() {
               />
             </div>
             <div className="form-group">
-              <label>재고 수량</label>
+              <label htmlFor="product-stock">재고 수량</label>
               <input
+                id="product-stock"
                 type="number"
                 name="stock"
                 value={form.stock}
@@ -113,8 +135,9 @@ function ProductRegisterPage() {
             </div>
           </div>
           <div className="form-group">
-            <label>카테고리</label>
+            <label htmlFor="product-category">카테고리</label>
             <input
+              id="product-category"
               type="text"
               name="category"
               value={form.category}
@@ -123,8 +146,9 @@ function ProductRegisterPage() {
             />
           </div>
           <div className="form-group">
-            <label>이미지 URL</label>
+            <label htmlFor="product-image-url">이미지 URL</label>
             <input
+              id="product-image-url"
               type="text"
               name="image_url"
               value={form.image_url}

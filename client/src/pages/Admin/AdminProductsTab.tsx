@@ -6,7 +6,8 @@
  */
 import { useEffect, useState, useMemo } from 'react';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminProduct {
   id: number;
@@ -19,7 +20,7 @@ interface AdminProduct {
 }
 
 function AdminProductsTab() {
-  const { showConfirm } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [productSearch, setProductSearch] = useState('');
@@ -48,6 +49,7 @@ function AdminProductsTab() {
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (error) {
       console.error('상품 삭제 실패:', error);
+      showAlert('삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -83,7 +85,7 @@ function AdminProductsTab() {
     return result;
   }, [products, productSearch, productCategory, productSort]);
 
-  if (loading) return <div className="loading"><div className="spinner" />불러오는 중...</div>;
+  if (loading) return <LoadingSpinner text="불러오는 중..." />;
 
   return (
     <>

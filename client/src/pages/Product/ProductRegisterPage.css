@@ -105,7 +105,6 @@
 
 .submit-btn:hover:not(:disabled) {
   background: var(--color-primary-hover);
-  transform: translateY(-1px);
 }
 
 .submit-btn:disabled {
@@ -137,7 +136,7 @@
   background: var(--color-primary);
   color: var(--color-text-inverse);
   border: none;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -166,7 +165,7 @@
   flex: 1;
   padding: 0.5rem 0.75rem;
   border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 0.88rem;
   outline: none;
   background: var(--color-surface);
@@ -181,7 +180,7 @@
   padding: 0.4rem 0.8rem;
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   font-size: 0.78rem;
   cursor: pointer;
@@ -210,7 +209,7 @@
   flex: 1;
   padding: 0.45rem 0.65rem;
   border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 0.82rem;
   outline: none;
   min-width: 0;
@@ -231,7 +230,7 @@
   padding: 0.35rem 0.7rem;
   background: var(--color-surface);
   border: 1px dashed var(--color-border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 0.78rem;
   color: var(--color-text-muted);
   cursor: pointer;

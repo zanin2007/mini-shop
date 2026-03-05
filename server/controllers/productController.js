@@ -13,12 +13,13 @@ const db = require('../config/db');
 exports.getAllProducts = async (req, res) => {
   try {
     const { search, category } = req.query;
-    let sql = 'SELECT * FROM products WHERE 1=1';
+    let sql = 'SELECT * FROM products WHERE is_active = true';
     const params = [];
 
     if (search) {
+      const escaped = search.replace(/[%_\\]/g, '\\$&');
       sql += ' AND name LIKE ?';
-      params.push(`%${search}%`);
+      params.push(`%${escaped}%`);
     }
 
     if (category) {
@@ -40,7 +41,7 @@ exports.getAllProducts = async (req, res) => {
 exports.getCategories = async (req, res) => {
   try {
     const [rows] = await db.execute(
-      "SELECT DISTINCT category FROM products WHERE category != '' ORDER BY category"
+      "SELECT DISTINCT category FROM products WHERE category != '' AND is_active = true ORDER BY category"
     );
     const categories = rows.map(row => row.category);
     res.json(categories);
@@ -54,7 +55,7 @@ exports.getCategories = async (req, res) => {
 exports.getProductById = async (req, res) => {
   try {
     const { id } = req.params;
-    const [products] = await db.execute('SELECT * FROM products WHERE id = ?', [id]);
+    const [products] = await db.execute('SELECT * FROM products WHERE id = ? AND is_active = true', [id]);
 
     if (products.length === 0) {
       return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
@@ -87,18 +88,33 @@ exports.getProductById = async (req, res) => {
   }
 };
 
-// 상품 등록
+// 상품 등록 (트랜잭션)
 exports.createProduct = async (req, res) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
+
     const { name, description, price, category, image_url, stock } = req.body;
 
-    if (!name || !price) {
+    if (!name || price === undefined || price === null) {
+      await connection.rollback();
       return res.status(400).json({ message: '상품명과 가격은 필수입니다.' });
     }
 
-    const [result] = await db.execute(
+    if (!Number.isInteger(Number(price)) || Number(price) < 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: '가격은 0 이상의 정수여야 합니다.' });
+    }
+
+    const parsedStock = Number(stock) || 0;
+    if (!Number.isInteger(parsedStock) || parsedStock < 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: '재고는 0 이상의 정수여야 합니다.' });
+    }
+
+    const [result] = await connection.execute(
       'INSERT INTO products (user_id, name, description, price, category, image_url, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.user.userId, name, description || '', price, category || '', image_url || '', stock || 0]
+      [req.user.userId, name, description || '', Number(price), category || '', image_url || '', parsedStock]
     );
 
     const productId = result.insertId;
@@ -107,14 +123,14 @@ exports.createProduct = async (req, res) => {
     const { options } = req.body;
     if (options && Array.isArray(options)) {
       for (const option of options) {
-        const [optResult] = await db.execute(
+        const [optResult] = await connection.execute(
           'INSERT INTO product_options (product_id, option_name) VALUES (?, ?)',
           [productId, option.option_name]
         );
         const optionId = optResult.insertId;
         if (option.values && Array.isArray(option.values)) {
           for (const val of option.values) {
-            await db.execute(
+            await connection.execute(
               'INSERT INTO product_option_values (option_id, value, extra_price, stock) VALUES (?, ?, ?, ?)',
               [optionId, val.value, val.extra_price || 0, val.stock || 0]
             );
@@ -123,24 +139,30 @@ exports.createProduct = async (req, res) => {
       }
     }
 
+    await connection.commit();
     res.status(201).json({ message: '상품이 등록되었습니다.', productId });
   } catch (error) {
+    await connection.rollback();
     console.error('Create product error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
 };
 
-// 상품에 옵션 추가
+// 상품에 옵션 추가 (트랜잭션)
 exports.addProductOption = async (req, res) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
     const { id } = req.params;
     const { option_name, values } = req.body;
 
-    const [products] = await db.execute('SELECT user_id FROM products WHERE id = ?', [id]);
-    if (products.length === 0) return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
-    if (products[0].user_id !== req.user.userId) return res.status(403).json({ message: '본인 상품만 수정할 수 있습니다.' });
+    const [products] = await connection.execute('SELECT user_id FROM products WHERE id = ?', [id]);
+    if (products.length === 0) { await connection.rollback(); return res.status(404).json({ message: '상품을 찾을 수 없습니다.' }); }
+    if (products[0].user_id !== req.user.userId) { await connection.rollback(); return res.status(403).json({ message: '본인 상품만 수정할 수 있습니다.' }); }
 
-    const [optResult] = await db.execute(
+    const [optResult] = await connection.execute(
       'INSERT INTO product_options (product_id, option_name) VALUES (?, ?)',
       [id, option_name]
     );
@@ -148,17 +170,21 @@ exports.addProductOption = async (req, res) => {
 
     if (values && Array.isArray(values)) {
       for (const val of values) {
-        await db.execute(
+        await connection.execute(
           'INSERT INTO product_option_values (option_id, value, extra_price, stock) VALUES (?, ?, ?, ?)',
           [optionId, val.value, val.extra_price || 0, val.stock || 0]
         );
       }
     }
 
+    await connection.commit();
     res.status(201).json({ message: '옵션이 추가되었습니다.', optionId });
   } catch (error) {
+    await connection.rollback();
     console.error('Add product option error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
 };
 
@@ -196,6 +222,18 @@ exports.deleteProduct = async (req, res) => {
 
     if (products[0].user_id !== req.user.userId) {
       return res.status(403).json({ message: '본인이 등록한 상품만 삭제할 수 있습니다.' });
+    }
+
+    // 활성 주문이 있는 상품은 삭제 차단
+    const [activeItems] = await db.execute(
+      `SELECT oi.id FROM order_items oi
+       JOIN orders o ON oi.order_id = o.id
+       WHERE oi.product_id = ? AND o.status NOT IN ('completed', 'refunded')
+       LIMIT 1`,
+      [id]
+    );
+    if (activeItems.length > 0) {
+      return res.status(400).json({ message: '진행중인 주문이 있는 상품은 삭제할 수 없습니다.' });
     }
 
     await db.execute('DELETE FROM products WHERE id = ?', [id]);

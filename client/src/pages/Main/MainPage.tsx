@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Product } from '../../types';
 import './MainPage.css';
 
@@ -17,9 +18,10 @@ function MainPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const wishlistProcessing = useRef(new Set<number>());
 
   useEffect(() => {
-    Promise.all([fetchCategories(), fetchProducts(), fetchWishlistIds()]);
+    void Promise.all([fetchCategories(), fetchProducts(), fetchWishlistIds()]);
   }, []);
 
   const fetchCategories = async () => {
@@ -67,34 +69,38 @@ function MainPage() {
   const handleToggleWishlist = async (e: React.MouseEvent, productId: number) => {
     e.preventDefault();
     e.stopPropagation();
+    if (wishlistProcessing.current.has(productId)) return;
     const token = localStorage.getItem('token');
     if (!token) {
       const ok = await showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?');
       if (ok) navigate('/login');
       return;
     }
+    wishlistProcessing.current.add(productId);
     const wasWishlisted = wishlistIds.includes(productId);
 
-    // 낙관적 업데이트: UI 먼저 반영
-    if (wasWishlisted) {
-      setWishlistIds(wishlistIds.filter(id => id !== productId));
-    } else {
-      setWishlistIds([...wishlistIds, productId]);
-    }
+    // 낙관적 업데이트: 함수형 업데이터로 stale closure 방지
+    setWishlistIds(prev => wasWishlisted
+      ? prev.filter(id => id !== productId)
+      : [...prev, productId]
+    );
 
     try {
       if (wasWishlisted) {
         await api.delete(`/wishlist/${productId}`);
       } else {
         await api.post('/wishlist', { productId });
+        showAlert('찜 목록에 추가되었습니다.', 'success');
       }
     } catch {
       // 실패 시 원래 상태로 되돌림
-      setWishlistIds(wasWishlisted
-        ? [...wishlistIds]
-        : wishlistIds.filter(id => id !== productId)
+      setWishlistIds(prev => wasWishlisted
+        ? [...prev, productId]
+        : prev.filter(id => id !== productId)
       );
       showAlert('처리에 실패했습니다.', 'error');
+    } finally {
+      wishlistProcessing.current.delete(productId);
     }
   };
 
@@ -171,7 +177,7 @@ function MainPage() {
             <span className="product-count">{products.length}개</span>
           </h3>
           {loading ? (
-            <div className="loading"><div className="spinner" />로딩 중...</div>
+            <LoadingSpinner />
           ) : products.length === 0 ? (
             <div className="empty-products">검색 결과가 없습니다.</div>
           ) : (
@@ -184,18 +190,22 @@ function MainPage() {
                     className={`product-card ${product.stock <= 0 ? 'sold-out' : ''}`}
                   >
                     <div className="product-image">
-                      <img src={product.image_url} alt={product.name} />
+                      <img src={product.image_url} alt={product.name} loading="lazy" />
                       {product.stock <= 0 && (
                         <div className="sold-out-overlay">
                           <span>Sold Out</span>
                         </div>
                       )}
-                      <button
+                      <span
+                        role="button"
+                        tabIndex={0}
                         className={`product-heart ${wishlistIds.includes(product.id) ? 'active' : ''}`}
                         onClick={(e) => handleToggleWishlist(e, product.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleWishlist(e as unknown as React.MouseEvent, product.id); } }}
+                        aria-label={wishlistIds.includes(product.id) ? '찜 해제' : '찜하기'}
                       >
-                        {wishlistIds.includes(product.id) ? '♥' : '♡'}
-                      </button>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill={wishlistIds.includes(product.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                      </span>
                     </div>
                     <div className="product-info">
                       <h4>{product.name}</h4>

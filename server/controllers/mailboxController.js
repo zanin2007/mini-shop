@@ -56,7 +56,7 @@ exports.claimReward = async (req, res) => {
     await connection.beginTransaction();
 
     const [mails] = await connection.execute(
-      `SELECT * FROM mailbox WHERE id = ? AND user_id = ?`,
+      `SELECT * FROM mailbox WHERE id = ? AND user_id = ? FOR UPDATE`,
       [req.params.id, req.user.userId]
     );
 
@@ -114,7 +114,7 @@ exports.claimReward = async (req, res) => {
         return res.status(400).json({ message: '포인트 정보가 누락되어 수령할 수 없습니다.' });
       }
       await connection.execute(
-        'UPDATE users SET points = points + ? WHERE id = ?',
+        'UPDATE users SET points = LEAST(points + ?, 9999999) WHERE id = ?',
         [mail.reward_amount, req.user.userId]
       );
     }
@@ -136,9 +136,16 @@ exports.claimReward = async (req, res) => {
   }
 };
 
-// 우편 삭제
+// 우편 삭제 — 미수령 보상이 있는 우편은 보호
 exports.deleteMail = async (req, res) => {
   try {
+    const [mails] = await db.execute(
+      `SELECT reward_type, is_claimed FROM mailbox WHERE id = ? AND user_id = ?`,
+      [req.params.id, req.user.userId]
+    );
+    if (mails.length > 0 && mails[0].reward_type && !mails[0].is_claimed) {
+      return res.status(400).json({ message: '미수령 보상이 있는 우편은 삭제할 수 없습니다.' });
+    }
     await db.execute(
       `DELETE FROM mailbox WHERE id = ? AND user_id = ?`,
       [req.params.id, req.user.userId]
@@ -150,14 +157,14 @@ exports.deleteMail = async (req, res) => {
   }
 };
 
-// 전체 삭제
+// 전체 삭제 — 미수령 보상이 있는 우편은 보호
 exports.deleteAll = async (req, res) => {
   try {
     await db.execute(
-      `DELETE FROM mailbox WHERE user_id = ?`,
+      `DELETE FROM mailbox WHERE user_id = ? AND (is_claimed = true OR reward_type IS NULL)`,
       [req.user.userId]
     );
-    res.json({ message: '전체 우편이 삭제되었습니다.' });
+    res.json({ message: '전체 우편이 삭제되었습니다. (미수령 보상 우편 제외)' });
   } catch (error) {
     console.error('Delete all mails error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });

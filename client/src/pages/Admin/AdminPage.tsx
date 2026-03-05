@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAlert } from '../../components/AlertContext';
+import api from '../../api/instance';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import AdminOrdersTab from './AdminOrdersTab';
 import AdminProductsTab from './AdminProductsTab';
 import AdminCouponsTab from './AdminCouponsTab';
@@ -24,27 +26,33 @@ function AdminPage() {
   const navigate = useNavigate();
   const { showAlert, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<Tab>('orders');
+  const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(new Set(['orders']));
   const [authorized, setAuthorized] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (!userData) {
+    if (!localStorage.getItem('token')) {
       showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
         if (ok) navigate('/login');
         else navigate(-1);
       });
       return;
     }
-    const user = JSON.parse(userData);
-    if (user.role !== 'admin') {
-      showAlert('관리자 권한이 필요합니다.', 'error');
-      navigate('/');
-      return;
-    }
-    setAuthorized(true);
-  }, []);
+    api.get('/auth/check').then(res => {
+      if (res.data.user.role === 'admin') {
+        setAuthorized(true);
+      } else {
+        showAlert('관리자 권한이 필요합니다.', 'error');
+        navigate('/', { replace: true });
+      }
+    }).catch(() => {
+      navigate('/login', { replace: true });
+    }).finally(() => {
+      setChecking(false);
+    });
+  }, [navigate, showAlert, showConfirm]);
 
-  if (!authorized) return <div className="loading"><div className="spinner" />로딩 중...</div>;
+  if (checking || !authorized) return <LoadingSpinner />;
 
   return (
     <div className="admin-page">
@@ -56,7 +64,7 @@ function AdminPage() {
             <button
               key={tab}
               className={`admin-tab ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { setActiveTab(tab); setMountedTabs(prev => new Set(prev).add(tab)); }}
             >
               {tabLabels[tab]}
             </button>
@@ -64,12 +72,24 @@ function AdminPage() {
         </div>
 
         <div className="admin-section">
-          {activeTab === 'orders' && <AdminOrdersTab />}
-          {activeTab === 'products' && <AdminProductsTab />}
-          {activeTab === 'coupons' && <AdminCouponsTab />}
-          {activeTab === 'announcements' && <AdminAnnouncementsTab />}
-          {activeTab === 'events' && <AdminEventsTab />}
-          {activeTab === 'users' && <AdminUsersTab />}
+          <div style={{ display: activeTab === 'orders' ? 'block' : 'none' }}>
+            {mountedTabs.has('orders') && <AdminOrdersTab />}
+          </div>
+          <div style={{ display: activeTab === 'products' ? 'block' : 'none' }}>
+            {mountedTabs.has('products') && <AdminProductsTab />}
+          </div>
+          <div style={{ display: activeTab === 'coupons' ? 'block' : 'none' }}>
+            {mountedTabs.has('coupons') && <AdminCouponsTab />}
+          </div>
+          <div style={{ display: activeTab === 'announcements' ? 'block' : 'none' }}>
+            {mountedTabs.has('announcements') && <AdminAnnouncementsTab />}
+          </div>
+          <div style={{ display: activeTab === 'events' ? 'block' : 'none' }}>
+            {mountedTabs.has('events') && <AdminEventsTab />}
+          </div>
+          <div style={{ display: activeTab === 'users' ? 'block' : 'none' }}>
+            {mountedTabs.has('users') && <AdminUsersTab />}
+          </div>
         </div>
       </div>
     </div>

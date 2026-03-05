@@ -10,7 +10,8 @@
  */
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import api from '../../api/instance';
 import type { Order, User, UserCoupon, Gift, Refund } from '../../types';
 import OrdersTab from './OrdersTab';
@@ -37,27 +38,14 @@ function MyPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings'>('orders');
+  type MyTab = 'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings';
+  const [activeTab, setActiveTab] = useState<MyTab>('orders');
+  const [mountedTabs, setMountedTabs] = useState<Set<MyTab>>(new Set(['orders']));
   const [sentGifts, setSentGifts] = useState<Gift[]>([]);
   const [receivedGifts, setReceivedGifts] = useState<Gift[]>([]);
   const [refunds, setRefunds] = useState<Refund[]>([]);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
-        if (ok) navigate('/login');
-        else navigate(-1);
-      });
-      return;
-    }
-    const userData = localStorage.getItem('user');
-    if (userData) setUser(JSON.parse(userData));
-    fetchUser();
-    Promise.all([fetchOrders(), fetchCoupons(), fetchGifts(), fetchRefunds()]);
-  }, []);
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const response = await api.get('/auth/check');
       const freshUser = response.data.user;
@@ -66,9 +54,9 @@ function MyPage() {
     } catch (error) {
       console.error('유저 정보 조회 실패:', error);
     }
-  };
+  }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const response = await api.get('/orders');
       setOrders(response.data);
@@ -77,7 +65,7 @@ function MyPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const fetchCoupons = useCallback(async () => {
     try {
@@ -110,6 +98,23 @@ function MyPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?').then(ok => {
+        if (ok) navigate('/login');
+        else navigate(-1);
+      });
+      return;
+    }
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try { setUser(JSON.parse(userData)); } catch { /* ignore corrupt data */ }
+    }
+    fetchUser();
+    Promise.all([fetchOrders(), fetchCoupons(), fetchGifts(), fetchRefunds()]);
+  }, [navigate, showConfirm, fetchUser, fetchOrders, fetchCoupons, fetchGifts, fetchRefunds]);
+
   const handleUserUpdate = useCallback((updatedUser: User) => {
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -130,7 +135,7 @@ function MyPage() {
   const activeOrders = useMemo(() => orders.filter(o => !['completed', 'refund_requested', 'refunded'].includes(o.status)), [orders]);
   const completedOrders = useMemo(() => orders.filter(o => ['completed', 'refund_requested', 'refunded'].includes(o.status)), [orders]);
 
-  if (loading) return <div className="loading"><div className="spinner" />로딩 중...</div>;
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="mypage">
@@ -170,83 +175,83 @@ function MyPage() {
         <div className="mypage-tabs">
           <button
             className={`mypage-tab ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('orders')}
+            onClick={() => { setActiveTab('orders'); setMountedTabs(prev => new Set(prev).add('orders')); }}
           >
             주문 내역 {activeOrders.length > 0 && <span className="tab-badge">{activeOrders.length}</span>}
           </button>
           <button
             className={`mypage-tab ${activeTab === 'purchases' ? 'active' : ''}`}
-            onClick={() => setActiveTab('purchases')}
+            onClick={() => { setActiveTab('purchases'); setMountedTabs(prev => new Set(prev).add('purchases')); }}
           >
             구매 내역
           </button>
           <button
             className={`mypage-tab ${activeTab === 'coupons' ? 'active' : ''}`}
-            onClick={() => setActiveTab('coupons')}
+            onClick={() => { setActiveTab('coupons'); setMountedTabs(prev => new Set(prev).add('coupons')); }}
           >
             쿠폰 {availableCoupons.length > 0 && <span className="tab-badge">{availableCoupons.length}</span>}
           </button>
           <button
             className={`mypage-tab ${activeTab === 'gifts' ? 'active' : ''}`}
-            onClick={() => setActiveTab('gifts')}
+            onClick={() => { setActiveTab('gifts'); setMountedTabs(prev => new Set(prev).add('gifts')); }}
           >
             선물 {pendingGiftsCount > 0 && <span className="tab-badge">{pendingGiftsCount}</span>}
           </button>
           <button
             className={`mypage-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => { setActiveTab('settings'); setMountedTabs(prev => new Set(prev).add('settings')); }}
           >
             계정 설정
           </button>
         </div>
 
-        {/* Tab Contents */}
-        {activeTab === 'orders' && (
-          <section className="mypage-section">
+        {/* Tab Contents — display:none으로 숨겨 리마운트 방지 */}
+        <section className="mypage-section" style={{ display: activeTab === 'orders' ? 'block' : 'none' }}>
+          {mountedTabs.has('orders') && (
             <OrdersTab
               orders={activeOrders}
               allOrders={orders}
               statusMap={statusMap}
               setOrders={setOrders}
             />
-          </section>
-        )}
+          )}
+        </section>
 
-        {activeTab === 'purchases' && (
-          <section className="mypage-section">
+        <section className="mypage-section" style={{ display: activeTab === 'purchases' ? 'block' : 'none' }}>
+          {mountedTabs.has('purchases') && (
             <PurchasesTab orders={completedOrders} statusMap={statusMap} refunds={refunds} />
-          </section>
-        )}
+          )}
+        </section>
 
-        {activeTab === 'coupons' && (
-          <section className="mypage-section">
+        <section className="mypage-section" style={{ display: activeTab === 'coupons' ? 'block' : 'none' }}>
+          {mountedTabs.has('coupons') && (
             <CouponsTab
               availableCoupons={availableCoupons}
               usedOrExpiredCoupons={usedOrExpiredCoupons}
               couponsTotal={coupons.length}
               onCouponClaimed={fetchCoupons}
             />
-          </section>
-        )}
+          )}
+        </section>
 
-        {activeTab === 'settings' && (
-          <section className="mypage-section">
+        <section className="mypage-section" style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+          {mountedTabs.has('settings') && (
             <SettingsTab
               user={user}
               onUserUpdate={handleUserUpdate}
             />
-          </section>
-        )}
+          )}
+        </section>
 
-        {activeTab === 'gifts' && (
-          <section className="mypage-section">
+        <section className="mypage-section" style={{ display: activeTab === 'gifts' ? 'block' : 'none' }}>
+          {mountedTabs.has('gifts') && (
             <GiftsTab
               sentGifts={sentGifts}
               receivedGifts={receivedGifts}
               onGiftAction={fetchGifts}
             />
-          </section>
-        )}
+          )}
+        </section>
       </div>
     </div>
   );

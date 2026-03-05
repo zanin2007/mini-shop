@@ -23,6 +23,15 @@ exports.addToWishlist = async (req, res) => {
   try {
     const { productId } = req.body;
 
+    // 상품 존재/활성 확인
+    const [products] = await db.execute(
+      'SELECT id FROM products WHERE id = ? AND is_active = true',
+      [productId]
+    );
+    if (products.length === 0) {
+      return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
+    }
+
     const [existing] = await db.execute(
       'SELECT * FROM wishlists WHERE user_id = ? AND product_id = ?',
       [req.user.userId, productId]

@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminEvent {
   id: number;
@@ -97,6 +98,7 @@ function AdminEventsTab() {
       setEvents(prev => prev.filter(ev => ev.id !== id));
     } catch (error) {
       console.error('이벤트 삭제 실패:', error);
+      showAlert('삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -113,7 +115,7 @@ function AdminEventsTab() {
     }
   };
 
-  if (loading) return <div className="loading"><div className="spinner" />불러오는 중...</div>;
+  if (loading) return <LoadingSpinner text="불러오는 중..." />;
 
   return (
     <>

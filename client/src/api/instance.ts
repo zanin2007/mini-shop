@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -22,14 +22,15 @@ instance.interceptors.request.use(
   }
 );
 
-// 응답 인터셉터: 에러 처리
+// 응답 인터셉터: 에러 처리 (401 시 SPA 내 리다이렉트, 로그인 페이지 무한루프 방지)
 instance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.dispatchEvent(new Event('userUpdated'));
+      window.location.assign('/login');
     }
     return Promise.reject(error);
   }

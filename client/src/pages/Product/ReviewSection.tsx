@@ -14,6 +14,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
   ({ reviews, canReview, currentUserId, onSubmitReview, onDeleteReview }, ref) => {
     const [showForm, setShowForm] = useState(false);
     const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' });
+    const [submitting, setSubmitting] = useState(false);
 
     const avgRating = reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + Number(r.rating), 0) / reviews.length)
@@ -21,9 +22,14 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      await onSubmitReview(reviewForm.rating, reviewForm.content);
-      setShowForm(false);
-      setReviewForm({ rating: 5, content: '' });
+      setSubmitting(true);
+      try {
+        await onSubmitReview(reviewForm.rating, reviewForm.content);
+        setShowForm(false);
+        setReviewForm({ rating: 5, content: '' });
+      } finally {
+        setSubmitting(false);
+      }
     };
 
     return (
@@ -67,8 +73,8 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
               rows={3}
             />
             <div className="review-form-actions">
-              <button type="button" onClick={() => setShowForm(false)}>취소</button>
-              <button type="submit">등록</button>
+              <button type="button" onClick={() => setShowForm(false)} disabled={submitting}>취소</button>
+              <button type="submit" disabled={submitting}>{submitting ? '등록 중...' : '등록'}</button>
             </div>
           </form>
         )}
@@ -100,5 +106,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
     );
   }
 );
+
+ReviewSection.displayName = 'ReviewSection';
 
 export default ReviewSection;

@@ -35,9 +35,9 @@ function OptionsEditor({ options, setOptions }: Props) {
               placeholder="옵션명 (예: 사이즈, 색상)"
               value={option.option_name}
               onChange={(e) => {
-                const updated = [...options];
-                updated[oi].option_name = e.target.value;
-                setOptions(updated);
+                setOptions(options.map((opt, i) =>
+                  i === oi ? { ...opt, option_name: e.target.value } : opt
+                ));
               }}
             />
             <button
@@ -49,15 +49,17 @@ function OptionsEditor({ options, setOptions }: Props) {
             </button>
           </div>
           {option.values.map((val, vi) => (
-            <div key={vi} className="option-value-row">
+            <div key={`${oi}-${vi}`} className="option-value-row">
               <input
                 type="text"
                 placeholder="값 (예: S, M, L)"
                 value={val.value}
                 onChange={(e) => {
-                  const updated = [...options];
-                  updated[oi].values[vi].value = e.target.value;
-                  setOptions(updated);
+                  setOptions(options.map((opt, i) =>
+                    i === oi ? { ...opt, values: opt.values.map((v, j) =>
+                      j === vi ? { ...v, value: e.target.value } : v
+                    )} : opt
+                  ));
                 }}
               />
               <input
@@ -65,9 +67,11 @@ function OptionsEditor({ options, setOptions }: Props) {
                 placeholder="추가금액"
                 value={val.extra_price}
                 onChange={(e) => {
-                  const updated = [...options];
-                  updated[oi].values[vi].extra_price = e.target.value;
-                  setOptions(updated);
+                  setOptions(options.map((opt, i) =>
+                    i === oi ? { ...opt, values: opt.values.map((v, j) =>
+                      j === vi ? { ...v, extra_price: e.target.value } : v
+                    )} : opt
+                  ));
                 }}
               />
               <input
@@ -75,18 +79,20 @@ function OptionsEditor({ options, setOptions }: Props) {
                 placeholder="재고"
                 value={val.stock}
                 onChange={(e) => {
-                  const updated = [...options];
-                  updated[oi].values[vi].stock = e.target.value;
-                  setOptions(updated);
+                  setOptions(options.map((opt, i) =>
+                    i === oi ? { ...opt, values: opt.values.map((v, j) =>
+                      j === vi ? { ...v, stock: e.target.value } : v
+                    )} : opt
+                  ));
                 }}
               />
               <button
                 type="button"
                 className="remove-btn small"
                 onClick={() => {
-                  const updated = [...options];
-                  updated[oi].values = updated[oi].values.filter((_, i) => i !== vi);
-                  setOptions(updated);
+                  setOptions(options.map((opt, i) =>
+                    i === oi ? { ...opt, values: opt.values.filter((_, j) => j !== vi) } : opt
+                  ));
                 }}
               >
                 X
@@ -97,9 +103,9 @@ function OptionsEditor({ options, setOptions }: Props) {
             type="button"
             className="add-value-btn"
             onClick={() => {
-              const updated = [...options];
-              updated[oi].values.push({ value: '', extra_price: '', stock: '' });
-              setOptions(updated);
+              setOptions(options.map((opt, i) =>
+                i === oi ? { ...opt, values: [...opt.values, { value: '', extra_price: '', stock: '' }] } : opt
+              ));
             }}
           >
             + 옵션 값 추가

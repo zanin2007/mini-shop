@@ -4,12 +4,13 @@
  * - 결제 금액: 상품금액 - 쿠폰할인 - 포인트사용 = 최종 결제금액
  * - 주문 완료 시 localStorage 포인트 동기화
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
-import type { Coupon } from '../../types';
+import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import type { Coupon, CartPageItem, SearchedUser } from '../../types';
 import DeliveryForm from './DeliveryForm';
 import CouponSection from './CouponSection';
 import GiftSection from './GiftSection';
@@ -23,25 +24,8 @@ declare global {
   }
 }
 
-interface CartItem {
-  id: number;
-  product_id: number;
-  quantity: number;
-  is_selected: boolean;
-  name: string;
-  price: number;
-  image_url: string;
-  options?: { option_name: string; value: string; extra_price: number }[];
-}
-
-interface SearchedUser {
-  id: number;
-  nickname: string;
-  email: string;
-}
-
 function CheckoutPage() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartPageItems] = useState<CartPageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordering, setOrdering] = useState(false);
   const { showAlert, showConfirm } = useAlert();
@@ -56,6 +40,25 @@ function CheckoutPage() {
   const [giftMessage, setGiftMessage] = useState('');
   const [selectedReceiver, setSelectedReceiver] = useState<SearchedUser | null>(null);
 
+  const fetchCart = useCallback(async () => {
+    try {
+      const response = await api.get('/cart');
+      const selectedItems = response.data.filter((item: CartPageItem) => item.is_selected);
+      if (selectedItems.length === 0) {
+        showAlert('선택된 상품이 없습니다.', 'warning');
+        navigate('/cart');
+        return;
+      }
+      setCartPageItems(selectedItems);
+    } catch (error) {
+      console.error('장바구니 조회 실패:', error);
+      showAlert('장바구니를 불러오지 못했습니다.', 'error');
+      navigate('/cart');
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, showAlert]);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -66,32 +69,13 @@ function CheckoutPage() {
       return;
     }
     fetchCart();
-    // 포인트 로드
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      const u = JSON.parse(userData);
-      setUserPoints(u.points || 0);
-    }
-  }, []);
+    // 서버에서 포인트 로드
+    api.get('/auth/check').then(res => {
+      setUserPoints(res.data.user.points || 0);
+    }).catch(() => { /* ignore */ });
+  }, [navigate, showConfirm, fetchCart]);
 
-  const fetchCart = async () => {
-    try {
-      const response = await api.get('/cart');
-      const selectedItems = response.data.filter((item: CartItem) => item.is_selected);
-      if (selectedItems.length === 0) {
-        showAlert('선택된 상품이 없습니다.', 'warning');
-        navigate('/cart');
-        return;
-      }
-      setCartItems(selectedItems);
-    } catch (error) {
-      console.error('장바구니 조회 실패:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getItemTotal = (item: CartItem) => {
+  const getItemTotal = (item: CartPageItem) => {
     const extra = item.options?.reduce((s, o) => s + o.extra_price, 0) || 0;
     return (item.price + extra) * item.quantity;
   };
@@ -102,20 +86,20 @@ function CheckoutPage() {
   const pointDiscount = Math.min(pointsToUse, maxPoints);
   const finalPrice = afterCoupon - pointDiscount;
 
-  useEffect(() => {
-    if (totalPrice > 0) {
-      fetchCoupons();
-    }
-  }, [totalPrice]);
-
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       const response = await api.get(`/coupons/available?totalAmount=${totalPrice}`);
       setCoupons(response.data);
     } catch (error) {
       console.error('쿠폰 조회 실패:', error);
     }
-  };
+  }, [totalPrice]);
+
+  useEffect(() => {
+    if (totalPrice > 0) {
+      fetchCoupons();
+    }
+  }, [totalPrice, fetchCoupons]);
 
   const handleCouponChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = Number(e.target.value);
@@ -154,16 +138,12 @@ function CheckoutPage() {
         receiverId: isGift ? selectedReceiver?.id : undefined,
         giftMessage: isGift ? giftMessage : undefined,
       });
-      // localStorage 포인트 차감
-      if (pointDiscount > 0) {
-        const stored = localStorage.getItem('user');
-        if (stored) {
-          const u = JSON.parse(stored);
-          u.points = Math.max(0, (u.points || 0) - pointDiscount);
-          localStorage.setItem('user', JSON.stringify(u));
-          window.dispatchEvent(new Event('userUpdated'));
-        }
-      }
+      // 서버에서 최신 유저 정보를 받아와 localStorage 동기화
+      try {
+        const authRes = await api.get('/auth/check');
+        localStorage.setItem('user', JSON.stringify(authRes.data.user));
+        window.dispatchEvent(new Event('userUpdated'));
+      } catch { /* ignore */ }
       showAlert(isGift ? '선물 주문이 완료되었습니다!' : '주문이 완료되었습니다!', 'success');
       navigate('/mypage');
     } catch (error) {
@@ -179,7 +159,7 @@ function CheckoutPage() {
   };
 
   if (loading) {
-    return <div className="loading"><div className="spinner" />로딩 중...</div>;
+    return <LoadingSpinner />;
   }
 
   return (

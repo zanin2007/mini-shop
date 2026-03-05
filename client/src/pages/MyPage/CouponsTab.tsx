@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
-import { useAlert } from '../../components/AlertContext';
+import { useAlert } from '../../components/useAlert';
 import type { UserCoupon } from '../../types';
 
 interface Props {

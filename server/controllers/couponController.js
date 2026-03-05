@@ -45,11 +45,6 @@ exports.claimCoupon = async (req, res) => {
       return res.status(400).json({ message: '만료된 쿠폰입니다.' });
     }
 
-    // 사용 횟수 제한 확인
-    if (coupon.max_uses !== null && coupon.current_uses >= coupon.max_uses) {
-      return res.status(400).json({ message: '쿠폰 사용 횟수가 초과되었습니다.' });
-    }
-
     // 이미 보유 확인
     const [existing] = await db.execute(
       'SELECT id FROM user_coupons WHERE user_id = ? AND coupon_id = ?',
@@ -60,16 +55,19 @@ exports.claimCoupon = async (req, res) => {
       return res.status(400).json({ message: '이미 보유한 쿠폰입니다.' });
     }
 
+    // 원자적 사용 횟수 증가 (Race Condition 방지)
+    const [updateResult] = await db.execute(
+      'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ? AND (max_uses IS NULL OR current_uses < max_uses)',
+      [coupon.id]
+    );
+    if (updateResult.affectedRows === 0) {
+      return res.status(400).json({ message: '쿠폰이 모두 소진되었습니다.' });
+    }
+
     // 쿠폰 등록
     await db.execute(
       'INSERT INTO user_coupons (user_id, coupon_id) VALUES (?, ?)',
       [req.user.userId, coupon.id]
-    );
-
-    // 사용 횟수 증가
-    await db.execute(
-      'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ?',
-      [coupon.id]
     );
 
     res.status(201).json({ message: '쿠폰이 등록되었습니다.' });
