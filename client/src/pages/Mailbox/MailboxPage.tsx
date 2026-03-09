@@ -26,6 +26,9 @@ interface Mail {
   created_at: string;
 }
 
+const toUtcStr = (dateStr: string) =>
+  dateStr.endsWith('Z') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+
 function MailboxPage() {
   const navigate = useNavigate();
   const { showAlert, showConfirm } = useAlert();
@@ -69,9 +72,11 @@ function MailboxPage() {
       showAlert('이미 수령한 보상입니다.', 'warning');
       return;
     }
-    if (mail.expires_at && new Date(mail.expires_at) < new Date()) {
-      showAlert('만료된 우편입니다.', 'error');
-      return;
+    if (mail.expires_at) {
+      if (new Date(toUtcStr(mail.expires_at)) < new Date()) {
+        showAlert('만료된 우편입니다.', 'error');
+        return;
+      }
     }
     try {
       const response = await api.post(`/mailbox/${mail.id}/claim`);
@@ -117,7 +122,8 @@ function MailboxPage() {
   };
 
   const isExpired = (mail: Mail) => {
-    return mail.expires_at && new Date(mail.expires_at) < new Date();
+    if (!mail.expires_at) return false;
+    return new Date(toUtcStr(mail.expires_at)) < new Date();
   };
 
   if (loading) return <LoadingSpinner />;

@@ -7,6 +7,12 @@ import QuantityInput from '../../components/QuantityInput';
 import type { CartPageItem } from '../../types';
 import './CartPage.css';
 
+const getMaxStock = (item: CartPageItem) => {
+  if (!item.options || item.options.length === 0) return item.stock;
+  const minOptionStock = Math.min(...item.options.map(o => o.option_stock ?? item.stock));
+  return Math.min(item.stock, minOptionStock);
+};
+
 function CartPage() {
   const [cartItems, setCartPageItems] = useState<CartPageItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,16 +74,13 @@ function CartPage() {
     }
   };
 
-  const getMaxStock = (item: CartPageItem) => {
-    if (!item.options || item.options.length === 0) return item.stock;
-    const minOptionStock = Math.min(...item.options.map(o => o.option_stock ?? item.stock));
-    return Math.min(item.stock, minOptionStock);
-  };
+  const cartItemsRef = useRef(cartItems);
+  cartItemsRef.current = cartItems;
 
   const qtyTimers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   const handleUpdateQuantity = useCallback((id: number, quantity: number) => {
-    const item = cartItems.find(i => i.id === id);
+    const item = cartItemsRef.current.find(i => i.id === id);
     if (!item || quantity < 1 || quantity > getMaxStock(item)) return;
 
     // 즉시 UI 반영 (낙관적 업데이트)
@@ -97,7 +100,7 @@ function CartPage() {
         fetchCart();
       }
     }, 300));
-  }, [cartItems, showAlert, fetchCart]);
+  }, [showAlert, fetchCart]);
 
   const handleRemove = async (id: number) => {
     if (!(await showConfirm('이 상품을 장바구니에서 삭제할까요?'))) return;

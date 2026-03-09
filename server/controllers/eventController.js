@@ -67,31 +67,31 @@ exports.participateEvent = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    const [events] = await connection.execute('SELECT * FROM events WHERE id = ? AND is_active = true', [id]);
+    // FOR UPDATE로 이벤트 행 잠금 → 동시 참여 요청 직렬화
+    const [events] = await connection.execute('SELECT * FROM events WHERE id = ? AND is_active = true FOR UPDATE', [id]);
     if (events.length === 0) {
       await connection.rollback();
       return res.status(404).json({ message: '이벤트를 찾을 수 없습니다.' });
     }
     const event = events[0];
 
-    const now = new Date();
-    if (now < new Date(event.start_date) || now > new Date(event.end_date)) {
+    if (new Date(event.start_date) > new Date() || new Date(event.end_date) < new Date()) {
       await connection.rollback();
       return res.status(400).json({ message: '이벤트 기간이 아닙니다.' });
     }
 
-    // 원자적 INSERT로 참여 인원 초과 방지 (Race Condition 방지)
-    const [insertResult] = await connection.execute(`
-      INSERT INTO event_participants (event_id, user_id)
-      SELECT ?, ? FROM events
-      WHERE id = ? AND (max_participants IS NULL OR
-        (SELECT COUNT(*) FROM event_participants WHERE event_id = ?) < max_participants)
-    `, [id, userId, id, id]);
-
-    if (insertResult.affectedRows === 0) {
-      await connection.rollback();
-      return res.status(400).json({ message: '참여 인원이 마감되었습니다.' });
+    // 행 잠금 상태에서 정확한 참여 인원 체크
+    if (event.max_participants != null) {
+      const [countResult] = await connection.execute(
+        'SELECT COUNT(*) as cnt FROM event_participants WHERE event_id = ?', [id]
+      );
+      if (countResult[0].cnt >= event.max_participants) {
+        await connection.rollback();
+        return res.status(400).json({ message: '참여 인원이 마감되었습니다.' });
+      }
     }
+
+    await connection.execute('INSERT INTO event_participants (event_id, user_id) VALUES (?, ?)', [id, userId]);
 
     // 선착순(fcfs) 이벤트면 즉시 당첨 처리
     if (event.type === 'fcfs') {

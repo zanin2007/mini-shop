@@ -220,8 +220,8 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
     }
 
-    if (products[0].user_id !== req.user.userId) {
-      return res.status(403).json({ message: '본인이 등록한 상품만 삭제할 수 있습니다.' });
+    if (products[0].user_id !== req.user.userId && req.user.role !== 'admin') {
+      return res.status(403).json({ message: '삭제 권한이 없습니다.' });
     }
 
     // 활성 주문이 있는 상품은 삭제 차단

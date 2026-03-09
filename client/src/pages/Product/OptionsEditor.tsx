@@ -65,11 +65,15 @@ function OptionsEditor({ options, setOptions }: Props) {
               <input
                 type="number"
                 placeholder="추가금액"
+                min="0"
                 value={val.extra_price}
                 onChange={(e) => {
+                  const raw = e.target.value;
+                  const num = Number(raw);
+                  const sanitized = raw === '' ? '' : (isNaN(num) || num < 0) ? '0' : raw;
                   setOptions(options.map((opt, i) =>
                     i === oi ? { ...opt, values: opt.values.map((v, j) =>
-                      j === vi ? { ...v, extra_price: e.target.value } : v
+                      j === vi ? { ...v, extra_price: sanitized } : v
                     )} : opt
                   ));
                 }}
@@ -77,11 +81,15 @@ function OptionsEditor({ options, setOptions }: Props) {
               <input
                 type="number"
                 placeholder="재고"
+                min="0"
                 value={val.stock}
                 onChange={(e) => {
+                  const raw = e.target.value;
+                  const num = Number(raw);
+                  const sanitized = raw === '' ? '' : (isNaN(num) || num < 0) ? '0' : raw;
                   setOptions(options.map((opt, i) =>
                     i === oi ? { ...opt, values: opt.values.map((v, j) =>
-                      j === vi ? { ...v, stock: e.target.value } : v
+                      j === vi ? { ...v, stock: sanitized } : v
                     )} : opt
                   ));
                 }}

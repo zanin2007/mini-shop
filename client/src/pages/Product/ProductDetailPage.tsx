@@ -211,18 +211,17 @@ function ProductDetailPage() {
     return sum + (val?.extra_price || 0);
   }, 0) || 0;
 
-  // 선택된 옵션의 최소 재고와 상품 재고 중 작은 값
+  // 모든 옵션이 선택되어야 정확한 maxQuantity 계산 가능
+  const allOptionsSelected = !product?.options || product.options.length === 0
+    || product.options.every(opt => selectedOptions[opt.id]);
   const maxQuantity = (() => {
     if (!product?.options || product.options.length === 0) return product?.stock ?? 0;
+    if (!allOptionsSelected) return product.stock;
     const selectedStocks = product.options
       .map(opt => {
-        const valId = selectedOptions[opt.id];
-        if (!valId) return null;
-        const val = opt.values.find(v => v.id === valId);
+        const val = opt.values.find(v => v.id === selectedOptions[opt.id]);
         return val?.stock ?? 0;
-      })
-      .filter((s): s is number => s !== null);
-    if (selectedStocks.length === 0) return product.stock;
+      });
     return Math.min(product.stock, ...selectedStocks);
   })();
 

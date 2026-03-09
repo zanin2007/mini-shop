@@ -240,6 +240,32 @@ X-Frame-Options, X-Content-Type-Options 등 보안 헤더가 없음. Clickjackin
 
 환불, 주문 상태 변경, 쿠폰 배포 등 민감한 작업에 대한 감사 로그(audit log)가 없어 문제 발생 시 추적이 어려움.
 
+**수정안:** `audit_logs` 테이블 생성 후 민감 작업에 로깅 추가.
+
+```sql
+-- initDB.js에 테이블 추가
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  action VARCHAR(50) NOT NULL,
+  target_type VARCHAR(30) NOT NULL,
+  target_id INT NOT NULL,
+  details JSON,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (admin_id) REFERENCES users(id)
+)
+```
+
+```javascript
+// 컨트롤러에서 상태 변경 후 로깅 (예: processRefund)
+await db.execute(
+  'INSERT INTO audit_logs (admin_id, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?)',
+  [req.user.userId, 'refund_approve', 'refund', refundId, JSON.stringify({ order_id: orderId, amount })]
+);
+```
+
+> **외부 정보 불필요** — 기존 DB 구조에 테이블 추가만으로 구현 가능.
+
 ---
 
 #### B-L3. 상품 설명/관리자 메모 길이 미검증
@@ -485,6 +511,27 @@ handleToggleWishlist(e as unknown as React.MouseEvent, product.id);
 
 `new Date()`로 서버 시간을 파싱하여 상대 시간 표시. 서버 UTC vs 클라이언트 로컬 타임존 차이로 "방금 전"이 수시간 전일 수 있음.
 
+**수정안:** 서버 UTC 문자열에 `Z` 접미사를 붙여 `Date`가 UTC로 해석하도록 보장:
+
+```typescript
+const formatTime = (dateStr: string) => {
+  // MySQL DATETIME은 타임존 정보가 없으므로 UTC임을 명시
+  const utcStr = dateStr.endsWith('Z') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+  const date = new Date(utcStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return '방금 전';
+  if (minutes < 60) return `${minutes}분 전`;
+  if (hours < 24) return `${hours}시간 전`;
+  if (days < 7) return `${days}일 전`;
+  return date.toLocaleDateString('ko-KR');
+};
+```
+
 ---
 
 #### F-L3. AdminCouponsTab 만료일 타임존 이슈
@@ -497,6 +544,18 @@ new Date(couponForm.expiry_date) < new Date()
 ```
 
 동일한 UTC vs 로컬 타임존 문제. 한국 시간 기준 당일 만료 쿠폰이 "만료됨"으로 처리될 수 있음.
+
+**수정안:** 만료일은 날짜 단위 비교이므로 시간을 제거하고 날짜만 비교:
+
+```typescript
+// 날짜만 비교 (시간/타임존 영향 제거)
+const expiryDate = couponForm.expiry_date; // "2026-03-10" (date input value)
+const today = new Date().toISOString().split('T')[0]; // "2026-03-06"
+if (expiryDate && expiryDate < today) {
+  showAlert('만료일은 현재 날짜 이후여야 합니다.', 'error');
+  return;
+}
+```
 
 ---
 
@@ -512,6 +571,15 @@ api.get(`/products?category=...`).then(recRes => {
 ```
 
 빈 catch로 에러를 완전히 무시. 최소한 콘솔 로깅 추가 필요.
+
+**수정안:**
+```typescript
+api.get(`/products?category=${encodeURIComponent(prod.category)}`).then(recRes => {
+  setRecommendedProducts(recRes.data.filter((p: Product) => p.id !== prod.id).slice(0, 4));
+}).catch((err) => {
+  console.warn('추천 상품 로드 실패:', err.message);
+});
+```
 
 ---
 

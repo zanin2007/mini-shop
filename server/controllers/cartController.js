@@ -122,7 +122,6 @@ exports.addToCart = async (req, res) => {
       }
 
       // 상품 재고도 확인
-      const totalProductQty = existing.reduce((sum, c) => sum + c.quantity, 0) + quantity - (matchedCartId ? 0 : 0);
       if (productCheck[0].stock < newTotal) {
         await connection.rollback();
         return res.status(400).json({ message: '상품 재고가 부족합니다.' });
@@ -182,47 +181,60 @@ exports.addToCart = async (req, res) => {
   }
 };
 
-// 장바구니 수량 변경
+// 장바구니 수량 변경 (트랜잭션 + FOR UPDATE로 재고 동시성 보호)
 exports.updateQuantity = async (req, res) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
     const { id } = req.params;
     const { quantity } = req.body;
 
     if (!Number.isInteger(quantity) || quantity < 1) {
+      await connection.rollback();
       return res.status(400).json({ message: '수량은 1 이상의 정수여야 합니다.' });
     }
 
-    // 상품 재고 확인
-    const [cartProduct] = await db.execute(
-      `SELECT p.stock FROM cart_items c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.user_id = ?`,
+    // 상품 재고 확인 (FOR UPDATE)
+    const [cartProduct] = await connection.execute(
+      `SELECT p.stock FROM cart_items c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.user_id = ? FOR UPDATE`,
       [id, req.user.userId]
     );
-    if (cartProduct.length > 0 && cartProduct[0].stock < quantity) {
+    if (cartProduct.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: '장바구니 상품을 찾을 수 없습니다.' });
+    }
+    if (cartProduct[0].stock < quantity) {
+      await connection.rollback();
       return res.status(400).json({ message: '상품 재고가 부족합니다.' });
     }
 
-    // 옵션 재고 확인
-    const [cartOpts] = await db.execute(
+    // 옵션 재고 확인 (FOR UPDATE)
+    const [cartOpts] = await connection.execute(
       `SELECT pov.id, pov.stock FROM cart_item_options cio
        JOIN product_option_values pov ON cio.option_value_id = pov.id
-       WHERE cio.cart_item_id = ?`,
+       WHERE cio.cart_item_id = ? FOR UPDATE`,
       [id]
     );
     for (const opt of cartOpts) {
       if (opt.stock < quantity) {
+        await connection.rollback();
         return res.status(400).json({ message: '옵션 재고가 부족합니다.' });
       }
     }
 
-    await db.execute(
+    await connection.execute(
       'UPDATE cart_items SET quantity = ? WHERE id = ? AND user_id = ?',
       [quantity, id, req.user.userId]
     );
 
+    await connection.commit();
     res.json({ message: '수량이 변경되었습니다.' });
   } catch (error) {
+    await connection.rollback();
     console.error('Update quantity error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
 };
 

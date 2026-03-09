@@ -102,7 +102,15 @@ function AdminEventsTab() {
     }
   };
 
-  const handleDraw = async (eventId: number, count: number) => {
+  const handleDraw = async (eventId: number, count: number, currentParticipants: number) => {
+    if (!Number.isInteger(count) || count < 1) {
+      showAlert('추첨 인원은 1명 이상이어야 합니다.', 'warning');
+      return;
+    }
+    if (count > currentParticipants) {
+      showAlert(`참가자 수(${currentParticipants}명)보다 많이 추첨할 수 없습니다.`, 'warning');
+      return;
+    }
     if (!(await showConfirm(`${count}명을 추첨하시겠습니까?`))) return;
     try {
       const res = await api.post(`/admin/events/${eventId}/draw`, { winner_count: count });
@@ -236,7 +244,7 @@ function AdminEventsTab() {
                             onChange={e => setDrawCount({ ...drawCount, [ev.id]: e.target.value })}
                             className="draw-input"
                           />
-                          <button className="admin-draw-btn" onClick={() => handleDraw(ev.id, Number(drawCount[ev.id]) || 1)}>
+                          <button className="admin-draw-btn" onClick={() => handleDraw(ev.id, Number(drawCount[ev.id]) || 1, ev.current_participants ?? 0)}>
                             추첨
                           </button>
                         </div>

@@ -58,9 +58,9 @@ exports.createOrder = async (req, res) => {
       item.extraPrice = extraPriceMap.get(item.id) || 0;
     }
 
-    // 옵션 재고 검증 (B-C1)
+    // 옵션 재고 검증
     for (const opt of allCartOpts) {
-      if (opt.option_stock > 0 || opt.option_stock === 0) {
+      if (opt.option_stock != null) {
         const cartItem = cartItems.find(ci => ci.id === opt.cart_item_id);
         if (cartItem && opt.option_stock < cartItem.quantity) {
           await connection.rollback();
@@ -136,7 +136,7 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    let finalAmount = totalAmount - discountAmount;
+    let finalAmount = Math.max(0, totalAmount - discountAmount);
 
     // 포인트 적용 — 보유 포인트 검증 후 결제금액에서 차감
     let pointsUsed = 0;

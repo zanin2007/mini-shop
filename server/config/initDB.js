@@ -178,6 +178,7 @@ async function initializeDatabase() {
       rating DECIMAL(2,1) NOT NULL,
       content TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_user_product (user_id, product_id),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
       FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
@@ -302,11 +303,37 @@ async function initializeDatabase() {
   await safeCreateIndex('CREATE INDEX idx_mailbox_user_read ON mailbox(user_id, is_read)');
   await safeCreateIndex('CREATE INDEX idx_cart_items_user ON cart_items(user_id)');
   await safeCreateIndex('CREATE INDEX idx_user_penalties_user_active ON user_penalties(user_id, is_active)');
+  await safeCreateIndex('CREATE INDEX idx_orders_status ON orders(status)');
+  await safeCreateIndex('CREATE INDEX idx_refunds_user ON refunds(user_id)');
+  await safeCreateIndex('CREATE INDEX idx_refunds_order ON refunds(order_id)');
+  await safeCreateIndex('CREATE INDEX idx_event_participants_event_winner ON event_participants(event_id, is_winner)');
+  await safeCreateIndex('CREATE INDEX idx_mailbox_user_claimed ON mailbox(user_id, is_claimed)');
 
   await safeAddColumn('orders', 'completed_at', 'DATETIME DEFAULT NULL');
   await safeAddColumn('users', 'points', 'INT NOT NULL DEFAULT 0');
   await safeAddColumn('orders', 'points_used', 'INT NOT NULL DEFAULT 0');
   await safeAddColumn('notifications', 'is_pinned', 'BOOLEAN NOT NULL DEFAULT false');
+
+  // 리뷰 중복 방지 UNIQUE 제약 마이그레이션
+  const [reviewIdx] = await connection.execute(
+    `SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'reviews' AND INDEX_NAME = 'uq_user_product'`,
+    [process.env.DB_NAME]
+  );
+  if (reviewIdx.length === 0) {
+    const [dupes] = await connection.execute(
+      'SELECT user_id, product_id, COUNT(*) as cnt FROM reviews GROUP BY user_id, product_id HAVING cnt > 1'
+    );
+    if (dupes.length > 0) {
+      console.warn(`리뷰 중복 데이터 ${dupes.length}건 발견. 수동 정리 후 UNIQUE 제약을 추가해주세요.`);
+    } else {
+      try {
+        await connection.query('ALTER TABLE reviews ADD UNIQUE KEY uq_user_product (user_id, product_id)');
+      } catch (e) {
+        if (e.code !== 'ER_DUP_KEYNAME') console.warn('리뷰 UNIQUE 제약 추가 실패:', e.message);
+      }
+    }
+  }
 
   await connection.end();
   console.log('데이터베이스 초기화 완료!');

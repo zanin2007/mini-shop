@@ -27,13 +27,18 @@ function SettingsTab({ user, onUserUpdate }: Props) {
   const [loading, setLoading] = useState(false);
 
   const handleChangeNickname = async () => {
-    if (!newNickname.trim()) {
+    const trimmed = newNickname.trim();
+    if (!trimmed) {
       showAlert('닉네임을 입력해주세요.', 'warning');
+      return;
+    }
+    if (trimmed.length < 2 || trimmed.length > 20) {
+      showAlert('닉네임은 2~20자로 입력해주세요.', 'warning');
       return;
     }
     setLoading(true);
     try {
-      const res = await api.put('/auth/nickname', { nickname: newNickname.trim() });
+      const res = await api.put('/auth/nickname', { nickname: trimmed });
       showAlert(res.data.message, 'success');
       if (!user) return;
       const updatedUser = { ...user, nickname: res.data.nickname };

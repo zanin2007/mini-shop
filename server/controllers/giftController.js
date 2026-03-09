@@ -116,7 +116,7 @@ exports.rejectGift = async (req, res) => {
     await connection.beginTransaction();
 
     const [gifts] = await connection.execute(
-      'SELECT * FROM gifts WHERE id = ? AND receiver_id = ?',
+      'SELECT * FROM gifts WHERE id = ? AND receiver_id = ? FOR UPDATE',
       [req.params.id, req.user.userId]
     );
 
@@ -159,28 +159,36 @@ exports.rejectGift = async (req, res) => {
         ['refunded', order.id]
       );
 
-      // 재고 복원
+      // 재고 복원 — 배치 UPDATE
       const [orderItems] = await connection.execute(
         'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
         [order.id]
       );
-      for (const item of orderItems) {
+      if (orderItems.length > 0) {
+        const caseParts = orderItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
+        const caseVals = orderItems.flatMap(item => [item.product_id, item.quantity]);
+        const idPh = orderItems.map(() => '?').join(',');
+        const idVals = orderItems.map(item => item.product_id);
         await connection.execute(
-          'UPDATE products SET stock = stock + ? WHERE id = ?',
-          [item.quantity, item.product_id]
+          `UPDATE products SET stock = CASE ${caseParts} ELSE stock END WHERE id IN (${idPh})`,
+          [...caseVals, ...idVals]
         );
       }
 
-      // 옵션 재고 복원
+      // 옵션 재고 복원 — 배치 UPDATE
       const [optionItems] = await connection.execute(
         `SELECT oio.option_value_id, oi.quantity FROM order_item_options oio
          JOIN order_items oi ON oio.order_item_id = oi.id WHERE oi.order_id = ?`,
         [order.id]
       );
-      for (const opt of optionItems) {
+      if (optionItems.length > 0) {
+        const optCaseParts = optionItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
+        const optCaseVals = optionItems.flatMap(opt => [opt.option_value_id, opt.quantity]);
+        const optIdPh = optionItems.map(() => '?').join(',');
+        const optIdVals = optionItems.map(opt => opt.option_value_id);
         await connection.execute(
-          'UPDATE product_option_values SET stock = stock + ? WHERE id = ?',
-          [opt.quantity, opt.option_value_id]
+          `UPDATE product_option_values SET stock = CASE ${optCaseParts} ELSE stock END WHERE id IN (${optIdPh})`,
+          [...optCaseVals, ...optIdVals]
         );
       }
 

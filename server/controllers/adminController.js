@@ -78,8 +78,12 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({ message: '현재 상태보다 이전 단계로 변경할 수 없습니다.' });
     }
 
+    // 원자적 UPDATE: 현재 상태 조건으로 동시 변경 방지
     const extra = status === 'completed' ? ', completed_at = NOW()' : '';
-    await db.execute(`UPDATE orders SET status = ?${extra} WHERE id = ?`, [status, id]);
+    const [updateResult] = await db.execute(`UPDATE orders SET status = ?${extra} WHERE id = ? AND status = ?`, [status, id, currentStatus]);
+    if (updateResult.affectedRows === 0) {
+      return res.status(409).json({ message: '다른 관리자가 이미 상태를 변경했습니다. 새로고침 해주세요.' });
+    }
     res.json({ message: '주문 상태가 변경되었습니다.' });
   } catch (error) {
     console.error('Admin update order error:', error);
@@ -200,35 +204,57 @@ exports.distributeCoupon = async (req, res) => {
     const coupon = coupons[0];
 
     const [users] = await db.execute('SELECT id FROM users');
-    let distributed = 0;
-
-    for (const user of users) {
-      try {
-        await db.execute(
-          'INSERT INTO user_coupons (user_id, coupon_id) VALUES (?, ?)',
-          [user.id, coupon_id]
-        );
-        await db.execute(
-          `INSERT INTO mailbox (user_id, type, title, content, reward_type, reward_id)
-           VALUES (?, 'coupon', ?, ?, 'coupon', ?)`,
-          [user.id, `쿠폰 지급: ${coupon.code}`, `${coupon.discount_percentage ? coupon.discount_percentage + '%' : coupon.discount_amount.toLocaleString() + '원'} 할인 쿠폰이 지급되었습니다.`, coupon_id]
-        );
-        await db.execute(
-          `INSERT INTO notifications (user_id, type, title, content)
-           VALUES (?, 'coupon', '새 쿠폰이 도착했습니다!', ?)`,
-          [user.id, `${coupon.code} 쿠폰이 우편함에 도착했습니다.`]
-        );
-        distributed++;
-      } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-          // 이미 보유한 쿠폰은 건너뜀 (UNIQUE 제약)
-        } else {
-          throw err; // 예상치 못한 에러는 상위로 전파
-        }
-      }
+    if (users.length === 0) {
+      return res.json({ message: '배포할 유저가 없습니다.' });
     }
 
-    res.json({ message: `${distributed}명에게 쿠폰을 배포했습니다.` });
+    // 이미 보유한 유저 제외
+    const [existing] = await db.execute(
+      'SELECT user_id FROM user_coupons WHERE coupon_id = ?',
+      [coupon_id]
+    );
+    const existingSet = new Set(existing.map(e => e.user_id));
+    const targetUsers = users.filter(u => !existingSet.has(u.id));
+
+    if (targetUsers.length === 0) {
+      return res.json({ message: '모든 유저가 이미 보유한 쿠폰입니다.' });
+    }
+
+    const discountText = coupon.discount_percentage
+      ? coupon.discount_percentage + '%'
+      : coupon.discount_amount.toLocaleString() + '원';
+
+    // 배치 INSERT — 100명씩 청크 처리 (트랜잭션으로 원자성 보장)
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      const CHUNK = 100;
+      for (let i = 0; i < targetUsers.length; i += CHUNK) {
+        const chunk = targetUsers.slice(i, i + CHUNK);
+
+        const couponPh = chunk.map(() => '(?, ?)').join(',');
+        const couponVals = chunk.flatMap(u => [u.id, coupon_id]);
+        await connection.execute(`INSERT INTO user_coupons (user_id, coupon_id) VALUES ${couponPh}`, couponVals);
+
+        const mailPh = chunk.map(() => "(?, 'coupon', ?, ?, 'coupon', ?)").join(',');
+        const mailVals = chunk.flatMap(u => [u.id, `쿠폰 지급: ${coupon.code}`, `${discountText} 할인 쿠폰이 지급되었습니다.`, coupon_id]);
+        await connection.execute(`INSERT INTO mailbox (user_id, type, title, content, reward_type, reward_id) VALUES ${mailPh}`, mailVals);
+
+        const notiPh = chunk.map(() => "(?, 'coupon', '새 쿠폰이 도착했습니다!', ?)").join(',');
+        const notiVals = chunk.flatMap(u => [u.id, `${coupon.code} 쿠폰이 우편함에 도착했습니다.`]);
+        await connection.execute(`INSERT INTO notifications (user_id, type, title, content) VALUES ${notiPh}`, notiVals);
+      }
+
+      await connection.commit();
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+
+    res.json({ message: `${targetUsers.length}명에게 쿠폰을 배포했습니다.` });
   } catch (error) {
     console.error('Admin distribute coupon error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
@@ -324,6 +350,10 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ message: '시작일은 종료일보다 이전이어야 합니다.' });
     }
 
+    if (reward_amount != null && reward_amount < 0) {
+      return res.status(400).json({ message: '보상 금액은 0 이상이어야 합니다.' });
+    }
+
     // 쿠폰 보상인 경우 쿠폰 ID 필수 검증
     if (reward_type === 'coupon') {
       if (!reward_id) {
@@ -396,7 +426,7 @@ exports.deleteEvent = async (req, res) => {
   }
 };
 
-// 이벤트 추첨 — 랜덤 당첨자 선정 + 우편함 보상 지급 + 알림 발송
+// 이벤트 추첨 — 랜덤 당첨자 선정 + 우편함 보상 지급 + 알림 발송 (트랜잭션)
 exports.drawEventWinners = async (req, res) => {
   try {
     const { id } = req.params;
@@ -422,26 +452,46 @@ exports.drawEventWinners = async (req, res) => {
       return res.status(400).json({ message: '추첨할 참여자가 없습니다.' });
     }
 
-    for (const p of participants) {
-      await db.execute(
-        'UPDATE event_participants SET is_winner = true WHERE id = ?',
-        [p.id]
+    // 트랜잭션으로 당첨 UPDATE + 우편함 + 알림을 원자적 처리
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 배치 UPDATE — 당첨자 일괄 처리
+      const winnerIds = participants.map(p => p.id);
+      const winnerPh = winnerIds.map(() => '?').join(',');
+      await connection.execute(
+        `UPDATE event_participants SET is_winner = true WHERE id IN (${winnerPh})`,
+        winnerIds
       );
 
-      // 보상 지급 (우편함)
+      // 보상 지급 (우편함) — 배치 INSERT
       if (event.reward_type) {
-        await db.execute(
-          `INSERT INTO mailbox (user_id, type, title, content, reward_type, reward_id, reward_amount)
-           VALUES (?, 'event', ?, ?, ?, ?, ?)`,
-          [p.user_id, `🎊 ${event.title} 당첨!`, '축하합니다! 이벤트에 당첨되었습니다. 보상을 수령해주세요.', event.reward_type, event.reward_id, event.reward_amount]
+        const mailPh = participants.map(() => "(?, 'event', ?, ?, ?, ?, ?)").join(',');
+        const mailVals = participants.flatMap(p => [
+          p.user_id, `🎊 ${event.title} 당첨!`, '축하합니다! 이벤트에 당첨되었습니다. 보상을 수령해주세요.',
+          event.reward_type, event.reward_id, event.reward_amount
+        ]);
+        await connection.execute(
+          `INSERT INTO mailbox (user_id, type, title, content, reward_type, reward_id, reward_amount) VALUES ${mailPh}`,
+          mailVals
         );
       }
 
-      await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content)
-         VALUES (?, 'system', ?, '우편함에서 보상을 확인해주세요!')`,
-        [p.user_id, `🎊 ${event.title} 당첨!`]
+      // 알림 — 배치 INSERT
+      const notiPh = participants.map(() => "(?, 'system', ?, '우편함에서 보상을 확인해주세요!')").join(',');
+      const notiVals = participants.flatMap(p => [p.user_id, `🎊 ${event.title} 당첨!`]);
+      await connection.execute(
+        `INSERT INTO notifications (user_id, type, title, content) VALUES ${notiPh}`,
+        notiVals
       );
+
+      await connection.commit();
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
     }
 
     res.json({ message: `${participants.length}명이 당첨되었습니다.` });
@@ -708,28 +758,36 @@ exports.processRefund = async (req, res) => {
         );
       }
 
-      // 재고 복원
+      // 재고 복원 — 배치 UPDATE (CASE 패턴)
       const [orderItems] = await connection.execute(
         'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
         [refund.order_id]
       );
-      for (const item of orderItems) {
+      if (orderItems.length > 0) {
+        const caseParts = orderItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
+        const caseVals = orderItems.flatMap(item => [item.product_id, item.quantity]);
+        const idPh = orderItems.map(() => '?').join(',');
+        const idVals = orderItems.map(item => item.product_id);
         await connection.execute(
-          'UPDATE products SET stock = stock + ? WHERE id = ?',
-          [item.quantity, item.product_id]
+          `UPDATE products SET stock = CASE ${caseParts} ELSE stock END WHERE id IN (${idPh})`,
+          [...caseVals, ...idVals]
         );
       }
 
-      // 옵션 재고 복원
+      // 옵션 재고 복원 — 배치 UPDATE
       const [optionItems] = await connection.execute(
         `SELECT oio.option_value_id, oi.quantity FROM order_item_options oio
          JOIN order_items oi ON oio.order_item_id = oi.id WHERE oi.order_id = ?`,
         [refund.order_id]
       );
-      for (const opt of optionItems) {
+      if (optionItems.length > 0) {
+        const optCaseParts = optionItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
+        const optCaseVals = optionItems.flatMap(opt => [opt.option_value_id, opt.quantity]);
+        const optIdPh = optionItems.map(() => '?').join(',');
+        const optIdVals = optionItems.map(opt => opt.option_value_id);
         await connection.execute(
-          'UPDATE product_option_values SET stock = stock + ? WHERE id = ?',
-          [opt.quantity, opt.option_value_id]
+          `UPDATE product_option_values SET stock = CASE ${optCaseParts} ELSE stock END WHERE id IN (${optIdPh})`,
+          [...optCaseVals, ...optIdVals]
         );
       }
     } else {

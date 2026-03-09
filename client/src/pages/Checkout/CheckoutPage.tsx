@@ -194,6 +194,7 @@ function CheckoutPage() {
           </div>
         </div>
 
+        <fieldset disabled={ordering} className="checkout-fieldset">
         <div className="checkout-section">
           <h3>배송 정보</h3>
           <DeliveryForm delivery={delivery} setDelivery={setDelivery} />
@@ -245,6 +246,7 @@ function CheckoutPage() {
             setSelectedReceiver={setSelectedReceiver}
           />
         </div>
+        </fieldset>
 
         <div className="checkout-payment">
           <h3>결제 정보</h3>
