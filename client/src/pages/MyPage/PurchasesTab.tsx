@@ -1,24 +1,60 @@
 /**
  * 구매 내역 탭 (수령완료/환불 주문)
+ * - 자체 데이터 fetch + 로딩 관리
  * - 완료된 주문 + 환불 상태(심사중/승인/거부) 표시
  * - 환불 신청 버튼: 수령완료 후 7일 이내만 (남은 일수 표시)
  */
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../../api/instance';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Order, CartItemOption, Refund } from '../../types';
 
-interface StatusInfo {
-  label: string;
-  className: string;
-}
+const statusMap: Record<string, { label: string; className: string }> = {
+  checking: { label: '상품확인중', className: 'status-checking' },
+  pending: { label: '준비중', className: 'status-pending' },
+  shipped: { label: '배송중', className: 'status-shipped' },
+  delivered: { label: '배송완료', className: 'status-delivered' },
+  completed: { label: '수령완료', className: 'status-completed' },
+  refund_requested: { label: '환불신청', className: 'status-refund-requested' },
+  refunded: { label: '환불완료', className: 'status-refunded' },
+};
 
-interface Props {
-  orders: Order[];
-  statusMap: Record<string, StatusInfo>;
-  refunds: Refund[];
-}
+const refundStatusMap: Record<string, { label: string; className: string }> = {
+  requested: { label: '환불 심사중', className: 'refund-status-requested' },
+  approved: { label: '환불 승인', className: 'refund-status-approved' },
+  rejected: { label: '환불 거부', className: 'refund-status-rejected' },
+};
 
-function PurchasesTab({ orders, statusMap, refunds }: Props) {
+function PurchasesTab() {
   const navigate = useNavigate();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [ordersRes, refundsRes] = await Promise.all([
+        api.get('/orders'),
+        api.get('/refunds'),
+      ]);
+      setOrders(ordersRes.data);
+      setRefunds(refundsRes.data);
+    } catch (error) {
+      console.error('구매 내역 조회 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const completedOrders = useMemo(
+    () => orders.filter(o => ['completed', 'refund_requested', 'refunded'].includes(o.status)),
+    [orders]
+  );
 
   const getRefundForOrder = (orderId: number) => {
     return refunds.find(r => r.order_id === orderId);
@@ -41,19 +77,15 @@ function PurchasesTab({ orders, statusMap, refunds }: Props) {
     return Math.max(0, Math.ceil(7 - diffDays));
   };
 
-  const refundStatusMap: Record<string, { label: string; className: string }> = {
-    requested: { label: '환불 심사중', className: 'refund-status-requested' },
-    approved: { label: '환불 승인', className: 'refund-status-approved' },
-    rejected: { label: '환불 거부', className: 'refund-status-rejected' },
-  };
+  if (loading) return <LoadingSpinner />;
 
-  if (orders.length === 0) {
+  if (completedOrders.length === 0) {
     return <p className="empty-message">구매 내역이 없습니다.</p>;
   }
 
   return (
     <div className="order-list">
-      {orders.map((order) => {
+      {completedOrders.map((order) => {
         const refund = getRefundForOrder(order.id);
 
         return (

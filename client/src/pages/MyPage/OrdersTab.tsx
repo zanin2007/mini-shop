@@ -1,38 +1,77 @@
 /**
  * 주문 내역 탭 (진행중 주문)
+ * - 자체 데이터 fetch + 로딩 관리
  * - 주문 상태별 뱃지 + 상품 목록 + 옵션 표시
  * - 배송완료(delivered) → 구매확정 버튼 (낙관적 업데이트 + completed_at 설정)
  * - [테스트용] 주문 상태 다음 단계 변경 버튼
  */
-import { useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Order, CartItemOption } from '../../types';
 
-interface StatusInfo {
-  label: string;
-  className: string;
-}
+const statusMap: Record<string, { label: string; className: string }> = {
+  checking: { label: '상품확인중', className: 'status-checking' },
+  pending: { label: '준비중', className: 'status-pending' },
+  shipped: { label: '배송중', className: 'status-shipped' },
+  delivered: { label: '배송완료', className: 'status-delivered' },
+  completed: { label: '수령완료', className: 'status-completed' },
+  refund_requested: { label: '환불신청', className: 'status-refund-requested' },
+  refunded: { label: '환불완료', className: 'status-refunded' },
+};
 
 interface Props {
-  orders: Order[];
-  allOrders: Order[];
-  statusMap: Record<string, StatusInfo>;
-  setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
+  onCountReady: (activeCount: number, completedCount: number) => void;
 }
 
-function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
+function OrdersTab({ onCountReady }: Props) {
   const { showAlert, showConfirm } = useAlert();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
-  if (orders.length === 0) {
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const response = await api.get('/orders');
+      setOrders(response.data);
+    } catch (error) {
+      console.error('주문 내역 조회 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchOrders();
+  }, [fetchOrders]);
+
+  const activeOrders = useMemo(
+    () => orders.filter(o => !['completed', 'refund_requested', 'refunded'].includes(o.status)),
+    [orders]
+  );
+  const completedCount = useMemo(
+    () => orders.filter(o => ['completed', 'refund_requested', 'refunded'].includes(o.status)).length,
+    [orders]
+  );
+
+  useEffect(() => {
+    if (!loading) {
+      onCountReady(activeOrders.length, completedCount);
+    }
+  }, [activeOrders.length, completedCount, loading, onCountReady]);
+
+  if (loading) return <LoadingSpinner />;
+
+  if (activeOrders.length === 0) {
     return <p className="empty-message">진행중인 주문이 없습니다.</p>;
   }
 
   return (
     <div className="order-list">
-      {orders.map((order) => (
+      {activeOrders.map((order) => (
         <div key={order.id} className="order-card">
           <div className="order-header">
             <span className="order-date-title">
@@ -107,7 +146,7 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
                   try {
                     await api.put(`/orders/${order.id}/confirm`);
                     showAlert('수령이 완료되었습니다.', 'success');
-                    setOrders(allOrders.map(o => o.id === order.id ? { ...o, status: 'completed', completed_at: new Date().toISOString() } : o));
+                    fetchOrders();
                   } catch (error) {
                     if (error instanceof AxiosError) {
                       showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
@@ -135,7 +174,7 @@ function OrdersTab({ orders, allOrders, statusMap, setOrders }: Props) {
                   try {
                     const res = await api.put(`/orders/${order.id}/advance`);
                     showAlert(res.data.message, 'success');
-                    setOrders(allOrders.map(o => o.id === order.id ? { ...o, status: res.data.status } : o));
+                    fetchOrders();
                   } catch (error) {
                     if (error instanceof AxiosError) {
                       showAlert(error.response?.data?.message || '상태 변경에 실패했습니다.', 'error');

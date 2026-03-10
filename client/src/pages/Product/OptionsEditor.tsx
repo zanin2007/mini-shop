@@ -1,10 +1,14 @@
+import { useRef } from 'react';
+
 interface OptionValue {
+  _key: number;
   value: string;
   extra_price: string;
   stock: string;
 }
 
 interface OptionGroup {
+  _key: number;
   option_name: string;
   values: OptionValue[];
 }
@@ -14,7 +18,22 @@ interface Props {
   setOptions: React.Dispatch<React.SetStateAction<OptionGroup[]>>;
 }
 
+const sanitizeNumeric = (raw: string) => {
+  if (raw === '') return '';
+  const num = Number(raw);
+  return (isNaN(num) || num < 0 || !Number.isInteger(num)) ? '0' : raw;
+};
+
 function OptionsEditor({ options, setOptions }: Props) {
+  const nextKey = useRef(
+    options.reduce((max, opt) => {
+      const valMax = opt.values.reduce((m, v) => Math.max(m, v._key), 0);
+      return Math.max(max, opt._key, valMax);
+    }, 0) + 1
+  );
+
+  const genKey = () => nextKey.current++;
+
   return (
     <div className="options-section">
       <div className="options-header">
@@ -22,13 +41,13 @@ function OptionsEditor({ options, setOptions }: Props) {
         <button
           type="button"
           className="add-option-btn"
-          onClick={() => setOptions([...options, { option_name: '', values: [{ value: '', extra_price: '', stock: '' }] }])}
+          onClick={() => setOptions([...options, { _key: genKey(), option_name: '', values: [{ _key: genKey(), value: '', extra_price: '', stock: '' }] }])}
         >
           + 옵션 그룹 추가
         </button>
       </div>
       {options.map((option, oi) => (
-        <div key={oi} className="option-group">
+        <div key={option._key} className="option-group">
           <div className="option-group-header">
             <input
               type="text"
@@ -49,7 +68,7 @@ function OptionsEditor({ options, setOptions }: Props) {
             </button>
           </div>
           {option.values.map((val, vi) => (
-            <div key={`${oi}-${vi}`} className="option-value-row">
+            <div key={val._key} className="option-value-row">
               <input
                 type="text"
                 placeholder="값 (예: S, M, L)"
@@ -68,9 +87,7 @@ function OptionsEditor({ options, setOptions }: Props) {
                 min="0"
                 value={val.extra_price}
                 onChange={(e) => {
-                  const raw = e.target.value;
-                  const num = Number(raw);
-                  const sanitized = raw === '' ? '' : (isNaN(num) || num < 0) ? '0' : raw;
+                  const sanitized = sanitizeNumeric(e.target.value);
                   setOptions(options.map((opt, i) =>
                     i === oi ? { ...opt, values: opt.values.map((v, j) =>
                       j === vi ? { ...v, extra_price: sanitized } : v
@@ -84,9 +101,7 @@ function OptionsEditor({ options, setOptions }: Props) {
                 min="0"
                 value={val.stock}
                 onChange={(e) => {
-                  const raw = e.target.value;
-                  const num = Number(raw);
-                  const sanitized = raw === '' ? '' : (isNaN(num) || num < 0) ? '0' : raw;
+                  const sanitized = sanitizeNumeric(e.target.value);
                   setOptions(options.map((opt, i) =>
                     i === oi ? { ...opt, values: opt.values.map((v, j) =>
                       j === vi ? { ...v, stock: sanitized } : v
@@ -112,7 +127,7 @@ function OptionsEditor({ options, setOptions }: Props) {
             className="add-value-btn"
             onClick={() => {
               setOptions(options.map((opt, i) =>
-                i === oi ? { ...opt, values: [...opt.values, { value: '', extra_price: '', stock: '' }] } : opt
+                i === oi ? { ...opt, values: [...opt.values, { _key: genKey(), value: '', extra_price: '', stock: '' }] } : opt
               ));
             }}
           >

@@ -38,7 +38,7 @@ function ProductRegisterPage() {
     stock: '',
   });
   const [loading, setLoading] = useState(false);
-  const [options, setOptions] = useState<{ option_name: string; values: { value: string; extra_price: string; stock: string }[] }[]>([]);
+  const [options, setOptions] = useState<{ _key: number; option_name: string; values: { _key: number; value: string; extra_price: string; stock: string }[] }[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });

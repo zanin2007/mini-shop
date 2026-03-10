@@ -1,6 +1,6 @@
 /* ============================================================
-   MyPage — Korean Luxury Editorial
-   Uses global design system + gold accent for MyPage identity
+   MyPage — Warm Atelier
+   Personal boutique dashboard with layered depth & gold accents
    ============================================================ */
 
 :root {
@@ -9,11 +9,50 @@
   --mp-gold-soft: rgba(196, 162, 101, 0.12);
 }
 
+/* ===== Entrance Animations ===== */
+@keyframes mpReveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mpFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ringPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 162, 101, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(196, 162, 101, 0); }
+}
+
+@keyframes floatOrb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(10px, -8px) scale(1.05); }
+  66% { transform: translate(-5px, 5px) scale(0.97); }
+}
+
+@keyframes statCount {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* ===== Page Container ===== */
 .mypage {
   padding: 2rem 0 4rem;
   min-height: 70vh;
-  animation: fadeIn 0.6s var(--ease-out);
+  animation: mpFade 0.5s var(--ease-out);
 }
 
 .mypage .container {
@@ -26,30 +65,84 @@
 .mypage-hero {
   position: relative;
   border-radius: var(--radius-lg);
-  padding: 2.5rem 2rem;
+  padding: 2.75rem 2.5rem;
   margin-bottom: 2.5rem;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(196, 162, 101, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(107, 143, 113, 0.1) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 80%, rgba(196, 162, 101, 0.08) 0%, transparent 40%),
-    var(--color-primary);
-  animation: slideUp 0.5s var(--ease-out);
+  background: var(--color-primary);
+  animation: mpReveal 0.55s var(--ease-out);
+  isolation: isolate;
 }
 
+/* Layered gradient atmosphere */
 .mypage-hero::before {
   content: '';
   position: absolute;
   inset: 0;
   background:
+    radial-gradient(ellipse 500px 350px at 15% 60%, rgba(196, 162, 101, 0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 85% 15%, rgba(90, 138, 94, 0.1) 0%, transparent 70%),
+    radial-gradient(ellipse 300px 250px at 60% 90%, rgba(196, 162, 101, 0.1) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle grid texture */
+.mypage-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 50px,
+      rgba(255, 255, 255, 0.012) 50px,
+      rgba(255, 255, 255, 0.012) 51px
+    ),
     repeating-linear-gradient(
       90deg,
       transparent,
-      transparent 80px,
-      rgba(255, 255, 255, 0.015) 80px,
-      rgba(255, 255, 255, 0.015) 81px
+      transparent 50px,
+      rgba(255, 255, 255, 0.012) 50px,
+      rgba(255, 255, 255, 0.012) 51px
     );
   pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating orbs */
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-orb--1 {
+  width: 160px;
+  height: 160px;
+  top: -50px;
+  right: 60px;
+  border: 1px solid rgba(196, 162, 101, 0.15);
+  animation: floatOrb 12s ease-in-out infinite;
+}
+
+.hero-orb--2 {
+  width: 100px;
+  height: 100px;
+  bottom: -30px;
+  left: 15%;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  animation: floatOrb 10s ease-in-out infinite reverse;
+}
+
+.hero-orb--3 {
+  width: 60px;
+  height: 60px;
+  top: 20%;
+  right: 25%;
+  background: radial-gradient(circle, rgba(196, 162, 101, 0.08) 0%, transparent 70%);
+  animation: floatOrb 8s ease-in-out infinite 2s;
 }
 
 .hero-content {
@@ -60,24 +153,29 @@
   z-index: 1;
 }
 
+/* Avatar with ring */
 .hero-avatar {
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
-  background: var(--mp-gold);
+  background: linear-gradient(135deg, var(--mp-gold) 0%, #d4b87a 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.65rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: var(--color-primary);
   letter-spacing: -1px;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(196, 162, 101, 0.3);
+  box-shadow:
+    0 0 0 3px rgba(196, 162, 101, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.3);
+  animation: mpReveal 0.5s ease-out 0.1s both;
 }
 
 .hero-info {
   flex: 1;
+  animation: mpReveal 0.5s ease-out 0.15s both;
 }
 
 .hero-nickname {
@@ -90,98 +188,120 @@
 }
 
 .hero-email {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.4);
   letter-spacing: 0.5px;
+  font-weight: 400;
 }
 
+/* Stats row */
 .hero-stats {
   display: flex;
-  gap: 2rem;
+  gap: 0.6rem;
   margin-left: auto;
+  animation: mpReveal 0.5s ease-out 0.25s both;
 }
 
 .hero-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.45rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 80px;
+  transition: all 0.3s var(--ease);
+}
+
+.hero-stat:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(196, 162, 101, 0.2);
+  transform: translateY(-2px);
+}
+
+.hero-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mp-gold-light);
+  opacity: 0.7;
 }
 
 .hero-stat-value {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: var(--mp-gold-light);
   line-height: 1;
+  animation: statCount 0.4s ease-out both;
 }
 
+.hero-stat:nth-child(1) .hero-stat-value { animation-delay: 0.35s; }
+.hero-stat:nth-child(2) .hero-stat-value { animation-delay: 0.4s; }
+.hero-stat:nth-child(3) .hero-stat-value { animation-delay: 0.45s; }
+.hero-stat:nth-child(4) .hero-stat-value { animation-delay: 0.5s; }
+
 .hero-stat-label {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-weight: 600;
 }
 
-/* ===== Tab Navigation ===== */
+/* ===== Tab Navigation — Segmented Control ===== */
 .mypage-tabs {
   display: flex;
-  gap: 0;
+  gap: 0.25rem;
   margin-bottom: 2rem;
-  border-bottom: 1.5px solid var(--color-border);
-  animation: slideUp 0.5s var(--ease-out) 0.1s both;
+  padding: 0.3rem;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  animation: mpReveal 0.5s var(--ease-out) 0.15s both;
 }
 
 .mypage-tab {
   position: relative;
-  padding: 0.85rem 1.5rem;
+  flex: 1;
+  padding: 0.75rem 1rem;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: color 0.25s;
+  transition: all 0.25s var(--ease);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.45rem;
   letter-spacing: -0.2px;
-}
-
-.mypage-tab::after {
-  content: '';
-  position: absolute;
-  bottom: -1.5px;
-  left: 0;
-  right: 0;
-  height: 2.5px;
-  background: var(--mp-gold);
-  border-radius: 2px 2px 0 0;
-  transform: scaleX(0);
-  transition: transform 0.3s var(--ease);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 .mypage-tab:hover {
-  color: var(--color-text);
+  color: var(--color-text-secondary);
 }
 
 .mypage-tab.active {
   color: var(--color-text);
-}
-
-.mypage-tab.active::after {
-  transform: scaleX(1);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .tab-badge {
   background: var(--mp-gold);
   color: white;
-  font-size: 0.6rem;
-  padding: 0.1rem 0.45rem;
+  font-size: 0.58rem;
+  padding: 0.1rem 0.4rem;
   border-radius: var(--radius-full);
   font-weight: 700;
   line-height: 1.4;
-  min-width: 18px;
+  min-width: 16px;
   text-align: center;
 }
 
@@ -197,7 +317,7 @@
   padding: 1.75rem;
   margin-bottom: 1.5rem;
   box-shadow: var(--shadow-sm);
-  animation: slideUp 0.5s var(--ease-out) 0.15s both;
+  animation: mpReveal 0.45s var(--ease-out) 0.2s both;
 }
 
 .mypage-section h3 {
@@ -231,6 +351,7 @@
   padding: 1.5rem;
   transition: all 0.3s var(--ease);
   background: var(--color-surface);
+  position: relative;
 }
 
 .order-card:hover {
@@ -510,7 +631,7 @@
 /* ===== Coupon Section ===== */
 .coupon-claim {
   display: flex;
-  gap: 0.6rem;
+  gap: 0;
   margin-bottom: 2rem;
 }
 
@@ -518,7 +639,8 @@
   flex: 1;
   padding: 0.75rem 1.1rem;
   border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   font-size: 0.88rem;
   background: var(--color-surface-alt);
   transition: all 0.25s;
@@ -538,14 +660,15 @@
   border-color: var(--mp-gold);
   background: var(--color-surface);
   box-shadow: 0 0 0 3px var(--mp-gold-soft);
+  z-index: 1;
 }
 
 .coupon-claim button {
   padding: 0.75rem 1.75rem;
   background: var(--color-primary);
   color: var(--color-text-inverse);
-  border: none;
-  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   font-weight: 700;
   font-size: 0.88rem;
   cursor: pointer;
@@ -556,6 +679,7 @@
 
 .coupon-claim button:hover {
   background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
   box-shadow: var(--shadow-md);
 }
 
@@ -611,10 +735,10 @@
   left: 0;
   width: 4px;
   height: 100%;
-  background: var(--mp-gold);
+  background: linear-gradient(180deg, var(--mp-gold) 0%, var(--mp-gold-light) 100%);
 }
 
-/* Ticket cut-out effect */
+/* Ticket cut-out */
 .coupon-card::after {
   content: '';
   position: absolute;
@@ -631,6 +755,7 @@
 .coupon-card:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--mp-gold-light);
+  transform: translateY(-2px);
 }
 
 .coupon-card.used {
@@ -639,6 +764,10 @@
 
 .coupon-card.used::before {
   background: var(--color-border);
+}
+
+.coupon-card.used:hover {
+  transform: none;
 }
 
 .coupon-discount-label {
@@ -773,7 +902,7 @@
   margin-top: 0.25rem;
 }
 
-/* Danger zone (회원탈퇴) */
+/* Danger zone */
 .settings-block.danger {
   margin-top: 1rem;
   padding-top: 1.5rem;
@@ -878,10 +1007,11 @@
 
 .gift-card:hover {
   box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .gift-status-pending::before {
-  background: var(--mp-gold);
+  background: linear-gradient(90deg, var(--mp-gold) 0%, var(--mp-gold-light) 100%);
 }
 
 .gift-status-accepted::before {
@@ -894,6 +1024,10 @@
 
 .gift-status-rejected {
   opacity: 0.5;
+}
+
+.gift-status-rejected:hover {
+  transform: none;
 }
 
 .gift-card-header {
@@ -1091,8 +1225,8 @@
 }
 
 .refund-status-requested {
-  background: var(--color-warning-bg, rgba(243, 156, 18, 0.1));
-  color: var(--color-warning, #f39c12);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .refund-status-approved {
@@ -1111,8 +1245,8 @@
 }
 
 .status-refund-requested {
-  background: var(--color-warning-bg, rgba(243, 156, 18, 0.1));
-  color: var(--color-warning, #f39c12);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .status-refunded {
@@ -1150,23 +1284,43 @@
     font-size: 1.2rem;
   }
 
+  .hero-orb {
+    display: none;
+  }
+
   .hero-stats {
     width: 100%;
     margin-left: 0;
-    justify-content: space-around;
+    gap: 0.4rem;
     padding-top: 1.15rem;
     margin-top: 0.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
+  .hero-stat {
+    padding: 0.65rem 0.5rem;
+    min-width: 0;
+    flex: 1;
+  }
+
   .hero-stat-value {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
+  }
+
+  .hero-stat-label {
+    font-size: 0.58rem;
+    letter-spacing: 1px;
+  }
+
+  .hero-stat-icon {
+    display: none;
   }
 
   .mypage-tabs {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    flex-wrap: nowrap;
   }
 
   .mypage-tabs::-webkit-scrollbar {
@@ -1174,9 +1328,9 @@
   }
 
   .mypage-tab {
-    font-size: 0.82rem;
-    padding: 0.7rem 1.1rem;
-    white-space: nowrap;
+    font-size: 0.78rem;
+    padding: 0.6rem 0.85rem;
+    flex: 0 0 auto;
   }
 
   .mypage-section {
@@ -1229,10 +1383,21 @@
 
   .coupon-claim {
     flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .coupon-claim input {
+    border-right: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  .coupon-claim input:focus {
+    border-color: var(--mp-gold);
   }
 
   .coupon-claim button {
     width: 100%;
+    border-radius: var(--radius-md);
   }
 
   .gift-card-header {
@@ -1274,7 +1439,15 @@
 
 @media (max-width: 480px) {
   .hero-stats {
-    gap: 1rem;
+    gap: 0.3rem;
+  }
+
+  .hero-stat {
+    padding: 0.5rem 0.35rem;
+  }
+
+  .hero-stat-value {
+    font-size: 1rem;
   }
 
   .coupon-card {

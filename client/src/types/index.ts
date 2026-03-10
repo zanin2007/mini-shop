@@ -185,8 +185,8 @@ export interface Event {
   id: number;
   title: string;
   description: string;
-  type: string;
-  reward_type: string | null;
+  type: 'fcfs' | 'random';
+  reward_type: 'coupon' | 'point' | null;
   reward_id: number | null;
   reward_amount: number | null;
   max_participants: number | null;

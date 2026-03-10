@@ -1,19 +1,19 @@
 /**
  * 선물 탭
+ * - 자체 데이터 fetch + 로딩 관리
  * - 보낸 선물 / 받은 선물 토글
  * - 받은 선물: 수락/거절 기능 (pending 상태만)
  * - 선물 메시지, 상태(대기/수락/거절) 표시
  */
-import { useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Gift } from '../../types';
 
 interface Props {
-  sentGifts: Gift[];
-  receivedGifts: Gift[];
-  onGiftAction: () => void;
+  onCountReady: (pendingCount: number) => void;
 }
 
 const orderStatusMap: Record<string, string> = {
@@ -28,10 +28,43 @@ const orderStatusMap: Record<string, string> = {
 
 const deliverySteps = ['checking', 'pending', 'shipped', 'delivered', 'completed'];
 
-function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
+function GiftsTab({ onCountReady }: Props) {
   const { showAlert, showConfirm } = useAlert();
+  const [sentGifts, setSentGifts] = useState<Gift[]>([]);
+  const [receivedGifts, setReceivedGifts] = useState<Gift[]>([]);
+  const [loading, setLoading] = useState(true);
   const [giftSubTab, setGiftSubTab] = useState<'received' | 'sent'>('received');
   const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
+
+  const fetchGifts = useCallback(async () => {
+    try {
+      const [sentRes, receivedRes] = await Promise.all([
+        api.get('/gifts/sent'),
+        api.get('/gifts/received'),
+      ]);
+      setSentGifts(sentRes.data);
+      setReceivedGifts(receivedRes.data);
+    } catch (error) {
+      console.error('선물 조회 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchGifts();
+  }, [fetchGifts]);
+
+  const pendingCount = useMemo(
+    () => receivedGifts.filter(g => g.status === 'pending').length,
+    [receivedGifts]
+  );
+
+  useEffect(() => {
+    if (!loading) {
+      onCountReady(pendingCount);
+    }
+  }, [pendingCount, loading, onCountReady]);
 
   const handleAcceptGift = async (giftId: number) => {
     if (processingIds.has(giftId)) return;
@@ -40,7 +73,7 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
     try {
       await api.put(`/gifts/${giftId}/accept`);
       showAlert('선물을 수락했습니다.', 'success');
-      onGiftAction();
+      fetchGifts();
     } catch (error) {
       if (error instanceof AxiosError) {
         showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
@@ -57,7 +90,7 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
     try {
       await api.put(`/gifts/${giftId}/confirm`);
       showAlert('수령이 완료되었습니다.', 'success');
-      onGiftAction();
+      fetchGifts();
     } catch (error) {
       if (error instanceof AxiosError) {
         showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
@@ -74,7 +107,7 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
     try {
       await api.put(`/gifts/${giftId}/reject`);
       showAlert('선물을 거절했습니다.', 'success');
-      onGiftAction();
+      fetchGifts();
     } catch (error) {
       if (error instanceof AxiosError) {
         showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
@@ -83,6 +116,8 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
       setProcessingIds(prev => { const next = new Set(prev); next.delete(giftId); return next; });
     }
   };
+
+  if (loading) return <LoadingSpinner />;
 
   return (
     <>
@@ -133,7 +168,7 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
                     {!['refund_requested', 'refunded'].includes(gift.order_status) && (
                       <div className="delivery-progress">
                         {deliverySteps.map((step, idx) => {
-                          const currentIdx = deliverySteps.indexOf(gift.order_status!);
+                          const currentIdx = deliverySteps.indexOf(gift.order_status ?? '');
                           const isActive = idx <= currentIdx;
                           return (
                             <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>
@@ -201,7 +236,7 @@ function GiftsTab({ sentGifts, receivedGifts, onGiftAction }: Props) {
                     {!['refund_requested', 'refunded'].includes(gift.order_status) && (
                       <div className="delivery-progress">
                         {deliverySteps.map((step, idx) => {
-                          const currentIdx = deliverySteps.indexOf(gift.order_status!);
+                          const currentIdx = deliverySteps.indexOf(gift.order_status ?? '');
                           const isActive = idx <= currentIdx;
                           return (
                             <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>

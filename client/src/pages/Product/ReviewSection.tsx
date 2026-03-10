@@ -1,5 +1,5 @@
 import { useState, forwardRef } from 'react';
-import Rating from '@mui/material/Rating';
+import StarRating from '../../components/StarRating';
 import type { Review } from '../../types';
 
 interface Props {
@@ -40,7 +40,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
           </h3>
           {avgRating !== null && (
             <span className="review-avg">
-              <Rating value={avgRating} precision={0.5} size="small" readOnly />
+              <StarRating value={avgRating} precision={0.5} size="small" readOnly />
               <span className="review-avg-number">{avgRating.toFixed(1)}</span>
             </span>
           )}
@@ -56,13 +56,11 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
           <form className="review-form" onSubmit={handleSubmit}>
             <div className="rating-select">
               <span>별점</span>
-              <Rating
+              <StarRating
                 value={reviewForm.rating}
                 precision={0.5}
                 size="large"
-                onChange={(_, value) => {
-                  if (value !== null) setReviewForm({ ...reviewForm, rating: value });
-                }}
+                onChange={(value) => setReviewForm({ ...reviewForm, rating: value })}
               />
               <span className="rating-value">{reviewForm.rating}</span>
             </div>
@@ -87,7 +85,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
               <div key={review.id} className="review-item">
                 <div className="review-item-header">
                   <span className="review-author">{review.nickname || review.user?.nickname}</span>
-                  <Rating value={Number(review.rating)} precision={0.5} size="small" readOnly />
+                  <StarRating value={Number(review.rating)} precision={0.5} size="small" readOnly />
                   <span className="review-date">
                     {new Date(review.created_at).toLocaleDateString('ko-KR')}
                   </span>

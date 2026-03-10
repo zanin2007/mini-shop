@@ -137,8 +137,12 @@ function MainPage() {
     <div className="main-page">
       <div className="container">
         <section className="hero">
-          <h2>간단하고 빠른 쇼핑 경험</h2>
-          <p>최신 의류 상품을 만나보세요</p>
+          <div className="hero-accent hero-accent--1" />
+          <div className="hero-accent hero-accent--2" />
+          <span className="hero-label">Mini Shop</span>
+          <h2>간단하고 빠른<br />쇼핑 경험</h2>
+          <p className="hero-subtitle">최신 의류 상품을 만나보세요</p>
+          <hr className="hero-divider" />
         </section>
 
         {/* 검색 & 필터 */}
@@ -172,14 +176,19 @@ function MainPage() {
         </section>
 
         <section className="products-section">
-          <h3>
-            {selectedCategory || '전체'} 상품
+          <div className="products-header">
+            <h3>{selectedCategory || '전체'} 상품</h3>
             <span className="product-count">{products.length}개</span>
-          </h3>
+          </div>
           {loading ? (
             <LoadingSpinner />
           ) : products.length === 0 ? (
-            <div className="empty-products">검색 결과가 없습니다.</div>
+            <div className="empty-products">
+              <div className="empty-products-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </div>
+              검색 결과가 없습니다.
+            </div>
           ) : (
             <>
               <div className="products-grid">
