@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { restoreOrderStock } = require('../utils/stockHelper');
 
 // 보낸 선물 목록
 exports.getSentGifts = async (req, res) => {
@@ -159,38 +160,8 @@ exports.rejectGift = async (req, res) => {
         ['refunded', order.id]
       );
 
-      // 재고 복원 — 배치 UPDATE
-      const [orderItems] = await connection.execute(
-        'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
-        [order.id]
-      );
-      if (orderItems.length > 0) {
-        const caseParts = orderItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
-        const caseVals = orderItems.flatMap(item => [item.product_id, item.quantity]);
-        const idPh = orderItems.map(() => '?').join(',');
-        const idVals = orderItems.map(item => item.product_id);
-        await connection.execute(
-          `UPDATE products SET stock = CASE ${caseParts} ELSE stock END WHERE id IN (${idPh})`,
-          [...caseVals, ...idVals]
-        );
-      }
-
-      // 옵션 재고 복원 — 배치 UPDATE
-      const [optionItems] = await connection.execute(
-        `SELECT oio.option_value_id, oi.quantity FROM order_item_options oio
-         JOIN order_items oi ON oio.order_item_id = oi.id WHERE oi.order_id = ?`,
-        [order.id]
-      );
-      if (optionItems.length > 0) {
-        const optCaseParts = optionItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
-        const optCaseVals = optionItems.flatMap(opt => [opt.option_value_id, opt.quantity]);
-        const optIdPh = optionItems.map(() => '?').join(',');
-        const optIdVals = optionItems.map(opt => opt.option_value_id);
-        await connection.execute(
-          `UPDATE product_option_values SET stock = CASE ${optCaseParts} ELSE stock END WHERE id IN (${optIdPh})`,
-          [...optCaseVals, ...optIdVals]
-        );
-      }
+      // 재고 복원 (상품 + 옵션)
+      await restoreOrderStock(connection, order.id);
 
       // 쿠폰 복원
       if (order.coupon_id) {

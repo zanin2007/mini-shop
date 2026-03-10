@@ -11,8 +11,6 @@ const db = require('../config/db');
 exports.getActiveEvents = async (req, res) => {
   try {
     const userId = req.user ? req.user.userId : null;
-    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
     if (userId) {
       const [events] = await db.execute(
         `SELECT e.*,
@@ -20,9 +18,9 @@ exports.getActiveEvents = async (req, res) => {
                 (ep.id IS NOT NULL) AS is_participated
          FROM events e
          LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.user_id = ?
-         WHERE e.is_active = true AND e.start_date <= ? AND e.end_date >= ?
+         WHERE e.is_active = true AND e.start_date <= NOW() AND e.end_date >= NOW()
          ORDER BY e.created_at DESC`,
-        [userId, now, now]
+        [userId]
       );
       for (const event of events) {
         event.is_participated = !!event.is_participated;
@@ -32,9 +30,8 @@ exports.getActiveEvents = async (req, res) => {
       const [events] = await db.execute(
         `SELECT e.*, (SELECT COUNT(*) FROM event_participants WHERE event_id = e.id) AS current_participants
          FROM events e
-         WHERE e.is_active = true AND e.start_date <= ? AND e.end_date >= ?
-         ORDER BY e.created_at DESC`,
-        [now, now]
+         WHERE e.is_active = true AND e.start_date <= NOW() AND e.end_date >= NOW()
+         ORDER BY e.created_at DESC`
       );
       res.json(events);
     }
@@ -67,18 +64,16 @@ exports.participateEvent = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    // FOR UPDATE로 이벤트 행 잠금 → 동시 참여 요청 직렬화
-    const [events] = await connection.execute('SELECT * FROM events WHERE id = ? AND is_active = true FOR UPDATE', [id]);
+    // FOR UPDATE로 이벤트 행 잠금 + 기간 검증을 DB NOW()로 처리 (타임존 일관성)
+    const [events] = await connection.execute(
+      'SELECT * FROM events WHERE id = ? AND is_active = true AND start_date <= NOW() AND end_date >= NOW() FOR UPDATE',
+      [id]
+    );
     if (events.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: '이벤트를 찾을 수 없습니다.' });
+      return res.status(400).json({ message: '이벤트를 찾을 수 없거나 기간이 아닙니다.' });
     }
     const event = events[0];
-
-    if (new Date(event.start_date) > new Date() || new Date(event.end_date) < new Date()) {
-      await connection.rollback();
-      return res.status(400).json({ message: '이벤트 기간이 아닙니다.' });
-    }
 
     // 행 잠금 상태에서 정확한 참여 인원 체크
     if (event.max_participants != null) {

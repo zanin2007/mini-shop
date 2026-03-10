@@ -102,36 +102,35 @@ exports.createOrder = async (req, res) => {
 
     if (requestedCouponId) {
       const [userCoupons] = await connection.execute(
-        `SELECT uc.id, uc.coupon_id, c.discount_amount, c.discount_percentage, c.min_price, c.expiry_date, c.is_active
+        `SELECT uc.id, uc.coupon_id, c.discount_amount, c.discount_percentage, c.min_price
          FROM user_coupons uc
          JOIN coupons c ON uc.coupon_id = c.id
-         WHERE uc.id = ? AND uc.user_id = ? AND uc.is_used = false`,
+         WHERE uc.id = ? AND uc.user_id = ? AND uc.is_used = false
+           AND c.is_active = true AND c.expiry_date > NOW()`,
         [requestedCouponId, req.user.userId]
       );
 
       if (userCoupons.length > 0) {
         const uc = userCoupons[0];
-        if (uc.is_active && new Date(uc.expiry_date) > new Date()) {
-          if (!uc.min_price || totalAmount >= uc.min_price) {
-            if (uc.discount_percentage) {
-              discountAmount = Math.floor(totalAmount * uc.discount_percentage / 100);
-            }
-            if (uc.discount_amount != null && uc.discount_amount > discountAmount) {
-              discountAmount = uc.discount_amount;
-            }
-            discountAmount = Math.min(discountAmount, totalAmount);
-            couponId = uc.coupon_id;
-
-            // 쿠폰 사용 처리 + 전체 사용 횟수 증가
-            await connection.execute(
-              'UPDATE user_coupons SET is_used = true, used_at = NOW() WHERE id = ?',
-              [requestedCouponId]
-            );
-            await connection.execute(
-              'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ?',
-              [uc.coupon_id]
-            );
+        if (!uc.min_price || totalAmount >= uc.min_price) {
+          if (uc.discount_percentage) {
+            discountAmount = Math.floor(totalAmount * uc.discount_percentage / 100);
           }
+          if (uc.discount_amount != null && uc.discount_amount > discountAmount) {
+            discountAmount = uc.discount_amount;
+          }
+          discountAmount = Math.min(discountAmount, totalAmount);
+          couponId = uc.coupon_id;
+
+          // 쿠폰 사용 처리 + 전체 사용 횟수 증가
+          await connection.execute(
+            'UPDATE user_coupons SET is_used = true, used_at = NOW() WHERE id = ?',
+            [requestedCouponId]
+          );
+          await connection.execute(
+            'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ?',
+            [uc.coupon_id]
+          );
         }
       }
     }

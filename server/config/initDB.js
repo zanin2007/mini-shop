@@ -308,6 +308,20 @@ async function initializeDatabase() {
   await safeCreateIndex('CREATE INDEX idx_refunds_order ON refunds(order_id)');
   await safeCreateIndex('CREATE INDEX idx_event_participants_event_winner ON event_participants(event_id, is_winner)');
   await safeCreateIndex('CREATE INDEX idx_mailbox_user_claimed ON mailbox(user_id, is_claimed)');
+  // 상품 검색/필터링 성능 개선
+  await safeCreateIndex('CREATE INDEX idx_products_active_category ON products(is_active, category)');
+  await safeCreateIndex('CREATE INDEX idx_products_name ON products(name)');
+  // 이벤트 기간 조회 성능 개선
+  await safeCreateIndex('CREATE INDEX idx_events_active_dates ON events(is_active, start_date, end_date)');
+  // 옵션 조회 성능 개선
+  await safeCreateIndex('CREATE INDEX idx_product_options_product ON product_options(product_id)');
+  await safeCreateIndex('CREATE INDEX idx_product_option_values_option ON product_option_values(option_id)');
+  // 주문 아이템 배치 조회
+  await safeCreateIndex('CREATE INDEX idx_order_items_order ON order_items(order_id)');
+  await safeCreateIndex('CREATE INDEX idx_order_item_options_item ON order_item_options(order_item_id)');
+  // 선물 조회 성능 개선
+  await safeCreateIndex('CREATE INDEX idx_gifts_sender ON gifts(sender_id)');
+  await safeCreateIndex('CREATE INDEX idx_gifts_receiver ON gifts(receiver_id)');
 
   await safeAddColumn('orders', 'completed_at', 'DATETIME DEFAULT NULL');
   await safeAddColumn('users', 'points', 'INT NOT NULL DEFAULT 0');

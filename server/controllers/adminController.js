@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { restoreOrderStock } = require('../utils/stockHelper');
 
 /**
  * 관리자 컨트롤러
@@ -442,20 +443,22 @@ exports.drawEventWinners = async (req, res) => {
     if (limit < 1 || limit > 1000) {
       return res.status(400).json({ message: '당첨 인원은 1~1000명이어야 합니다.' });
     }
-    // NOTE: LIMIT에는 파라미터 바인딩 불가, parseInt로 검증 완료
-    const [participants] = await db.execute(
-      `SELECT * FROM event_participants WHERE event_id = ? AND is_winner = false ORDER BY RAND() LIMIT ${limit}`,
-      [id]
-    );
-
-    if (participants.length === 0) {
-      return res.status(400).json({ message: '추첨할 참여자가 없습니다.' });
-    }
-
-    // 트랜잭션으로 당첨 UPDATE + 우편함 + 알림을 원자적 처리
+    // 트랜잭션으로 참가자 SELECT(FOR UPDATE) + 당첨 UPDATE + 우편함 + 알림을 원자적 처리
+    let winnerCount;
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
+
+      // NOTE: LIMIT에는 파라미터 바인딩 불가, parseInt로 검증 완료
+      const [participants] = await connection.execute(
+        `SELECT * FROM event_participants WHERE event_id = ? AND is_winner = false ORDER BY RAND() LIMIT ${limit} FOR UPDATE`,
+        [id]
+      );
+
+      if (participants.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ message: '추첨할 참여자가 없습니다.' });
+      }
 
       // 배치 UPDATE — 당첨자 일괄 처리
       const winnerIds = participants.map(p => p.id);
@@ -487,14 +490,14 @@ exports.drawEventWinners = async (req, res) => {
       );
 
       await connection.commit();
+      winnerCount = participants.length;
     } catch (err) {
       await connection.rollback();
       throw err;
     } finally {
       connection.release();
     }
-
-    res.json({ message: `${participants.length}명이 당첨되었습니다.` });
+    res.json({ message: `${winnerCount}명이 당첨되었습니다.` });
   } catch (error) {
     console.error('Admin draw event winners error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
@@ -758,38 +761,8 @@ exports.processRefund = async (req, res) => {
         );
       }
 
-      // 재고 복원 — 배치 UPDATE (CASE 패턴)
-      const [orderItems] = await connection.execute(
-        'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
-        [refund.order_id]
-      );
-      if (orderItems.length > 0) {
-        const caseParts = orderItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
-        const caseVals = orderItems.flatMap(item => [item.product_id, item.quantity]);
-        const idPh = orderItems.map(() => '?').join(',');
-        const idVals = orderItems.map(item => item.product_id);
-        await connection.execute(
-          `UPDATE products SET stock = CASE ${caseParts} ELSE stock END WHERE id IN (${idPh})`,
-          [...caseVals, ...idVals]
-        );
-      }
-
-      // 옵션 재고 복원 — 배치 UPDATE
-      const [optionItems] = await connection.execute(
-        `SELECT oio.option_value_id, oi.quantity FROM order_item_options oio
-         JOIN order_items oi ON oio.order_item_id = oi.id WHERE oi.order_id = ?`,
-        [refund.order_id]
-      );
-      if (optionItems.length > 0) {
-        const optCaseParts = optionItems.map(() => 'WHEN id = ? THEN stock + ?').join(' ');
-        const optCaseVals = optionItems.flatMap(opt => [opt.option_value_id, opt.quantity]);
-        const optIdPh = optionItems.map(() => '?').join(',');
-        const optIdVals = optionItems.map(opt => opt.option_value_id);
-        await connection.execute(
-          `UPDATE product_option_values SET stock = CASE ${optCaseParts} ELSE stock END WHERE id IN (${optIdPh})`,
-          [...optCaseVals, ...optIdVals]
-        );
-      }
+      // 재고 복원 (상품 + 옵션)
+      await restoreOrderStock(connection, refund.order_id);
     } else {
       await connection.execute(
         'UPDATE orders SET status = ? WHERE id = ?',

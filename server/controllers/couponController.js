@@ -28,22 +28,17 @@ exports.claimCoupon = async (req, res) => {
       return res.status(400).json({ message: '쿠폰 코드를 입력해주세요.' });
     }
 
-    // 쿠폰 존재 확인
+    // 쿠폰 존재 + 만료 확인 (DB NOW()로 타임존 일관성 보장)
     const [coupons] = await db.execute(
-      'SELECT * FROM coupons WHERE code = ? AND is_active = true',
+      'SELECT * FROM coupons WHERE code = ? AND is_active = true AND expiry_date > NOW()',
       [code]
     );
 
     if (coupons.length === 0) {
-      return res.status(404).json({ message: '유효하지 않은 쿠폰 코드입니다.' });
+      return res.status(404).json({ message: '유효하지 않거나 만료된 쿠폰입니다.' });
     }
 
     const coupon = coupons[0];
-
-    // 만료 확인
-    if (new Date(coupon.expiry_date) < new Date()) {
-      return res.status(400).json({ message: '만료된 쿠폰입니다.' });
-    }
 
     // 이미 보유 확인
     const [existing] = await db.execute(

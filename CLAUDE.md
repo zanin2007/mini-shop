@@ -107,7 +107,10 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 - **검색 API 호출 시 `AbortController` 사용** — debounce 타이머만으로는 이미 발송된 요청의 응답 순서 문제를 방지할 수 없음
 - **`alert()` 사용 금지** — 항상 `showAlert()`(AlertContext) 사용으로 일관된 UX 유지
 - **placeholder와 실제 검증 로직 동기화** — 비밀번호 최소 길이 등 변경 시 관련 placeholder도 반드시 업데이트
+- **`console.log` 관리** — 개발 중 사용은 허용하되, 성능에 영향이 있으면 최적화하거나 제거. 배포 전에는 반드시 전부 제거
 - **숫자 입력 검증** — 가격/재고 등 숫자 필드는 클라이언트에서 음수 검증 후 서버에서도 재검증
+- **스타일 상수는 컴포넌트 바깥에** — `React.memo` 컴포넌트 안에서 스타일 객체를 인라인으로 생성하면 매 렌더마다 새 참조 생성. 고정 스타일은 컴포넌트 바깥 `const`로 정의
+- **리스트 key에 배열 index 사용 금지** — 삭제/추가 시 React가 잘못 매칭. `_key` 필드 + `useRef` 카운터 패턴 사용
 
 ### Backend (JavaScript)
 - SQL 쿼리는 반드시 파라미터 배열 사용: `db.execute(sql, [param1, param2])` — 문자열 결합 금지 (SQL injection 방지)
@@ -125,10 +128,15 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 - **포인트 오버플로 방지** — `points = LEAST(points + ?, 9999999)` 패턴 사용
 - **재고 검증은 상품 + 옵션 모두** — 주문 생성 시 `products.stock`과 `product_option_values.stock` 모두 확인
 - **DELETE 결과 확인** — `affectedRows === 0`이면 404 반환 (존재하지 않는 리소스 삭제 방어)
+- **기존 코드 재사용 우선** — 새로운 쿼리나 함수를 만들기 전에 `server/controllers/` 내 기존 코드에 동일/유사 기능이 있는지 반드시 확인. 중복 생성 금지
+- **재고 복원 시 ID별 수량 집계** — 환불/선물거절 시 `product_id`, `option_value_id`별로 Map 집계 후 CASE UPDATE. 동일 상품/옵션이 여러 order_item에 있으면 마지막 WHEN만 적용되어 재고 덜 복원됨
+- **`res.json()`은 트랜잭션 밖에서** — commit 후 try 블록 안에서 응답하면, 응답 에러 시 이미 commit된 트랜잭션을 rollback 시도하게 됨. 결과를 변수에 저장 후 finally 이후 응답
+- **날짜 비교는 반드시 `NOW()` 사용** — 쿠폰 만료, 이벤트 기간 등 날짜 비교는 JS `new Date()` 대신 SQL `WHERE expiry_date > NOW()` 사용. DB는 UTC(`timezone: '+00:00'`)인데 JS는 서버 로컬 타임존이라 불일치 발생
 
 ### Shared Components
 - **`QuantityInput`** (`components/QuantityInput.tsx`) — 수량 입력 공용 컴포넌트. 꾹 누르기(400ms 후 80ms 간격 자동 증감) + 숫자 클릭 시 직접 텍스트 입력 지원. ProductDetailPage, CartPage에서 사용
 - **`AlertContext`** (`components/AlertContext.tsx`) — 전역 토스트/확인모달. `showAlert(msg, type)`, `showConfirm(msg): Promise<boolean>`. `timerMap` ref로 타이머 추적, 수동 닫기 시 타이머 정리
+- **`StarRating`** (`components/StarRating.tsx`) — MUI Rating 대체 커스텀 컴포넌트. `React.memo`, 반별 정밀도 지원, readOnly 모드. 스타일 상수는 컴포넌트 바깥에 정의 (리렌더 방지). ReviewSection에서 사용
 
 ### Established Patterns
 - **낙관적 업데이트 + API 디바운스** — CartPage 수량 변경: UI 즉시 반영(`setCartPageItems`) + `useRef<Map>` 타이머로 300ms 디바운스 후 API 호출. 실패 시 `fetchCart()`로 서버 동기화
@@ -137,11 +145,43 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 - **장바구니 동시 요청 직렬화** — `addToCart`는 트랜잭션 + `SELECT ... FOR UPDATE`로 상품/옵션/기존 장바구니 행 잠금 후 재고 검증
 - **옵션 재고 연동** — 상품 재고 + 옵션 재고 중 작은 값을 `maxQuantity`로 사용. 옵션 변경 시 수량 자동 조정
 - **커스텀 이벤트 동기화** — `cartUpdated`, `userUpdated` 이벤트로 컴포넌트 간 상태 동기화 (Layout 뱃지, 401 로그아웃 등)
+- **동적 리스트 key는 `_key` + useRef 카운터** — 배열 index를 key로 쓰면 삭제/추가 시 React가 잘못 매칭. `useRef`로 증가하는 고유 키 생성 (`genKey = () => nextKey.current++`). OptionsEditor에서 적용
+- **MUI 제거 완료** — `@mui/material`, `@emotion/react`, `@emotion/styled` 제거 (~14MB 절감). Rating → StarRating 커스텀 컴포넌트로 대체. 새로운 MUI 의존성 추가 금지
 
 ### Styling
 - CSS 변수는 `index.css`의 `:root`에 정의된 디자인 시스템 사용 (`--color-*`, `--radius-*`, `--shadow-*`)
 - 컴포넌트별 `.css` 파일을 `.tsx`와 같은 폴더에 배치
 - 디자인 테마: "Refined Korean Contemporary" (Pretendard 폰트, 따뜻한 베이지 배경, 테라코타 액센트)
+
+## Code Quality (3단계 안전장치)
+
+### 1단계: Claude Hooks (코딩 중 실시간 검사)
+코드 수정(Edit/Write) 시 아래 훅이 자동 실행됨. 위반 시 차단(exit 2)되면 수정 후 재시도할 것.
+
+| 훅 | 대상 | 검사 내용 | 동작 |
+|----|------|-----------|------|
+| `typecheck.sh` | `client/src/*.ts(x)` | TypeScript 타입 에러 | 차단 |
+| `lint-check.sh` | `client/src/*.ts(x)` | ESLint 규칙 위반 | 차단 |
+| `code-rules.sh` | `client/src/*.ts(x)` | `any`, `alert()`, `eslint-disable` 사용 | 차단 |
+| `code-rules.sh` | `client/src/*.ts(x)` | `console.log` 잔류 | 경고만 |
+| `sql-injection.sh` | `server/*.js` | SQL 문자열 결합, 템플릿 리터럴 변수 삽입 | 차단 |
+| `final-check.sh` | 작업 종료 시 | 최종 점검 | - |
+
+### 2단계: ESLint (점진적 엄격화)
+`client/eslint.config.js`에서 단계적으로 warn → error 전환 중:
+- `@typescript-eslint/no-explicit-any`: warn (1단계)
+- `no-console`: warn, `console.warn`/`console.error`는 허용 (1단계)
+
+### 3단계: Custom Commands
+| 명령어 | 파일 | 설명 |
+|--------|------|------|
+| `/save` | `.claude/commands/save.md` | 한글 1줄 커밋 + push (≤30자, 주차 표기 금지) |
+| `/review` | `.claude/commands/review.md` | git diff 변경사항 코드 리뷰 (보안/동시성/엣지케이스/성능/타입) |
+| `/db-check` | `.claude/commands/db-check.md` | initDB.js 스키마 vs 컨트롤러 SQL 쿼리 비교 분석 |
+| `/fix` | `.claude/commands/fix.md` | 코드 리뷰 결과 기반 자동 수정 |
+| `/explain` | `.claude/commands/explain.md` | 파일 코드 상세 설명 |
+| `/optimize` | `.claude/commands/optimize.md` | 성능 최적화 분석 |
+| `/test-api` | `.claude/commands/test-api.md` | API 테스트 시나리오 작성 |
 
 ## Known Issues
 
@@ -161,3 +201,22 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 - `DB_스키마.md` — 21개 테이블 상세 (컬럼, FK, 상태 흐름, 제약조건)
 - `DEVELOPMENT_GUIDE.md` — API 엔드포인트, 기능 체크리스트, 테스트 시나리오
 - `code-review/code-review-4.md` — 코드 리뷰 결과 (57건 중 대부분 수정 완료)
+
+## DB Index 현황
+
+`initDB.js`의 `safeCreateIndex()`로 관리. 새 테이블/쿼리 추가 시 WHERE, JOIN, ORDER BY 컬럼에 인덱스 필요한지 확인할 것.
+
+| 인덱스 | 테이블 | 용도 |
+|--------|--------|------|
+| `idx_products_active_category` | products | 상품 검색/필터링 |
+| `idx_products_name` | products | 상품명 검색 |
+| `idx_events_active_dates` | events | 이벤트 기간 조회 |
+| `idx_product_options_product` | product_options | 상품별 옵션 조회 |
+| `idx_product_option_values_option` | product_option_values | 옵션별 값 조회 |
+| `idx_order_items_order` | order_items | 주문별 상품 조회 |
+| `idx_order_item_options_item` | order_item_options | 주문상품별 옵션 조회 |
+| `idx_gifts_sender/receiver` | gifts | 보낸/받은 선물 조회 |
+| `idx_orders_user_status` | orders | 유저별 주문 조회 |
+| `idx_orders_status` | orders | 상태별 주문 조회 |
+| `idx_notifications_user_read` | notifications | 유저별 알림 조회 |
+| `idx_event_participants_event_winner` | event_participants | 이벤트별 당첨자 조회 |

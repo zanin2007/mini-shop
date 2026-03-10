@@ -1,0 +1,64 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite build)",
+      "Bash(npm run build)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/typecheck.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lint-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/code-rules.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/sql-injection.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/typecheck.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lint-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/code-rules.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/sql-injection.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/final-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
