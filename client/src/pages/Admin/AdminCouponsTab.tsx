@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { FieldError } from '../../components/ui/field-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminCoupon {
@@ -31,6 +32,7 @@ function AdminCouponsTab() {
     code: '', discount_amount: '', discount_percentage: '',
     min_price: '', expiry_date: '', max_uses: ''
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCoupons();
@@ -47,27 +49,29 @@ function AdminCouponsTab() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // 쿠폰 폼 유효성 검증
-    if (couponForm.expiry_date && new Date(couponForm.expiry_date) < new Date()) {
-      showAlert('만료일은 현재 시간 이후여야 합니다.', 'error');
-      return;
+  const validate = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    if (!couponForm.code.trim()) errs.code = '쿠폰 코드를 입력하세요.';
+    if (!couponForm.expiry_date) {
+      errs.expiry_date = '만료일을 선택하세요.';
+    } else if (new Date(couponForm.expiry_date) < new Date()) {
+      errs.expiry_date = '만료일은 현재 시간 이후여야 합니다.';
     }
     if (discountType === 'percentage') {
       const pct = Number(couponForm.discount_percentage);
-      if (!pct || pct < 1 || pct > 100) {
-        showAlert('할인율은 1~100 사이여야 합니다.', 'error');
-        return;
-      }
-    }
-    if (discountType === 'fixed') {
+      if (!pct || pct < 1 || pct > 100) errs.discount = '할인율은 1~100 사이여야 합니다.';
+    } else {
       const amt = Number(couponForm.discount_amount);
-      if (!amt || amt <= 0) {
-        showAlert('할인 금액은 0보다 커야 합니다.', 'error');
-        return;
-      }
+      if (!amt || amt <= 0) errs.discount = '할인 금액은 0보다 커야 합니다.';
     }
+    return errs;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = validate();
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     try {
       await api.post('/admin/coupons', {
         code: couponForm.code,
@@ -80,6 +84,7 @@ function AdminCouponsTab() {
       showAlert('쿠폰이 생성되었습니다.', 'success');
       setCouponForm({ code: '', discount_amount: '', discount_percentage: '', min_price: '', expiry_date: '', max_uses: '' });
       setDiscountType('percentage');
+      setErrors({});
       fetchCoupons();
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -118,51 +123,61 @@ function AdminCouponsTab() {
       <form className="coupon-create-form" onSubmit={handleSubmit}>
         <h4>쿠폰 생성</h4>
         <div className="coupon-form-grid">
-          <input
-            placeholder="쿠폰 코드"
-            value={couponForm.code}
-            onChange={e => setCouponForm({ ...couponForm, code: e.target.value })}
-            required
-          />
+          <div className="coupon-field">
+            <input
+              placeholder="쿠폰 코드"
+              className={errors.code ? 'has-error' : ''}
+              value={couponForm.code}
+              onChange={e => setCouponForm({ ...couponForm, code: e.target.value })}
+            />
+            <FieldError>{errors.code}</FieldError>
+          </div>
           <select
             value={discountType}
             onChange={e => {
               setDiscountType(e.target.value as 'percentage' | 'fixed');
               setCouponForm({ ...couponForm, discount_amount: '', discount_percentage: '' });
+              setErrors(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== 'discount')));
             }}
           >
             <option value="percentage">할인율 (%)</option>
             <option value="fixed">금액 할인 (원)</option>
           </select>
-          {discountType === 'percentage' ? (
-            <input
-              type="number"
-              placeholder="할인율 (%)"
-              value={couponForm.discount_percentage}
-              onChange={e => setCouponForm({ ...couponForm, discount_percentage: e.target.value })}
-              required
-            />
-          ) : (
-            <input
-              type="number"
-              placeholder="할인 금액 (원)"
-              value={couponForm.discount_amount}
-              onChange={e => setCouponForm({ ...couponForm, discount_amount: e.target.value })}
-              required
-            />
-          )}
+          <div className="coupon-field">
+            {discountType === 'percentage' ? (
+              <input
+                type="number"
+                placeholder="할인율 (%)"
+                className={errors.discount ? 'has-error' : ''}
+                value={couponForm.discount_percentage}
+                onChange={e => setCouponForm({ ...couponForm, discount_percentage: e.target.value })}
+              />
+            ) : (
+              <input
+                type="number"
+                placeholder="할인 금액 (원)"
+                className={errors.discount ? 'has-error' : ''}
+                value={couponForm.discount_amount}
+                onChange={e => setCouponForm({ ...couponForm, discount_amount: e.target.value })}
+              />
+            )}
+            <FieldError>{errors.discount}</FieldError>
+          </div>
           <input
             type="number"
             placeholder="최소 주문금액"
             value={couponForm.min_price}
             onChange={e => setCouponForm({ ...couponForm, min_price: e.target.value })}
           />
-          <input
-            type="datetime-local"
-            value={couponForm.expiry_date}
-            onChange={e => setCouponForm({ ...couponForm, expiry_date: e.target.value })}
-            required
-          />
+          <div className="coupon-field">
+            <input
+              type="datetime-local"
+              className={errors.expiry_date ? 'has-error' : ''}
+              value={couponForm.expiry_date}
+              onChange={e => setCouponForm({ ...couponForm, expiry_date: e.target.value })}
+            />
+            <FieldError>{errors.expiry_date}</FieldError>
+          </div>
           <input
             type="number"
             placeholder="최대 배포 수량"

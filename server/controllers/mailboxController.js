@@ -77,9 +77,12 @@ exports.claimReward = async (req, res) => {
       return res.status(400).json({ message: '수령할 보상이 없는 우편입니다.' });
     }
 
-    if (mail.expires_at && new Date(mail.expires_at) < new Date()) {
-      await connection.rollback();
-      return res.status(400).json({ message: '만료된 우편입니다.' });
+    if (mail.expires_at) {
+      const [expiryCheck] = await connection.execute('SELECT ? < NOW() AS is_expired', [mail.expires_at]);
+      if (expiryCheck[0].is_expired) {
+        await connection.rollback();
+        return res.status(400).json({ message: '만료된 우편입니다.' });
+      }
     }
 
     // 보상 종류별 처리
@@ -146,10 +149,13 @@ exports.deleteMail = async (req, res) => {
     if (mails.length > 0 && mails[0].reward_type && !mails[0].is_claimed) {
       return res.status(400).json({ message: '미수령 보상이 있는 우편은 삭제할 수 없습니다.' });
     }
-    await db.execute(
+    const [result] = await db.execute(
       `DELETE FROM mailbox WHERE id = ? AND user_id = ?`,
       [req.params.id, req.user.userId]
     );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '우편을 찾을 수 없습니다.' });
+    }
     res.json({ message: '우편이 삭제되었습니다.' });
   } catch (error) {
     console.error('Delete mail error:', error);

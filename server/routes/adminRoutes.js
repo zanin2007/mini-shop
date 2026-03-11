@@ -10,6 +10,7 @@ const {
   getAllRefunds, processRefund,
   getUsersWithActivity, getUserPenalties, issuePenalty, revokePenalty
 } = require('../controllers/adminController');
+const { createProduct, addProductOption, deleteProductOption } = require('../controllers/productController');
 
 // 모든 관리자 라우트에 인증 + 관리자 권한 필요
 router.use(authenticateToken, isAdmin);
@@ -17,6 +18,9 @@ router.use(authenticateToken, isAdmin);
 router.get('/orders', getAllOrders);
 router.put('/orders/:id/status', updateOrderStatus);
 router.get('/products', getAllProducts);
+router.post('/products', createProduct);
+router.delete('/products/options/:optionId', deleteProductOption);
+router.post('/products/:id/options', addProductOption);
 router.delete('/products/:id', deleteProduct);
 router.get('/coupons', getAllCoupons);
 router.post('/coupons', createCoupon);

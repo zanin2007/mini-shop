@@ -4,7 +4,7 @@
  * - 상태 변경: 드롭다운으로 변경 (환불 상태는 뱃지만 표시, 변경 차단)
  * - 환불 관리: 환불 요청 조회, 승인/거부 (관리자 메모 입력 가능)
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -41,39 +41,54 @@ interface RefundRequest {
   items: { id: number; name: string; quantity: number; price: number }[];
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  checking: '상품확인중',
+  pending: '준비중',
+  shipped: '배송중',
+  delivered: '배송완료',
+};
+
+const STATUS_FLOW = ['checking', 'pending', 'shipped', 'delivered'];
+
 function AdminOrdersTab() {
   const { showAlert, showConfirm } = useAlert();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [adminNotes, setAdminNotes] = useState<Record<number, string>>({});
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const adminNotesRef = useRef(adminNotes);
+  const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
+  const updatingIdsRef = useRef(updatingIds);
 
-  useEffect(() => {
-    Promise.all([fetchOrders(), fetchRefunds()]).finally(() => setLoading(false));
-  }, []);
+  // Strict Mode 안전: ref 동기화를 useEffect로 처리
+  useEffect(() => { adminNotesRef.current = adminNotes; }, [adminNotes]);
+  useEffect(() => { updatingIdsRef.current = updatingIds; }, [updatingIds]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await api.get('/admin/orders');
       setOrders(res.data);
     } catch (error) {
       console.error('주문 조회 실패:', error);
     }
-  };
+  }, []);
 
-  const fetchRefunds = async () => {
+  const fetchRefunds = useCallback(async () => {
     try {
       const res = await api.get('/admin/refunds');
       setRefunds(res.data);
     } catch (error) {
       console.error('환불 조회 실패:', error);
     }
-  };
+  }, []);
 
-  const handleStatusChange = async (orderId: number, status: string) => {
-    if (updatingId !== null) return;
-    setUpdatingId(orderId);
+  useEffect(() => {
+    Promise.all([fetchOrders(), fetchRefunds()]).finally(() => setLoading(false));
+  }, [fetchOrders, fetchRefunds]);
+
+  const handleStatusChange = useCallback(async (orderId: number, status: string) => {
+    if (updatingIdsRef.current.has(orderId)) return;
+    setUpdatingIds(prev => new Set(prev).add(orderId));
     try {
       await api.put(`/admin/orders/${orderId}/status`, { status });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
@@ -81,17 +96,21 @@ function AdminOrdersTab() {
       console.error('상태 변경 실패:', error);
       showAlert('상태 변경에 실패했습니다.', 'error');
     } finally {
-      setUpdatingId(null);
+      setUpdatingIds(prev => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
     }
-  };
+  }, [showAlert]);
 
-  const handleRefundAction = async (refundId: number, action: 'approve' | 'reject') => {
+  const handleRefundAction = useCallback(async (refundId: number, action: 'approve' | 'reject') => {
     const label = action === 'approve' ? '승인' : '거부';
     if (!(await showConfirm(`환불을 ${label}하시겠습니까?`))) return;
     try {
       await api.put(`/admin/refunds/${refundId}`, {
         action,
-        admin_note: adminNotes[refundId] || null,
+        admin_note: adminNotesRef.current[refundId] || null,
       });
       showAlert(`환불이 ${label}되었습니다.`, 'success');
       fetchRefunds();
@@ -100,12 +119,12 @@ function AdminOrdersTab() {
       console.error('환불 처리 실패:', error);
       showAlert('환불 처리에 실패했습니다.', 'error');
     }
-  };
+  }, [showConfirm, showAlert, fetchRefunds, fetchOrders]);
+
+  const pendingRefunds = useMemo(() => refunds.filter(r => r.status === 'requested'), [refunds]);
+  const processedRefunds = useMemo(() => refunds.filter(r => r.status !== 'requested'), [refunds]);
 
   if (loading) return <LoadingSpinner text="불러오는 중..." />;
-
-  const pendingRefunds = refunds.filter(r => r.status === 'requested');
-  const processedRefunds = refunds.filter(r => r.status !== 'requested');
 
   return (
     <div>
@@ -237,17 +256,15 @@ function AdminOrdersTab() {
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        disabled={updatingId === order.id}
+                        disabled={updatingIds.has(order.id)}
                         className={`status-select status-${order.status}`}
                       >
-                        {['checking', 'pending', 'shipped', 'delivered'].map(s => {
-                          const labels: Record<string, string> = { checking: '상품확인중', pending: '준비중', shipped: '배송중', delivered: '배송완료' };
-                          const flow = ['checking', 'pending', 'shipped', 'delivered'];
-                          const currentIdx = flow.indexOf(order.status);
-                          const optIdx = flow.indexOf(s);
+                        {STATUS_FLOW.map(s => {
+                          const currentIdx = STATUS_FLOW.indexOf(order.status);
+                          const optIdx = STATUS_FLOW.indexOf(s);
                           return (
                             <option key={s} value={s} disabled={optIdx < currentIdx}>
-                              {labels[s]}
+                              {STATUS_LABELS[s]}
                             </option>
                           );
                         })}

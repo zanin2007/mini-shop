@@ -80,8 +80,9 @@ exports.updateOrderStatus = async (req, res) => {
     }
 
     // 원자적 UPDATE: 현재 상태 조건으로 동시 변경 방지
-    const extra = status === 'completed' ? ', completed_at = NOW()' : '';
-    const [updateResult] = await db.execute(`UPDATE orders SET status = ?${extra} WHERE id = ? AND status = ?`, [status, id, currentStatus]);
+    const [updateResult] = status === 'completed'
+      ? await db.execute('UPDATE orders SET status = ?, completed_at = NOW() WHERE id = ? AND status = ?', [status, id, currentStatus])
+      : await db.execute('UPDATE orders SET status = ? WHERE id = ? AND status = ?', [status, id, currentStatus]);
     if (updateResult.affectedRows === 0) {
       return res.status(409).json({ message: '다른 관리자가 이미 상태를 변경했습니다. 새로고침 해주세요.' });
     }
@@ -147,8 +148,16 @@ exports.createCoupon = async (req, res) => {
     if (!discount_amount && !discount_percentage) {
       return res.status(400).json({ message: '할인 금액 또는 할인율을 입력해주세요.' });
     }
+    if (discount_amount != null && (!Number.isInteger(discount_amount) || discount_amount <= 0)) {
+      return res.status(400).json({ message: '할인 금액은 1 이상의 정수여야 합니다.' });
+    }
+    if (discount_percentage != null && (discount_percentage <= 0 || discount_percentage > 100)) {
+      return res.status(400).json({ message: '할인율은 1~100% 사이여야 합니다.' });
+    }
 
-    if (new Date(expiry_date) < new Date()) {
+    // 만료일 검증: DB UTC 기준으로 비교
+    const [dateCheck] = await db.execute('SELECT ? < NOW() AS is_past', [expiry_date]);
+    if (dateCheck[0].is_past) {
       return res.status(400).json({ message: '만료일은 현재 이후여야 합니다.' });
     }
 
@@ -182,7 +191,10 @@ exports.getAllCoupons = async (req, res) => {
 exports.deleteCoupon = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.execute('DELETE FROM coupons WHERE id = ?', [id]);
+    const [result] = await db.execute('DELETE FROM coupons WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '쿠폰을 찾을 수 없습니다.' });
+    }
     res.json({ message: '쿠폰이 삭제되었습니다.' });
   } catch (error) {
     console.error('Admin delete coupon error:', error);
@@ -325,15 +337,26 @@ exports.getAllAnnouncements = async (req, res) => {
 
 // 공지 삭제 — 상단 고정 공지 삭제 시 연결된 고정 알림도 함께 삭제
 exports.deleteAnnouncement = async (req, res) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
     const { id } = req.params;
+    // 공지 삭제 먼저 시도 → 존재하면 연결된 고정 알림도 삭제
+    const [result] = await connection.execute('DELETE FROM announcements WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: '공지를 찾을 수 없습니다.' });
+    }
     // 상단 고정 공지의 알림도 삭제 (link = 'pinned:{id}')
-    await db.execute('DELETE FROM notifications WHERE link = ? AND is_pinned = true', [`pinned:${id}`]);
-    await db.execute('DELETE FROM announcements WHERE id = ?', [id]);
+    await connection.execute('DELETE FROM notifications WHERE link = ? AND is_pinned = true', [`pinned:${id}`]);
+    await connection.commit();
     res.json({ message: '공지가 삭제되었습니다.' });
   } catch (error) {
+    await connection.rollback();
     console.error('Admin delete announcement error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
 };
 
@@ -351,8 +374,8 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ message: '시작일은 종료일보다 이전이어야 합니다.' });
     }
 
-    if (reward_amount != null && reward_amount < 0) {
-      return res.status(400).json({ message: '보상 금액은 0 이상이어야 합니다.' });
+    if (reward_amount != null && reward_amount < 1000) {
+      return res.status(400).json({ message: '보상 금액은 1,000 이상이어야 합니다.' });
     }
 
     // 쿠폰 보상인 경우 쿠폰 ID 필수 검증
@@ -366,17 +389,17 @@ exports.createEvent = async (req, res) => {
       }
     }
 
-    // 포인트 보상인 경우 금액 필수 검증
+    // 포인트 보상인 경우 금액 필수 + 양수 검증
     if (reward_type === 'point') {
-      if (!reward_amount || reward_amount <= 0) {
-        return res.status(400).json({ message: '포인트 보상에는 금액이 필요합니다.' });
+      if (reward_amount == null || reward_amount < 1000) {
+        return res.status(400).json({ message: '포인트 보상에는 1,000 이상의 금액이 필요합니다.' });
       }
     }
 
     const [result] = await db.execute(
       `INSERT INTO events (title, description, type, reward_type, reward_id, reward_amount, max_participants, start_date, end_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, description || null, type || 'fcfs', reward_type || null, reward_id || null, reward_amount || null, max_participants || null, start_date, end_date]
+      [title, description || null, type || 'fcfs', reward_type || null, reward_id || null, reward_amount || null, (max_participants != null && max_participants > 0) ? max_participants : null, start_date, end_date]
     );
     const eventId = result.insertId;
 
@@ -419,7 +442,10 @@ exports.getAllEvents = async (req, res) => {
 exports.deleteEvent = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.execute('DELETE FROM events WHERE id = ?', [id]);
+    const [result] = await db.execute('DELETE FROM events WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '이벤트를 찾을 수 없습니다.' });
+    }
     res.json({ message: '이벤트가 삭제되었습니다.' });
   } catch (error) {
     console.error('Admin delete event error:', error);
@@ -619,16 +645,10 @@ exports.issuePenalty = async (req, res) => {
       return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
     }
 
-    let suspendedUntil = null;
-    if (type === '7day') {
-      suspendedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    } else if (type === '30day') {
-      suspendedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    }
-
+    // 정지 기간은 DB NOW() 기준으로 계산 (타임존 일관성)
     await db.execute(
-      'INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, ?)',
-      [userId, type, reason.trim(), req.user.userId, suspendedUntil]
+      `INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, CASE ? WHEN '7day' THEN DATE_ADD(NOW(), INTERVAL 7 DAY) WHEN '30day' THEN DATE_ADD(NOW(), INTERVAL 30 DAY) ELSE NULL END)`,
+      [userId, type, reason.trim(), req.user.userId, type]
     );
 
     // 알림 발송
@@ -645,10 +665,9 @@ exports.issuePenalty = async (req, res) => {
         [userId, 'warning']
       );
       if (warnings[0].cnt >= 3) {
-        const autoSuspendUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         await db.execute(
-          'INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, ?)',
-          [userId, '7day', '경고 3회 누적으로 인한 자동 정지', req.user.userId, autoSuspendUntil]
+          'INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))',
+          [userId, '7day', '경고 3회 누적으로 인한 자동 정지', req.user.userId]
         );
         await db.execute(
           `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'system', ?, ?)`,

@@ -1,13 +1,14 @@
 /**
  * 마이페이지
  * - 프로필 (주문/구매/쿠폰/포인트 통계), 탭 네비게이션
- * - 각 탭이 자체 데이터를 fetch하고 로딩 관리 (AdminPage 패턴)
- * - 탭에서 onCountReady 콜백으로 히어로 스탯/뱃지 카운트 전달
+ * - 진입 시 /orders/summary로 탭 카운트 미리 로드 (탭 마운트 전에도 뱃지 표시)
+ * - 각 탭이 자체 데이터를 fetch하고 로딩 관리, onCountReady로 카운트 갱신
  * - fetchUser로 최신 유저 정보 동기화 (role, points 등)
  */
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlert } from '../../components/useAlert';
+import { useTabIndicator } from '../../hooks/useTabIndicator';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import api from '../../api/instance';
 import type { User } from '../../types';
@@ -18,12 +19,28 @@ import GiftsTab from './GiftsTab';
 import SettingsTab from './SettingsTab';
 import './MyPage.css';
 
+type MyTab = 'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings';
+const TABS: MyTab[] = ['orders', 'purchases', 'coupons', 'gifts', 'settings'];
+const tabLabels: Record<MyTab, string> = {
+  orders: '주문 내역',
+  purchases: '구매 내역',
+  coupons: '쿠폰',
+  gifts: '선물',
+  settings: '계정 설정',
+};
+
 function MyPage() {
   const navigate = useNavigate();
   const { showConfirm } = useAlert();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  type MyTab = 'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings';
+
+  // localStorage 캐시로 즉시 렌더 — 캐시 없으면 스피너
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem('user');
+      return cached ? JSON.parse(cached) as User : null;
+    } catch { return null; }
+  });
+  const [loading, setLoading] = useState(() => !user || !localStorage.getItem('token'));
   const [activeTab, setActiveTab] = useState<MyTab>('orders');
   const [mountedTabs, setMountedTabs] = useState<Set<MyTab>>(new Set(['orders']));
 
@@ -42,16 +59,21 @@ function MyPage() {
       });
       return;
     }
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try { setUser(JSON.parse(userData)); } catch { /* ignore corrupt data */ }
-    }
-    api.get('/auth/check').then(res => {
-      const freshUser = res.data.user;
+    // 유저 정보 + 탭 카운트 백그라운드 갱신
+    Promise.all([
+      api.get('/auth/check'),
+      api.get('/orders/summary'),
+    ]).then(([authRes, summaryRes]) => {
+      const freshUser = authRes.data.user;
       setUser(freshUser);
       localStorage.setItem('user', JSON.stringify(freshUser));
+      const s = summaryRes.data;
+      setActiveOrdersCount(s.activeOrders);
+      setCompletedOrdersCount(s.completedOrders);
+      setAvailableCouponsCount(s.availableCoupons);
+      setPendingGiftsCount(s.pendingGifts);
     }).catch(error => {
-      console.error('유저 정보 조회 실패:', error);
+      console.error('마이페이지 초기 로드 실패:', error);
     }).finally(() => {
       setLoading(false);
     });
@@ -80,10 +102,12 @@ function MyPage() {
     setPendingGiftsCount(pending);
   }, []);
 
-  const handleTabClick = (tab: MyTab) => {
+  const handleTabClick = useCallback((tab: MyTab) => {
     setActiveTab(tab);
     setMountedTabs(prev => new Set(prev).add(tab));
-  };
+  }, []);
+
+  const { tabsRef, setTabRef, indicator, handleKeyDown } = useTabIndicator(TABS, activeTab, handleTabClick);
 
   if (loading) return <LoadingSpinner />;
 
@@ -137,70 +161,93 @@ function MyPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="mypage-tabs">
-          <button
-            className={`mypage-tab ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => handleTabClick('orders')}
-          >
-            주문 내역 {activeOrdersCount > 0 && <span className="tab-badge">{activeOrdersCount}</span>}
-          </button>
-          <button
-            className={`mypage-tab ${activeTab === 'purchases' ? 'active' : ''}`}
-            onClick={() => handleTabClick('purchases')}
-          >
-            구매 내역
-          </button>
-          <button
-            className={`mypage-tab ${activeTab === 'coupons' ? 'active' : ''}`}
-            onClick={() => handleTabClick('coupons')}
-          >
-            쿠폰 {availableCouponsCount > 0 && <span className="tab-badge">{availableCouponsCount}</span>}
-          </button>
-          <button
-            className={`mypage-tab ${activeTab === 'gifts' ? 'active' : ''}`}
-            onClick={() => handleTabClick('gifts')}
-          >
-            선물 {pendingGiftsCount > 0 && <span className="tab-badge">{pendingGiftsCount}</span>}
-          </button>
-          <button
-            className={`mypage-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => handleTabClick('settings')}
-          >
-            계정 설정
-          </button>
+        <div className="mypage-tabs" ref={tabsRef} role="tablist" aria-label="마이페이지 메뉴">
+          {TABS.map(tab => (
+            <button
+              key={tab}
+              ref={setTabRef(tab)}
+              role="tab"
+              aria-selected={activeTab === tab}
+              aria-controls={`mp-panel-${tab}`}
+              id={`mp-tab-${tab}`}
+              tabIndex={activeTab === tab ? 0 : -1}
+              className={`mypage-tab ${activeTab === tab ? 'active' : ''}`}
+              onClick={() => handleTabClick(tab)}
+              onKeyDown={handleKeyDown}
+            >
+              {tabLabels[tab]}
+              {tab === 'orders' && activeOrdersCount > 0 && <span className="tab-badge">{activeOrdersCount}</span>}
+              {tab === 'coupons' && availableCouponsCount > 0 && <span className="tab-badge">{availableCouponsCount}</span>}
+              {tab === 'gifts' && pendingGiftsCount > 0 && <span className="tab-badge">{pendingGiftsCount}</span>}
+            </button>
+          ))}
+          <span
+            className="mypage-tab-indicator"
+            style={{ left: indicator.left, width: indicator.width }}
+          />
         </div>
 
-        {/* Tab Contents — display:none으로 숨겨 리마운트 방지 */}
-        <section className="mypage-section" style={{ display: activeTab === 'orders' ? 'block' : 'none' }}>
+        {/* Tab Contents */}
+        <div
+          role="tabpanel"
+          id="mp-panel-orders"
+          aria-labelledby="mp-tab-orders"
+          className="mypage-section"
+          hidden={activeTab !== 'orders'}
+        >
           {mountedTabs.has('orders') && (
             <OrdersTab onCountReady={handleOrderCountReady} />
           )}
-        </section>
+        </div>
 
-        <section className="mypage-section" style={{ display: activeTab === 'purchases' ? 'block' : 'none' }}>
+        <div
+          role="tabpanel"
+          id="mp-panel-purchases"
+          aria-labelledby="mp-tab-purchases"
+          className="mypage-section"
+          hidden={activeTab !== 'purchases'}
+        >
           {mountedTabs.has('purchases') && <PurchasesTab />}
-        </section>
+        </div>
 
-        <section className="mypage-section" style={{ display: activeTab === 'coupons' ? 'block' : 'none' }}>
+        <div
+          role="tabpanel"
+          id="mp-panel-coupons"
+          aria-labelledby="mp-tab-coupons"
+          className="mypage-section"
+          hidden={activeTab !== 'coupons'}
+        >
           {mountedTabs.has('coupons') && (
             <CouponsTab onCountReady={handleCouponCountReady} />
           )}
-        </section>
+        </div>
 
-        <section className="mypage-section" style={{ display: activeTab === 'gifts' ? 'block' : 'none' }}>
+        <div
+          role="tabpanel"
+          id="mp-panel-gifts"
+          aria-labelledby="mp-tab-gifts"
+          className="mypage-section"
+          hidden={activeTab !== 'gifts'}
+        >
           {mountedTabs.has('gifts') && (
             <GiftsTab onCountReady={handleGiftCountReady} />
           )}
-        </section>
+        </div>
 
-        <section className="mypage-section" style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+        <div
+          role="tabpanel"
+          id="mp-panel-settings"
+          aria-labelledby="mp-tab-settings"
+          className="mypage-section"
+          hidden={activeTab !== 'settings'}
+        >
           {mountedTabs.has('settings') && (
             <SettingsTab
               user={user}
               onUserUpdate={handleUserUpdate}
             />
           )}
-        </section>
+        </div>
       </div>
     </div>
   );

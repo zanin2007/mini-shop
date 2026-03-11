@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { FieldError } from '../../components/ui/field-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminEvent {
@@ -46,6 +47,7 @@ function AdminEventsTab() {
   });
   const [drawCount, setDrawCount] = useState<Record<number, string>>({});
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchEvents();
@@ -74,6 +76,14 @@ function AdminEventsTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!eventForm.title.trim()) errs.title = '이벤트 제목을 입력하세요.';
+    if (eventForm.reward_type === 'coupon' && !eventForm.reward_id) errs.reward = '쿠폰을 선택하세요.';
+    if (eventForm.reward_type === 'point' && (!eventForm.reward_amount || Number(eventForm.reward_amount) <= 0)) errs.reward = '포인트 금액을 입력하세요.';
+    if (!eventForm.start_date) errs.start_date = '시작일을 선택하세요.';
+    if (!eventForm.end_date) errs.end_date = '종료일을 선택하세요.';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     try {
       await api.post('/admin/events', {
         ...eventForm,
@@ -83,6 +93,7 @@ function AdminEventsTab() {
       });
       showAlert('이벤트가 생성되었습니다.', 'success');
       setEventForm({ title: '', description: '', type: 'fcfs', reward_type: 'coupon', reward_id: '', reward_amount: '', max_participants: '', start_date: '', end_date: '' });
+      setErrors({});
       fetchEvents();
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -130,12 +141,15 @@ function AdminEventsTab() {
       <form className="coupon-create-form" onSubmit={handleSubmit}>
         <h4>이벤트 생성</h4>
         <div className="coupon-form-grid">
-          <input
-            placeholder="이벤트 제목"
-            value={eventForm.title}
-            onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
-            required
-          />
+          <div className="coupon-field">
+            <input
+              placeholder="이벤트 제목"
+              className={errors.title ? 'has-error' : ''}
+              value={eventForm.title}
+              onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
+            />
+            <FieldError>{errors.title}</FieldError>
+          </div>
           <select
             value={eventForm.type}
             onChange={e => setEventForm({ ...eventForm, type: e.target.value })}
@@ -145,53 +159,65 @@ function AdminEventsTab() {
           </select>
           <select
             value={eventForm.reward_type}
-            onChange={e => setEventForm({ ...eventForm, reward_type: e.target.value, reward_id: '', reward_amount: '' })}
+            onChange={e => {
+              setEventForm({ ...eventForm, reward_type: e.target.value, reward_id: '', reward_amount: '' });
+              setErrors(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== 'reward')));
+            }}
           >
             <option value="coupon">쿠폰</option>
             <option value="point">포인트</option>
           </select>
-          {eventForm.reward_type === 'coupon' ? (
-            <select
-              value={eventForm.reward_id}
-              onChange={e => setEventForm({ ...eventForm, reward_id: e.target.value })}
-              required
-            >
-              <option value="">쿠폰 선택</option>
-              {coupons
-                .filter(c => c.is_active && new Date(c.expiry_date) > new Date())
-                .map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} ({c.discount_percentage ? `${c.discount_percentage}%` : `${c.discount_amount.toLocaleString()}원`} 할인)
-                  </option>
-                ))}
-            </select>
-          ) : (
-            <input
-              type="number"
-              placeholder="포인트 금액 (필수)"
-              value={eventForm.reward_amount}
-              onChange={e => setEventForm({ ...eventForm, reward_amount: e.target.value })}
-              required
-            />
-          )}
+          <div className="coupon-field">
+            {eventForm.reward_type === 'coupon' ? (
+              <select
+                className={errors.reward ? 'has-error' : ''}
+                value={eventForm.reward_id}
+                onChange={e => setEventForm({ ...eventForm, reward_id: e.target.value })}
+              >
+                <option value="">쿠폰 선택</option>
+                {coupons
+                  .filter(c => c.is_active && new Date(c.expiry_date) > new Date())
+                  .map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.code} ({c.discount_percentage ? `${c.discount_percentage}%` : `${c.discount_amount.toLocaleString()}원`} 할인)
+                    </option>
+                  ))}
+              </select>
+            ) : (
+              <input
+                type="number"
+                placeholder="포인트 금액 (필수)"
+                className={errors.reward ? 'has-error' : ''}
+                value={eventForm.reward_amount}
+                onChange={e => setEventForm({ ...eventForm, reward_amount: e.target.value })}
+              />
+            )}
+            <FieldError>{errors.reward}</FieldError>
+          </div>
           <input
             type="number"
             placeholder="최대 참여 인원"
             value={eventForm.max_participants}
             onChange={e => setEventForm({ ...eventForm, max_participants: e.target.value })}
           />
-          <input
-            type="datetime-local"
-            value={eventForm.start_date}
-            onChange={e => setEventForm({ ...eventForm, start_date: e.target.value })}
-            required
-          />
-          <input
-            type="datetime-local"
-            value={eventForm.end_date}
-            onChange={e => setEventForm({ ...eventForm, end_date: e.target.value })}
-            required
-          />
+          <div className="coupon-field">
+            <input
+              type="datetime-local"
+              className={errors.start_date ? 'has-error' : ''}
+              value={eventForm.start_date}
+              onChange={e => setEventForm({ ...eventForm, start_date: e.target.value })}
+            />
+            <FieldError>{errors.start_date}</FieldError>
+          </div>
+          <div className="coupon-field">
+            <input
+              type="datetime-local"
+              className={errors.end_date ? 'has-error' : ''}
+              value={eventForm.end_date}
+              onChange={e => setEventForm({ ...eventForm, end_date: e.target.value })}
+            />
+            <FieldError>{errors.end_date}</FieldError>
+          </div>
         </div>
         <textarea
           className="event-desc-input"

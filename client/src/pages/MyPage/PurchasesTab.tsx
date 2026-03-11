@@ -56,24 +56,27 @@ function PurchasesTab() {
     [orders]
   );
 
-  const getRefundForOrder = (orderId: number) => {
-    return refunds.find(r => r.order_id === orderId);
+  const refundMap = useMemo(
+    () => new Map(refunds.map(r => [r.order_id, r])),
+    [refunds]
+  );
+
+  // DB는 UTC 저장 — 공백을 T로 치환 + 'Z' suffix로 ISO 8601 UTC 파싱 보장
+  const toUtc = (dateStr: string) => {
+    if (dateStr.endsWith('Z')) return new Date(dateStr);
+    return new Date(dateStr.replace(' ', 'T') + 'Z');
   };
 
   const canRequestRefund = (order: Order) => {
     if (order.status !== 'completed') return false;
     if (!order.completed_at) return false;
-    const completedDate = new Date(order.completed_at);
-    const now = new Date();
-    const diffDays = (now.getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (Date.now() - toUtc(order.completed_at).getTime()) / (1000 * 60 * 60 * 24);
     return diffDays <= 7;
   };
 
   const getDaysLeft = (order: Order) => {
     if (!order.completed_at) return 0;
-    const completedDate = new Date(order.completed_at);
-    const now = new Date();
-    const diffDays = (now.getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (Date.now() - toUtc(order.completed_at).getTime()) / (1000 * 60 * 60 * 24);
     return Math.max(0, Math.ceil(7 - diffDays));
   };
 
@@ -86,7 +89,7 @@ function PurchasesTab() {
   return (
     <div className="order-list">
       {completedOrders.map((order) => {
-        const refund = getRefundForOrder(order.id);
+        const refund = refundMap.get(order.id);
 
         return (
           <div key={order.id} className="order-card">

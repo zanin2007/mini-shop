@@ -236,7 +236,10 @@ exports.deleteProduct = async (req, res) => {
       return res.status(400).json({ message: '진행중인 주문이 있는 상품은 삭제할 수 없습니다.' });
     }
 
-    await db.execute('DELETE FROM products WHERE id = ?', [id]);
+    const [result] = await db.execute('DELETE FROM products WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '상품을 찾을 수 없습니다.' });
+    }
     res.json({ message: '상품이 삭제되었습니다.' });
   } catch (error) {
     console.error('Delete product error:', error);

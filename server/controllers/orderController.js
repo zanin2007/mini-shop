@@ -87,16 +87,18 @@ exports.createOrder = async (req, res) => {
 
     // 선물 수신자 검증
     if (isGift) {
+      if (!receiverId) {
+        await connection.rollback();
+        return res.status(400).json({ message: '선물 받을 사용자를 선택해주세요.' });
+      }
       if (receiverId === req.user.userId) {
         await connection.rollback();
         return res.status(400).json({ message: '자기 자신에게는 선물할 수 없습니다.' });
       }
-      if (receiverId) {
-        const [receiverRows] = await connection.execute('SELECT id FROM users WHERE id = ?', [receiverId]);
-        if (receiverRows.length === 0) {
-          await connection.rollback();
-          return res.status(400).json({ message: '선물 받을 사용자를 찾을 수 없습니다.' });
-        }
+      const [receiverRows] = await connection.execute('SELECT id FROM users WHERE id = ?', [receiverId]);
+      if (receiverRows.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ message: '선물 받을 사용자를 찾을 수 없습니다.' });
       }
     }
 
@@ -341,6 +343,35 @@ exports.advanceOrderStatus = async (req, res) => {
     res.json({ message: `상태가 '${nextStatus}'로 변경되었습니다.`, status: nextStatus });
   } catch (error) {
     console.error('Advance order status error:', error);
+    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  }
+};
+
+// 마이페이지 요약 — 진행중 주문, 완료 주문, 사용 가능 쿠폰, 대기 선물 카운트를 한 번에 조회
+exports.getMypageSummary = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const [[summary]] = await db.execute(
+      `SELECT
+        (SELECT IFNULL(SUM(status IN ('checking','pending','shipped','delivered')), 0)
+         FROM orders WHERE user_id = ?) AS active_orders,
+        (SELECT IFNULL(SUM(status IN ('completed','refund_requested','refunded')), 0)
+         FROM orders WHERE user_id = ?) AS completed_orders,
+        (SELECT COUNT(*) FROM user_coupons uc
+         JOIN coupons c ON uc.coupon_id = c.id
+         WHERE uc.user_id = ? AND uc.is_used = false AND c.expiry_date > NOW()) AS available_coupons,
+        (SELECT COUNT(*) FROM gifts
+         WHERE receiver_id = ? AND status = 'pending') AS pending_gifts`,
+      [userId, userId, userId, userId]
+    );
+    res.json({
+      activeOrders: summary.active_orders || 0,
+      completedOrders: summary.completed_orders || 0,
+      availableCoupons: summary.available_coupons || 0,
+      pendingGifts: summary.pending_gifts || 0,
+    });
+  } catch (error) {
+    console.error('Get mypage summary error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
 };

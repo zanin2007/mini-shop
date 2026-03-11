@@ -10,11 +10,21 @@ import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import type { UserCoupon } from '../../types';
 
 interface Props {
   onCountReady: (availableCount: number) => void;
 }
+
+const toUtcStr = (dateStr: string) =>
+  dateStr.endsWith('Z') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+
+const isCouponExpired = (coupon: UserCoupon) => {
+  if (!coupon.expiry_date) return true;
+  return new Date(toUtcStr(coupon.expiry_date)) < new Date();
+};
 
 function CouponsTab({ onCountReady }: Props) {
   const { showAlert } = useAlert();
@@ -37,11 +47,6 @@ function CouponsTab({ onCountReady }: Props) {
   useEffect(() => {
     void fetchCoupons();
   }, [fetchCoupons]);
-
-  const isCouponExpired = (coupon: UserCoupon) => {
-    if (!coupon.expiry_date) return true;
-    return new Date(coupon.expiry_date) < new Date();
-  };
 
   const availableCoupons = useMemo(() => coupons.filter(c => !c.is_used && !isCouponExpired(c)), [coupons]);
   const usedOrExpiredCoupons = useMemo(() => coupons.filter(c => c.is_used || isCouponExpired(c)), [coupons]);
@@ -92,9 +97,10 @@ function CouponsTab({ onCountReady }: Props) {
           onChange={(e) => setCouponCode(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleClaimCoupon()}
         />
-        <button onClick={handleClaimCoupon} disabled={claiming}>
-          {claiming ? '등록 중...' : '등록'}
-        </button>
+        <Button onClick={handleClaimCoupon} disabled={claiming}>
+          {claiming && <Spinner className="size-4" />}
+          {claiming ? '등록 중' : '등록'}
+        </Button>
       </div>
 
       {availableCoupons.length > 0 && (

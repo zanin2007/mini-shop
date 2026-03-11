@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { FieldError } from '../../components/ui/field-error';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminAnnouncement {
@@ -25,6 +26,7 @@ function AdminAnnouncementsTab() {
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ title: '', content: '', is_pinned: false });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchAnnouncements();
@@ -43,10 +45,16 @@ function AdminAnnouncementsTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!form.title.trim()) errs.title = '제목을 입력하세요.';
+    if (!form.content.trim()) errs.content = '내용을 입력하세요.';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     try {
       await api.post('/admin/announcements', form);
       showAlert('공지가 등록되었습니다.', 'success');
       setForm({ title: '', content: '', is_pinned: false });
+      setErrors({});
       fetchAnnouncements();
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -75,19 +83,25 @@ function AdminAnnouncementsTab() {
       <form className="coupon-create-form" onSubmit={handleSubmit}>
         <h4>공지 작성</h4>
         <div className="announcement-form">
-          <input
-            placeholder="공지 제목"
-            value={form.title}
-            onChange={e => setForm({ ...form, title: e.target.value })}
-            required
-          />
-          <textarea
-            placeholder="공지 내용"
-            value={form.content}
-            onChange={e => setForm({ ...form, content: e.target.value })}
-            rows={4}
-            required
-          />
+          <div>
+            <input
+              placeholder="공지 제목"
+              className={errors.title ? 'has-error' : ''}
+              value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+            />
+            <FieldError>{errors.title}</FieldError>
+          </div>
+          <div>
+            <textarea
+              placeholder="공지 내용"
+              className={errors.content ? 'has-error' : ''}
+              value={form.content}
+              onChange={e => setForm({ ...form, content: e.target.value })}
+              rows={4}
+            />
+            <FieldError>{errors.content}</FieldError>
+          </div>
           <label className="pin-label">
             <input
               type="checkbox"

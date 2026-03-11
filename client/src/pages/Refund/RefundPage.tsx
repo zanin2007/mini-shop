@@ -10,6 +10,8 @@ import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import type { Order } from '../../types';
 import './RefundPage.css';
 
@@ -127,9 +129,10 @@ function RefundPage() {
             수령완료 후 7일 이내에만 환불 신청이 가능합니다.
             관리자 승인 후 환불이 처리됩니다.
           </div>
-          <button type="submit" className="refund-submit-btn" disabled={submitting}>
-            {submitting ? '처리 중...' : '환불 신청'}
-          </button>
+          <Button type="submit" className="refund-submit-btn" disabled={submitting}>
+            {submitting && <Spinner className="size-4" />}
+            {submitting ? '처리 중' : '환불 신청'}
+          </Button>
         </form>
       </div>
     </div>

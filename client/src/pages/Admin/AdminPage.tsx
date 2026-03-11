@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { useTabIndicator } from '../../hooks/useTabIndicator';
 import AdminOrdersTab from './AdminOrdersTab';
 import AdminProductsTab from './AdminProductsTab';
 import AdminCouponsTab from './AdminCouponsTab';
@@ -12,6 +13,8 @@ import AdminUsersTab from './AdminUsersTab';
 import './AdminPage.css';
 
 type Tab = 'orders' | 'products' | 'coupons' | 'announcements' | 'events' | 'users';
+
+const TABS: Tab[] = ['orders', 'products', 'coupons', 'announcements', 'events', 'users'];
 
 const tabLabels: Record<Tab, string> = {
   orders: '주문 관리',
@@ -29,6 +32,13 @@ function AdminPage() {
   const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(new Set(['orders']));
   const [authorized, setAuthorized] = useState(false);
   const [checking, setChecking] = useState(true);
+
+  const handleTabClick = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    setMountedTabs(prev => new Set(prev).add(tab));
+  }, []);
+
+  const { tabsRef, setTabRef, indicator, handleKeyDown } = useTabIndicator(TABS, activeTab, handleTabClick);
 
   useEffect(() => {
     if (!localStorage.getItem('token')) {
@@ -59,37 +69,48 @@ function AdminPage() {
       <div className="admin-container">
         <h2 className="admin-title">관리자 페이지</h2>
 
-        <div className="admin-tabs">
-          {(Object.keys(tabLabels) as Tab[]).map(tab => (
+        <div className="admin-tabs" ref={tabsRef} role="tablist" aria-label="관리자 메뉴">
+          {TABS.map(tab => (
             <button
               key={tab}
+              ref={setTabRef(tab)}
+              role="tab"
+              aria-selected={activeTab === tab}
+              aria-controls={`panel-${tab}`}
+              id={`tab-${tab}`}
+              tabIndex={activeTab === tab ? 0 : -1}
               className={`admin-tab ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => { setActiveTab(tab); setMountedTabs(prev => new Set(prev).add(tab)); }}
+              onClick={() => handleTabClick(tab)}
+              onKeyDown={handleKeyDown}
             >
               {tabLabels[tab]}
             </button>
           ))}
+          <span
+            className="admin-tab-indicator"
+            style={{ left: indicator.left, width: indicator.width }}
+          />
         </div>
 
         <div className="admin-section">
-          <div style={{ display: activeTab === 'orders' ? 'block' : 'none' }}>
-            {mountedTabs.has('orders') && <AdminOrdersTab />}
-          </div>
-          <div style={{ display: activeTab === 'products' ? 'block' : 'none' }}>
-            {mountedTabs.has('products') && <AdminProductsTab />}
-          </div>
-          <div style={{ display: activeTab === 'coupons' ? 'block' : 'none' }}>
-            {mountedTabs.has('coupons') && <AdminCouponsTab />}
-          </div>
-          <div style={{ display: activeTab === 'announcements' ? 'block' : 'none' }}>
-            {mountedTabs.has('announcements') && <AdminAnnouncementsTab />}
-          </div>
-          <div style={{ display: activeTab === 'events' ? 'block' : 'none' }}>
-            {mountedTabs.has('events') && <AdminEventsTab />}
-          </div>
-          <div style={{ display: activeTab === 'users' ? 'block' : 'none' }}>
-            {mountedTabs.has('users') && <AdminUsersTab />}
-          </div>
+          {TABS.map(tab => (
+            <div
+              key={tab}
+              role="tabpanel"
+              id={`panel-${tab}`}
+              aria-labelledby={`tab-${tab}`}
+              hidden={activeTab !== tab}
+            >
+              {mountedTabs.has(tab) && (
+                tab === 'orders' ? <AdminOrdersTab /> :
+                tab === 'products' ? <AdminProductsTab /> :
+                tab === 'coupons' ? <AdminCouponsTab /> :
+                tab === 'announcements' ? <AdminAnnouncementsTab /> :
+                tab === 'events' ? <AdminEventsTab /> :
+                <AdminUsersTab />
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>

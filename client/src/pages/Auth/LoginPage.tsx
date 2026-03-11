@@ -3,6 +3,9 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
+import { FieldError } from '../../components/ui/field-error';
 import './AuthPages.css';
 
 function LoginPage() {
@@ -11,6 +14,7 @@ function LoginPage() {
     password: '',
   });
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,6 +36,11 @@ function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const errs: Record<string, string> = {};
+    if (!formData.email.trim()) errs.email = '이메일을 입력하세요.';
+    if (!formData.password) errs.password = '비밀번호를 입력하세요.';
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     setSubmitting(true);
 
     try {
@@ -71,11 +80,12 @@ function LoginPage() {
               id="login-email"
               type="email"
               name="email"
+              className={fieldErrors.email ? 'has-error' : ''}
               value={formData.email}
               onChange={handleChange}
-              required
               placeholder="example@email.com"
             />
+            <FieldError>{fieldErrors.email}</FieldError>
           </div>
           <div className="form-group">
             <label htmlFor="login-password">비밀번호</label>
@@ -83,16 +93,18 @@ function LoginPage() {
               id="login-password"
               type="password"
               name="password"
+              className={fieldErrors.password ? 'has-error' : ''}
               value={formData.password}
               onChange={handleChange}
-              required
               placeholder="비밀번호"
             />
+            <FieldError>{fieldErrors.password}</FieldError>
           </div>
           {error && <div className="error-message">{error}</div>}
-          <button type="submit" className="submit-btn" disabled={submitting}>
-            {submitting ? '로그인 중...' : '로그인'}
-          </button>
+          <Button type="submit" className="submit-btn" disabled={submitting}>
+            {submitting && <Spinner className="size-4" />}
+            {submitting ? '로그인 중' : '로그인'}
+          </Button>
         </form>
         <p className="auth-link">
           계정이 없으신가요? <Link to="/signup">회원가입</Link>

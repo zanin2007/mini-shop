@@ -11,6 +11,8 @@ import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import type { Order, CartItemOption } from '../../types';
 
 const statusMap: Record<string, { label: string; className: string }> = {
@@ -137,7 +139,7 @@ function OrdersTab({ onCountReady }: Props) {
             {order.is_gift ? (
               <span className="gift-order-label">선물 주문 (선물 탭에서 확인)</span>
             ) : order.status === 'delivered' ? (
-              <button
+              <Button
                 className="confirm-btn"
                 disabled={processingId === order.id}
                 onClick={async () => {
@@ -156,11 +158,13 @@ function OrdersTab({ onCountReady }: Props) {
                   }
                 }}
               >
-                {processingId === order.id ? '처리중...' : '수령완료'}
-              </button>
+                {processingId === order.id && <Spinner className="size-4" />}
+                {processingId === order.id ? '처리중' : '수령완료'}
+              </Button>
             ) : (
-              <button
+              <Button
                 className="advance-btn"
+                variant="outline"
                 disabled={processingId === order.id}
                 onClick={async () => {
                   const nextLabel: Record<string, string> = {
@@ -184,12 +188,13 @@ function OrdersTab({ onCountReady }: Props) {
                   }
                 }}
               >
-                {processingId === order.id ? '처리중...' : ({
+                {processingId === order.id && <Spinner className="size-4" />}
+                {processingId === order.id ? '처리중' : ({
                   checking: '준비중으로 변경',
                   pending: '배송중으로 변경',
                   shipped: '배송완료로 변경',
                 }[order.status] || '다음 단계')}
-              </button>
+              </Button>
             )}
           </div>
         </div>

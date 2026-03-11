@@ -1,5 +1,7 @@
-import { useState, forwardRef } from 'react';
-import StarRating from '../../components/StarRating';
+import { useState, forwardRef, memo } from 'react';
+import Rating from '@mui/material/Rating';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import type { Review } from '../../types';
 
 interface Props {
@@ -10,7 +12,7 @@ interface Props {
   onDeleteReview: (reviewId: number) => void;
 }
 
-const ReviewSection = forwardRef<HTMLDivElement, Props>(
+const ReviewSection = memo(forwardRef<HTMLDivElement, Props>(
   ({ reviews, canReview, currentUserId, onSubmitReview, onDeleteReview }, ref) => {
     const [showForm, setShowForm] = useState(false);
     const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' });
@@ -40,7 +42,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
           </h3>
           {avgRating !== null && (
             <span className="review-avg">
-              <StarRating value={avgRating} precision={0.5} size="small" readOnly />
+              <Rating value={avgRating} precision={0.5} size="small" readOnly />
               <span className="review-avg-number">{avgRating.toFixed(1)}</span>
             </span>
           )}
@@ -56,11 +58,11 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
           <form className="review-form" onSubmit={handleSubmit}>
             <div className="rating-select">
               <span>별점</span>
-              <StarRating
+              <Rating
                 value={reviewForm.rating}
                 precision={0.5}
                 size="large"
-                onChange={(value) => setReviewForm({ ...reviewForm, rating: value })}
+                onChange={(_e: React.SyntheticEvent, value: number | null) => setReviewForm({ ...reviewForm, rating: value ?? 5 })}
               />
               <span className="rating-value">{reviewForm.rating}</span>
             </div>
@@ -72,7 +74,10 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
             />
             <div className="review-form-actions">
               <button type="button" onClick={() => setShowForm(false)} disabled={submitting}>취소</button>
-              <button type="submit" disabled={submitting}>{submitting ? '등록 중...' : '등록'}</button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Spinner className="size-4" />}
+                {submitting ? '등록 중' : '등록'}
+              </Button>
             </div>
           </form>
         )}
@@ -85,7 +90,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
               <div key={review.id} className="review-item">
                 <div className="review-item-header">
                   <span className="review-author">{review.nickname || review.user?.nickname}</span>
-                  <StarRating value={Number(review.rating)} precision={0.5} size="small" readOnly />
+                  <Rating value={Number(review.rating)} precision={0.5} size="small" readOnly />
                   <span className="review-date">
                     {new Date(review.created_at).toLocaleDateString('ko-KR')}
                   </span>
@@ -103,7 +108,7 @@ const ReviewSection = forwardRef<HTMLDivElement, Props>(
       </div>
     );
   }
-);
+));
 
 ReviewSection.displayName = 'ReviewSection';
 

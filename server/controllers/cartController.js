@@ -243,11 +243,13 @@ exports.removeFromCart = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await db.execute(
+    const [result] = await db.execute(
       'DELETE FROM cart_items WHERE id = ? AND user_id = ?',
       [id, req.user.userId]
     );
-
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '장바구니 항목을 찾을 수 없습니다.' });
+    }
     res.json({ message: '상품이 삭제되었습니다.' });
   } catch (error) {
     console.error('Remove from cart error:', error);
@@ -274,6 +276,9 @@ exports.toggleSelect = async (req, res) => {
 exports.toggleSelectAll = async (req, res) => {
   try {
     const { is_selected } = req.body;
+    if (is_selected == null) {
+      return res.status(400).json({ message: '선택 상태 값이 필요합니다.' });
+    }
     await db.execute(
       'UPDATE cart_items SET is_selected = ? WHERE user_id = ?',
       [is_selected, req.user.userId]

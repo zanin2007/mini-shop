@@ -10,6 +10,8 @@ import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import type { Gift } from '../../types';
 
 interface Props {
@@ -153,8 +155,8 @@ function GiftsTab({ onCountReady }: Props) {
                 {gift.message && <p className="gift-message">"{gift.message}"</p>}
                 {gift.order_items && gift.order_items.length > 0 && (
                   <ul className="gift-items">
-                    {gift.order_items.map((item, i) => (
-                      <li key={i}>
+                    {gift.order_items.map((item) => (
+                      <li key={item.id}>
                         {item.name} x {item.quantity}개
                       </li>
                     ))}
@@ -183,19 +185,22 @@ function GiftsTab({ onCountReady }: Props) {
                 )}
                 {gift.status === 'pending' && (
                   <div className="gift-actions">
-                    <button className="gift-accept-btn" disabled={processingIds.has(gift.id)} onClick={() => handleAcceptGift(gift.id)}>
-                      {processingIds.has(gift.id) ? '처리중...' : '수락'}
-                    </button>
-                    <button className="gift-reject-btn" disabled={processingIds.has(gift.id)} onClick={() => handleRejectGift(gift.id)}>
-                      {processingIds.has(gift.id) ? '처리중...' : '거절'}
-                    </button>
+                    <Button className="gift-accept-btn" disabled={processingIds.has(gift.id)} onClick={() => handleAcceptGift(gift.id)}>
+                      {processingIds.has(gift.id) && <Spinner className="size-4" />}
+                      {processingIds.has(gift.id) ? '처리중' : '수락'}
+                    </Button>
+                    <Button className="gift-reject-btn" variant="destructive" disabled={processingIds.has(gift.id)} onClick={() => handleRejectGift(gift.id)}>
+                      {processingIds.has(gift.id) && <Spinner className="size-4" />}
+                      {processingIds.has(gift.id) ? '처리중' : '거절'}
+                    </Button>
                   </div>
                 )}
                 {gift.status === 'accepted' && gift.order_status === 'delivered' && (
                   <div className="gift-actions">
-                    <button className="gift-accept-btn" disabled={processingIds.has(gift.id)} onClick={() => handleConfirmGift(gift.id)}>
-                      {processingIds.has(gift.id) ? '처리중...' : '수령완료'}
-                    </button>
+                    <Button className="gift-accept-btn" disabled={processingIds.has(gift.id)} onClick={() => handleConfirmGift(gift.id)}>
+                      {processingIds.has(gift.id) && <Spinner className="size-4" />}
+                      {processingIds.has(gift.id) ? '처리중' : '수령완료'}
+                    </Button>
                   </div>
                 )}
               </div>
@@ -221,8 +226,8 @@ function GiftsTab({ onCountReady }: Props) {
                 {gift.message && <p className="gift-message">"{gift.message}"</p>}
                 {gift.order_items && gift.order_items.length > 0 && (
                   <ul className="gift-items">
-                    {gift.order_items.map((item, i) => (
-                      <li key={i}>
+                    {gift.order_items.map((item) => (
+                      <li key={item.id}>
                         {item.name} x {item.quantity}개
                       </li>
                     ))}

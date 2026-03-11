@@ -5,9 +5,25 @@
  * - 관리자 권한으로 상품 삭제
  */
 import { useEffect, useState, useMemo } from 'react';
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+
+interface SortOption {
+  value: string;
+  label: string;
+}
+
+const sortOptions: SortOption[] = [
+  { value: 'newest', label: '최신순' },
+  { value: 'oldest', label: '오래된순' },
+  { value: 'price-high', label: '가격 높은순' },
+  { value: 'price-low', label: '가격 낮은순' },
+  { value: 'stock-low', label: '재고 적은순' },
+  { value: 'name', label: '이름순' },
+];
 
 interface AdminProduct {
   id: number;
@@ -54,8 +70,17 @@ function AdminProductsTab() {
   };
 
   const productCategories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category).filter(Boolean));
-    return Array.from(cats).sort();
+    const catLatest = new Map<string, string>();
+    for (const p of products) {
+      if (!p.category) continue;
+      const prev = catLatest.get(p.category);
+      if (!prev || p.created_at > prev) {
+        catLatest.set(p.category, p.created_at);
+      }
+    }
+    return Array.from(catLatest.entries())
+      .sort((a, b) => b[1].localeCompare(a[1]))
+      .map(([cat]) => cat);
   }, [products]);
 
   const filteredProducts = useMemo(() => {
@@ -97,28 +122,26 @@ function AdminProductsTab() {
           value={productSearch}
           onChange={e => setProductSearch(e.target.value)}
         />
-        <select
-          className="filter-select"
-          value={productCategory}
-          onChange={e => setProductCategory(e.target.value)}
-        >
-          <option value="">전체 카테고리</option>
-          {productCategories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-        <select
-          className="filter-select"
-          value={productSort}
-          onChange={e => setProductSort(e.target.value)}
-        >
-          <option value="newest">최신순</option>
-          <option value="oldest">오래된순</option>
-          <option value="price-high">가격 높은순</option>
-          <option value="price-low">가격 낮은순</option>
-          <option value="stock-low">재고 적은순</option>
-          <option value="name">이름순</option>
-        </select>
+        <Autocomplete
+          options={productCategories}
+          value={productCategory || null}
+          onChange={(_, value) => setProductCategory(value || '')}
+          renderInput={(params) => <TextField {...params} label="카테고리" size="small" />}
+          sx={{ width: 200 }}
+          disablePortal
+          clearOnEscape
+        />
+        <Autocomplete
+          options={sortOptions}
+          value={sortOptions.find(o => o.value === productSort) || sortOptions[0]}
+          onChange={(_, option) => setProductSort(option?.value || 'newest')}
+          getOptionLabel={(option) => option.label}
+          isOptionEqualToValue={(option, value) => option.value === value.value}
+          renderInput={(params) => <TextField {...params} label="정렬" size="small" />}
+          sx={{ width: 180 }}
+          disablePortal
+          disableClearable
+        />
         <span className="product-count">{filteredProducts.length}개 상품</span>
       </div>
       {filteredProducts.length === 0 ? (

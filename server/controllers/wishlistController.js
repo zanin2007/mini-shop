@@ -87,11 +87,13 @@ exports.removeFromWishlist = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    await db.execute(
+    const [result] = await db.execute(
       'DELETE FROM wishlists WHERE user_id = ? AND product_id = ?',
       [req.user.userId, productId]
     );
-
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '위시리스트 항목을 찾을 수 없습니다.' });
+    }
     res.json({ message: '위시리스트에서 삭제되었습니다.' });
   } catch (error) {
     console.error('Remove from wishlist error:', error);

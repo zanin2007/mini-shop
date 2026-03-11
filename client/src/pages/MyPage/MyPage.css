@@ -251,46 +251,65 @@
   font-weight: 600;
 }
 
-/* ===== Tab Navigation — Segmented Control ===== */
+/* ===== Tab Navigation — Underline with Sliding Indicator ===== */
 .mypage-tabs {
+  position: relative;
   display: flex;
-  gap: 0.25rem;
+  gap: 0;
   margin-bottom: 2rem;
-  padding: 0.3rem;
-  background: var(--color-surface-alt);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-light);
+  border-bottom: 2px solid var(--color-border-light);
+  overflow-x: auto;
+  scrollbar-width: none;
   animation: mpReveal 0.5s var(--ease-out) 0.15s both;
+}
+
+.mypage-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .mypage-tab {
   position: relative;
-  flex: 1;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
   border: none;
+  border-radius: 0;
   background: transparent;
   color: var(--color-text-muted);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s var(--ease);
+  transition: color var(--duration) var(--ease);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
   letter-spacing: -0.2px;
-  border-radius: var(--radius-sm);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .mypage-tab:hover {
-  color: var(--color-text-secondary);
+  color: var(--color-text);
+}
+
+.mypage-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
 }
 
 .mypage-tab.active {
-  color: var(--color-text);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  color: var(--mp-gold);
+}
+
+.mypage-tab-indicator {
+  position: absolute;
+  bottom: 0;
+  height: 2.5px;
+  background: var(--mp-gold);
+  border-radius: 2px 2px 0 0;
+  transition: left var(--duration-slow) cubic-bezier(0.4, 0, 0.2, 1),
+              width var(--duration-slow) cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
 .tab-badge {
@@ -306,7 +325,7 @@
 }
 
 .mypage-tab.active .tab-badge {
-  background: var(--color-primary);
+  background: var(--mp-gold);
 }
 
 /* ===== Section Container ===== */
@@ -1316,21 +1335,9 @@
     display: none;
   }
 
-  .mypage-tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
-  }
-
-  .mypage-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
   .mypage-tab {
     font-size: 0.78rem;
     padding: 0.6rem 0.85rem;
-    flex: 0 0 auto;
   }
 
   .mypage-section {

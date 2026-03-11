@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import OptionsEditor from './OptionsEditor';
 import './ProductRegisterPage.css';
 
@@ -56,7 +58,7 @@ function ProductRegisterPage() {
     }
     setLoading(true);
     try {
-      await api.post('/products', {
+      await api.post('/admin/products', {
         ...form,
         price: Number(form.price),
         stock: Number(form.stock) || 0,
@@ -162,9 +164,10 @@ function ProductRegisterPage() {
             <button type="button" className="cancel-btn" onClick={() => navigate(-1)}>
               취소
             </button>
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? '등록 중...' : '상품 등록'}
-            </button>
+            <Button type="submit" className="submit-btn" disabled={loading}>
+              {loading && <Spinner className="size-4" />}
+              {loading ? '등록 중' : '상품 등록'}
+            </Button>
           </div>
         </form>
       </div>

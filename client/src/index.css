@@ -1,3 +1,27 @@
+/* Tailwind — preflight 제외, 유틸리티 클래스만 (shadcn 컴포넌트용) */
+@import "tailwindcss" layer(utilities);
+
+/* shadcn 테마 변수 — 기존 디자인 시스템 색상에 매핑 */
+@theme {
+  --color-primary: #1a1a1a;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f2eeea;
+  --color-secondary-foreground: #1a1a1a;
+  --color-destructive: #c45a5a;
+  --color-destructive-foreground: #ffffff;
+  --color-muted: #f2eeea;
+  --color-muted-foreground: #a8a29e;
+  --color-accent: #c47d5a;
+  --color-accent-foreground: #ffffff;
+  --color-background: #f7f5f2;
+  --color-foreground: #1a1a1a;
+  --color-border: #e8e3dd;
+  --color-input: #e8e3dd;
+  --color-ring: #c47d5a;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
 /* ============================================================
    Mini Shop — Design System
    Refined Korean Contemporary
@@ -94,6 +118,24 @@ input, textarea, select {
   font-family: inherit;
 }
 
+/* ===== Field Error (inline validation) ===== */
+.field-error {
+  margin: 0.3rem 0 0;
+  padding: 0;
+  color: var(--color-error);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+  animation: fieldErrorIn 0.2s var(--ease-out) both;
+}
+
+input.has-error,
+textarea.has-error,
+select.has-error {
+  border-color: var(--color-error) !important;
+  box-shadow: 0 0 0 2px rgba(196, 90, 90, 0.1) !important;
+}
+
 /* ===== Shared Animations ===== */
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -107,5 +149,10 @@ input, textarea, select {
 
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fieldErrorIn {
+  from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }

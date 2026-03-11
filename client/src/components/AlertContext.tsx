@@ -3,7 +3,7 @@
  * - showAlert: 토스트 알림 (success/error/info/warning), 3초 후 자동 사라짐, 우측 상단
  * - showConfirm: 확인/취소 모달, Promise<boolean> 반환
  */
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { AlertContext } from './useAlert';
 import type { AlertType } from './useAlert';
 import './Alert.css';
@@ -26,6 +26,15 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const idRef = useRef(0);
 
   const timerMap = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  // unmount 시 남은 토스트 타이머 정리
+  useEffect(() => {
+    const map = timerMap.current;
+    return () => {
+      map.forEach(timer => clearTimeout(timer));
+      map.clear();
+    };
+  }, []);
 
   const showAlert = useCallback((message: string, type: AlertType = 'info') => {
     const id = ++idRef.current;

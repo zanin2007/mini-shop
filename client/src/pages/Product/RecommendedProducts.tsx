@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types';
 
@@ -5,7 +6,7 @@ interface Props {
   products: Product[];
 }
 
-function RecommendedProducts({ products }: Props) {
+const RecommendedProducts = memo(function RecommendedProducts({ products }: Props) {
   if (products.length === 0) return null;
 
   return (
@@ -27,6 +28,6 @@ function RecommendedProducts({ products }: Props) {
       </div>
     </div>
   );
-}
+});
 
 export default RecommendedProducts;

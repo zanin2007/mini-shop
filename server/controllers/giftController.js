@@ -73,41 +73,55 @@ exports.getReceivedGifts = async (req, res) => {
   }
 };
 
-// 선물 수락 — 원자적 UPDATE로 동시 요청 방지
+// 선물 수락 — 트랜잭션으로 상태 변경, 알림은 best-effort
 exports.acceptGift = async (req, res) => {
+  const connection = await db.getConnection();
+  let senderId = null;
   try {
-    // 원자적 UPDATE: status = 'pending' 조건으로 중복 처리 방지
-    const [result] = await db.execute(
-      "UPDATE gifts SET status = 'accepted', accepted_at = NOW() WHERE id = ? AND receiver_id = ? AND status = 'pending'",
+    await connection.beginTransaction();
+
+    // SELECT FOR UPDATE로 선물 행 잠금 + sender_id 확보
+    const [gifts] = await connection.execute(
+      'SELECT id, sender_id, status FROM gifts WHERE id = ? AND receiver_id = ? FOR UPDATE',
       [req.params.id, req.user.userId]
     );
 
-    if (result.affectedRows === 0) {
-      // 선물 존재 여부 확인
-      const [gifts] = await db.execute(
-        'SELECT id, status FROM gifts WHERE id = ? AND receiver_id = ?',
-        [req.params.id, req.user.userId]
-      );
-      if (gifts.length === 0) {
-        return res.status(404).json({ message: '선물을 찾을 수 없습니다.' });
-      }
+    if (gifts.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: '선물을 찾을 수 없습니다.' });
+    }
+    if (gifts[0].status !== 'pending') {
+      await connection.rollback();
       return res.status(400).json({ message: '이미 처리된 선물입니다.' });
     }
 
-    // 보낸 사람에게 알림
-    const [gifts] = await db.execute('SELECT sender_id FROM gifts WHERE id = ?', [req.params.id]);
-    if (gifts.length > 0) {
-      await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'gift', ?, ?)`,
-        [gifts[0].sender_id, '선물이 수락되었습니다', '보내신 선물이 수락되었습니다.']
-      );
-    }
+    // 수락 처리
+    await connection.execute(
+      "UPDATE gifts SET status = 'accepted', accepted_at = NOW() WHERE id = ?",
+      [req.params.id]
+    );
 
-    res.json({ message: '선물을 수락했습니다.' });
+    await connection.commit();
+    senderId = gifts[0].sender_id;
   } catch (error) {
+    await connection.rollback();
     console.error('Accept gift error:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
+
+  // 보낸 사람에게 알림 (best-effort — 실패해도 수락은 유지)
+  try {
+    await db.execute(
+      `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'gift', ?, ?)`,
+      [senderId, '선물이 수락되었습니다', '보내신 선물이 수락되었습니다.']
+    );
+  } catch (notifError) {
+    console.error('Accept gift notification error:', notifError);
+  }
+
+  res.json({ message: '선물을 수락했습니다.' });
 };
 
 // 선물 거절 — 자동 환불 처리 (재고 복원, 쿠폰 복원, 포인트 환불, 주문 상태 변경)

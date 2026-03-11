@@ -136,7 +136,7 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 ### Shared Components
 - **`QuantityInput`** (`components/QuantityInput.tsx`) — 수량 입력 공용 컴포넌트. 꾹 누르기(400ms 후 80ms 간격 자동 증감) + 숫자 클릭 시 직접 텍스트 입력 지원. ProductDetailPage, CartPage에서 사용
 - **`AlertContext`** (`components/AlertContext.tsx`) — 전역 토스트/확인모달. `showAlert(msg, type)`, `showConfirm(msg): Promise<boolean>`. `timerMap` ref로 타이머 추적, 수동 닫기 시 타이머 정리
-- **`StarRating`** (`components/StarRating.tsx`) — MUI Rating 대체 커스텀 컴포넌트. `React.memo`, 반별 정밀도 지원, readOnly 모드. 스타일 상수는 컴포넌트 바깥에 정의 (리렌더 방지). ReviewSection에서 사용
+- **MUI Rating** (`@mui/material/Rating`) — 별점 컴포넌트. 반별 정밀도, readOnly 모드 지원. ReviewSection에서 사용
 
 ### Established Patterns
 - **낙관적 업데이트 + API 디바운스** — CartPage 수량 변경: UI 즉시 반영(`setCartPageItems`) + `useRef<Map>` 타이머로 300ms 디바운스 후 API 호출. 실패 시 `fetchCart()`로 서버 동기화
@@ -146,7 +146,7 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 - **옵션 재고 연동** — 상품 재고 + 옵션 재고 중 작은 값을 `maxQuantity`로 사용. 옵션 변경 시 수량 자동 조정
 - **커스텀 이벤트 동기화** — `cartUpdated`, `userUpdated` 이벤트로 컴포넌트 간 상태 동기화 (Layout 뱃지, 401 로그아웃 등)
 - **동적 리스트 key는 `_key` + useRef 카운터** — 배열 index를 key로 쓰면 삭제/추가 시 React가 잘못 매칭. `useRef`로 증가하는 고유 키 생성 (`genKey = () => nextKey.current++`). OptionsEditor에서 적용
-- **MUI 제거 완료** — `@mui/material`, `@emotion/react`, `@emotion/styled` 제거 (~14MB 절감). Rating → StarRating 커스텀 컴포넌트로 대체. 새로운 MUI 의존성 추가 금지
+- **MUI 최소 사용** — `@mui/material`은 Rating 등 커스텀 구현이 비효율적인 컴포넌트에만 사용. 단순 UI(탭, 버튼 등)는 CSS 변수 기반 커스텀으로 구현
 
 ### Styling
 - CSS 변수는 `index.css`의 `:root`에 정의된 디자인 시스템 사용 (`--color-*`, `--radius-*`, `--shadow-*`)
@@ -188,13 +188,6 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 ### High
 - **`updateQuantity` FOR UPDATE 누락** — `cartController.js`의 `updateQuantity`는 재고 조회 시 행 잠금 없음. `addToCart`처럼 `FOR UPDATE` 필요 (동시 요청 시 재고 초과 가능)
 - **`maxQuantity` 부분 선택 시 부정확** — ProductDetailPage에서 옵션을 일부만 선택했을 때, 미선택 옵션의 재고가 무시됨. 모든 옵션 선택 전에는 수량 제한이 느슨함
-
-### Medium
-- **401 인터셉터 경로 체크 부정확** — `instance.ts`에서 `.includes('/login')` 사용 중. `/admin/login-verify` 같은 경로에서도 리다이렉트 차단됨. `.startsWith('/login')`으로 변경 필요
-- **AlertProvider unmount 시 타이머 누수** — `AlertContext.tsx`에서 Provider 언마운트 시 남은 토스트 타이머를 정리하는 cleanup effect 없음
-
-### Low
-- **`addToCart` dead code** — `cartController.js` line 125의 `totalProductQty` 변수 계산 후 미사용 (정리 필요)
 
 ## Documentation
 

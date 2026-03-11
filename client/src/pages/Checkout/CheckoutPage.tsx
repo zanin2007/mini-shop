@@ -10,6 +10,8 @@ import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import type { Coupon, CartPageItem, SearchedUser } from '../../types';
 import DeliveryForm from './DeliveryForm';
 import CouponSection from './CouponSection';
@@ -275,13 +277,14 @@ function CheckoutPage() {
             <strong>{finalPrice.toLocaleString()}원</strong>
           </div>
 
-          <button
+          <Button
             className="order-btn"
             onClick={handleOrder}
             disabled={ordering}
           >
-            {ordering ? '주문 처리 중...' : `${finalPrice.toLocaleString()}원 결제하기`}
-          </button>
+            {ordering && <Spinner className="size-4" />}
+            {ordering ? '주문 처리 중' : `${finalPrice.toLocaleString()}원 결제하기`}
+          </Button>
         </div>
       </div>
     </div>

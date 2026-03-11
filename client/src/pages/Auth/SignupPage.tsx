@@ -3,6 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
+import { FieldError } from '../../components/ui/field-error';
 import './AuthPages.css';
 
 function SignupPage() {
@@ -13,6 +16,7 @@ function SignupPage() {
     nickname: '',
   });
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { showAlert } = useAlert();
@@ -33,16 +37,21 @@ function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (formData.password.length < 6) {
-      setError('비밀번호는 6자 이상이어야 합니다.');
-      return;
+    const errs: Record<string, string> = {};
+    if (!formData.email.trim()) errs.email = '이메일을 입력하세요.';
+    if (!formData.nickname.trim()) errs.nickname = '닉네임을 입력하세요.';
+    if (!formData.password) {
+      errs.password = '비밀번호를 입력하세요.';
+    } else if (formData.password.length < 6) {
+      errs.password = '비밀번호는 6자 이상이어야 합니다.';
     }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return;
+    if (!formData.confirmPassword) {
+      errs.confirmPassword = '비밀번호 확인을 입력하세요.';
+    } else if (formData.password !== formData.confirmPassword) {
+      errs.confirmPassword = '비밀번호가 일치하지 않습니다.';
     }
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
     try {
@@ -76,11 +85,12 @@ function SignupPage() {
               id="signup-email"
               type="email"
               name="email"
+              className={fieldErrors.email ? 'has-error' : ''}
               value={formData.email}
               onChange={handleChange}
-              required
               placeholder="example@email.com"
             />
+            <FieldError>{fieldErrors.email}</FieldError>
           </div>
           <div className="form-group">
             <label htmlFor="signup-nickname">닉네임</label>
@@ -88,11 +98,12 @@ function SignupPage() {
               id="signup-nickname"
               type="text"
               name="nickname"
+              className={fieldErrors.nickname ? 'has-error' : ''}
               value={formData.nickname}
               onChange={handleChange}
-              required
               placeholder="닉네임"
             />
+            <FieldError>{fieldErrors.nickname}</FieldError>
           </div>
           <div className="form-group">
             <label htmlFor="signup-password">비밀번호</label>
@@ -100,11 +111,12 @@ function SignupPage() {
               id="signup-password"
               type="password"
               name="password"
+              className={fieldErrors.password ? 'has-error' : ''}
               value={formData.password}
               onChange={handleChange}
-              required
-              placeholder="비밀번호"
+              placeholder="6자 이상"
             />
+            <FieldError>{fieldErrors.password}</FieldError>
           </div>
           <div className="form-group">
             <label htmlFor="signup-confirm-password">비밀번호 확인</label>
@@ -112,16 +124,18 @@ function SignupPage() {
               id="signup-confirm-password"
               type="password"
               name="confirmPassword"
+              className={fieldErrors.confirmPassword ? 'has-error' : ''}
               value={formData.confirmPassword}
               onChange={handleChange}
-              required
               placeholder="비밀번호 확인"
             />
+            <FieldError>{fieldErrors.confirmPassword}</FieldError>
           </div>
           {error && <div className="error-message">{error}</div>}
-          <button type="submit" className="submit-btn" disabled={submitting}>
-            {submitting ? '가입 중...' : '회원가입'}
-          </button>
+          <Button type="submit" className="submit-btn" disabled={submitting}>
+            {submitting && <Spinner className="size-4" />}
+            {submitting ? '가입 중' : '회원가입'}
+          </Button>
         </form>
         <p className="auth-link">
           이미 계정이 있으신가요? <Link to="/login">로그인</Link>

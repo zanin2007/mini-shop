@@ -91,7 +91,7 @@ exports.checkPurchased = async (req, res) => {
     const [orders] = await db.execute(
       `SELECT o.id FROM orders o
        JOIN order_items oi ON o.id = oi.order_id
-       WHERE o.user_id = ? AND oi.product_id = ?`,
+       WHERE o.user_id = ? AND oi.product_id = ? AND o.status NOT IN ('refund_requested', 'refunded')`,
       [req.user.userId, productId]
     );
 

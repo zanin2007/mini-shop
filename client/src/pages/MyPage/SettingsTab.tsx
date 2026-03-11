@@ -9,6 +9,8 @@ import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import type { User } from '../../types';
 
 interface Props {
@@ -116,9 +118,10 @@ function SettingsTab({ user, onUserUpdate }: Props) {
             onChange={(e) => setNewNickname(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleChangeNickname()}
           />
-          <button onClick={handleChangeNickname} disabled={loading}>
-            {loading ? '변경 중...' : '변경'}
-          </button>
+          <Button onClick={handleChangeNickname} disabled={loading}>
+            {loading && <Spinner className="size-4" />}
+            {loading ? '변경 중' : '변경'}
+          </Button>
         </div>
       </div>
 
@@ -144,9 +147,10 @@ function SettingsTab({ user, onUserUpdate }: Props) {
             onChange={(e) => setConfirmPassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
           />
-          <button onClick={handleChangePassword} disabled={loading}>
-            {loading ? '변경 중...' : '비밀번호 변경'}
-          </button>
+          <Button onClick={handleChangePassword} disabled={loading}>
+            {loading && <Spinner className="size-4" />}
+            {loading ? '변경 중' : '비밀번호 변경'}
+          </Button>
         </div>
       </div>
 
@@ -161,9 +165,10 @@ function SettingsTab({ user, onUserUpdate }: Props) {
             onChange={(e) => setDeletePassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleDeleteAccount()}
           />
-          <button className="danger-btn" onClick={handleDeleteAccount} disabled={loading}>
-            {loading ? '처리 중...' : '회원탈퇴'}
-          </button>
+          <Button className="danger-btn" variant="destructive" onClick={handleDeleteAccount} disabled={loading}>
+            {loading && <Spinner className="size-4" />}
+            {loading ? '처리 중' : '회원탈퇴'}
+          </Button>
         </div>
       </div>
     </>
