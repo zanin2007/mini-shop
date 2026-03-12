@@ -14,16 +14,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import { Button } from '../../components/ui/button';
 import { Spinner } from '../../components/ui/spinner';
 import type { Order, CartItemOption } from '../../types';
-
-const statusMap: Record<string, { label: string; className: string }> = {
-  checking: { label: '상품확인중', className: 'status-checking' },
-  pending: { label: '준비중', className: 'status-pending' },
-  shipped: { label: '배송중', className: 'status-shipped' },
-  delivered: { label: '배송완료', className: 'status-delivered' },
-  completed: { label: '수령완료', className: 'status-completed' },
-  refund_requested: { label: '환불신청', className: 'status-refund-requested' },
-  refunded: { label: '환불완료', className: 'status-refunded' },
-};
+import { statusMap } from './orderConstants';
 
 const deliverySteps = ['checking', 'pending', 'shipped', 'delivered'];
 
@@ -35,7 +26,7 @@ function OrdersTab({ onCountReady }: Props) {
   const { showAlert, showConfirm } = useAlert();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -142,10 +133,10 @@ function OrdersTab({ onCountReady }: Props) {
             ) : order.status === 'delivered' ? (
               <Button
                 className="confirm-btn"
-                disabled={processingId === order.id}
+                disabled={processingIds.has(order.id)}
                 onClick={async () => {
                   if (!(await showConfirm('수령완료 하시겠습니까?'))) return;
-                  setProcessingId(order.id);
+                  setProcessingIds(prev => new Set(prev).add(order.id));
                   try {
                     await api.put(`/orders/${order.id}/confirm`);
                     showAlert('수령이 완료되었습니다.', 'success');
@@ -155,18 +146,18 @@ function OrdersTab({ onCountReady }: Props) {
                       showAlert(error.response?.data?.message || '처리에 실패했습니다.', 'error');
                     }
                   } finally {
-                    setProcessingId(null);
+                    setProcessingIds(prev => { const next = new Set(prev); next.delete(order.id); return next; });
                   }
                 }}
               >
-                {processingId === order.id && <Spinner className="size-4" />}
-                {processingId === order.id ? '처리중' : '수령완료'}
+                {processingIds.has(order.id) && <Spinner className="size-4" />}
+                {processingIds.has(order.id) ? '처리중' : '수령완료'}
               </Button>
             ) : (
               <Button
                 className="advance-btn"
                 variant="outline"
-                disabled={processingId === order.id}
+                disabled={processingIds.has(order.id)}
                 onClick={async () => {
                   const nextLabel: Record<string, string> = {
                     checking: '준비중',
@@ -175,7 +166,7 @@ function OrdersTab({ onCountReady }: Props) {
                   };
                   const label = nextLabel[order.status] || '다음 단계';
                   if (!(await showConfirm(`'${label}'(으)로 변경하시겠습니까?`))) return;
-                  setProcessingId(order.id);
+                  setProcessingIds(prev => new Set(prev).add(order.id));
                   try {
                     const res = await api.put(`/orders/${order.id}/advance`);
                     showAlert(res.data.message, 'success');
@@ -185,12 +176,12 @@ function OrdersTab({ onCountReady }: Props) {
                       showAlert(error.response?.data?.message || '상태 변경에 실패했습니다.', 'error');
                     }
                   } finally {
-                    setProcessingId(null);
+                    setProcessingIds(prev => { const next = new Set(prev); next.delete(order.id); return next; });
                   }
                 }}
               >
-                {processingId === order.id && <Spinner className="size-4" />}
-                {processingId === order.id ? '처리중' : ({
+                {processingIds.has(order.id) && <Spinner className="size-4" />}
+                {processingIds.has(order.id) ? '처리중' : ({
                   checking: '준비중으로 변경',
                   pending: '배송중으로 변경',
                   shipped: '배송완료로 변경',

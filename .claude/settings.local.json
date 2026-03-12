@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx vite build)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(curl -s -X POST http://localhost:5000/api/auth/signup -H \"Content-Type: application/json\" --data-raw \"{\"\"email\"\":\"\"misctest@test.com\"\",\"\"password\"\":\"\"Test1234!\"\",\"\"nickname\"\":\"\"기타테스트\"\"}\")"
     ]
   },
   "hooks": {

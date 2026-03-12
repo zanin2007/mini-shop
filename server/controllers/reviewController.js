@@ -28,6 +28,10 @@ exports.createReview = async (req, res) => {
       return res.status(400).json({ message: '별점은 1~5 사이의 정수여야 합니다.' });
     }
 
+    if (content != null && typeof content === 'string' && content.length > 1000) {
+      return res.status(400).json({ message: '리뷰 내용은 1000자 이내로 작성해주세요.' });
+    }
+
     // 구매 여부 확인 (환불된 주문 제외)
     const [orders] = await db.execute(
       `SELECT o.id FROM orders o

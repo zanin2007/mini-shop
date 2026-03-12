@@ -133,9 +133,19 @@ exports.createProduct = async (req, res) => {
         const optionId = optResult.insertId;
         if (option.values && Array.isArray(option.values)) {
           for (const val of option.values) {
+            const extraPrice = Number(val.extra_price) || 0;
+            const optStock = Number(val.stock) || 0;
+            if (extraPrice < 0) {
+              await connection.rollback();
+              return res.status(400).json({ message: '옵션 추가 금액은 0 이상이어야 합니다.' });
+            }
+            if (!Number.isInteger(optStock) || optStock < 0) {
+              await connection.rollback();
+              return res.status(400).json({ message: '옵션 재고는 0 이상의 정수여야 합니다.' });
+            }
             await connection.execute(
               'INSERT INTO product_option_values (option_id, value, extra_price, stock) VALUES (?, ?, ?, ?)',
-              [optionId, val.value, val.extra_price || 0, val.stock || 0]
+              [optionId, val.value, extraPrice, optStock]
             );
           }
         }
@@ -173,9 +183,19 @@ exports.addProductOption = async (req, res) => {
 
     if (values && Array.isArray(values)) {
       for (const val of values) {
+        const extraPrice = Number(val.extra_price) || 0;
+        const optStock = Number(val.stock) || 0;
+        if (extraPrice < 0) {
+          await connection.rollback();
+          return res.status(400).json({ message: '옵션 추가 금액은 0 이상이어야 합니다.' });
+        }
+        if (!Number.isInteger(optStock) || optStock < 0) {
+          await connection.rollback();
+          return res.status(400).json({ message: '옵션 재고는 0 이상의 정수여야 합니다.' });
+        }
         await connection.execute(
           'INSERT INTO product_option_values (option_id, value, extra_price, stock) VALUES (?, ?, ?, ?)',
-          [optionId, val.value, val.extra_price || 0, val.stock || 0]
+          [optionId, val.value, extraPrice, optStock]
         );
       }
     }

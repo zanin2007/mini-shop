@@ -97,7 +97,7 @@ function CouponsTab({ onCountReady }: Props) {
           onChange={(e) => setCouponCode(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleClaimCoupon()}
         />
-        <Button onClick={handleClaimCoupon} disabled={claiming}>
+        <Button size="lg" className="h-auto! px-7! py-3! rounded-none! rounded-r-lg!" onClick={handleClaimCoupon} disabled={claiming}>
           {claiming && <Spinner className="size-4" />}
           {claiming ? '등록 중' : '등록'}
         </Button>

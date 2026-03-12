@@ -91,9 +91,9 @@ exports.claimReward = async (req, res) => {
         await connection.rollback();
         return res.status(400).json({ message: '쿠폰 정보가 누락되어 수령할 수 없습니다.' });
       }
-      // 쿠폰 존재 확인
+      // 쿠폰 존재 + 활성/유효기간 확인
       const [couponCheck] = await connection.execute(
-        `SELECT id FROM coupons WHERE id = ?`,
+        `SELECT id FROM coupons WHERE id = ? AND is_active = true AND expiry_date > NOW()`,
         [mail.reward_id]
       );
       if (couponCheck.length === 0) {

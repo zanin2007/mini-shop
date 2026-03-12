@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { checkItemsStock, checkOptionsStock } = require('../utils/stockHelper');
 
 /**
  * 장바구니 컨트롤러
@@ -112,19 +113,17 @@ exports.addToCart = async (req, res) => {
         }
       }
 
-      // 기존 수량 + 추가 수량이 옵션 재고를 초과하는지 확인
+      // 기존 수량 + 추가 수량이 재고를 초과하는지 확인
       const newTotal = matchedQuantity + quantity;
-      for (const opt of optionStocks) {
-        if (opt.stock < newTotal) {
-          await connection.rollback();
-          return res.status(400).json({ message: `옵션 재고가 부족합니다. (재고: ${opt.stock}개, 장바구니: ${matchedQuantity}개)` });
-        }
-      }
-
-      // 상품 재고도 확인
-      if (productCheck[0].stock < newTotal) {
+      const optErr = checkOptionsStock(optionStocks.map(opt => ({ stock: opt.stock, quantity: newTotal })));
+      if (optErr) {
         await connection.rollback();
-        return res.status(400).json({ message: '상품 재고가 부족합니다.' });
+        return res.status(400).json({ message: optErr });
+      }
+      const prodErr = checkItemsStock([{ stock: productCheck[0].stock, quantity: newTotal }]);
+      if (prodErr) {
+        await connection.rollback();
+        return res.status(400).json({ message: prodErr });
       }
 
       if (matchedCartId) {
@@ -155,9 +154,10 @@ exports.addToCart = async (req, res) => {
 
       // 상품 재고 확인
       const newTotal = matchedQuantity + quantity;
-      if (productCheck[0].stock < newTotal) {
+      const noOptErr = checkItemsStock([{ stock: productCheck[0].stock, quantity: newTotal }]);
+      if (noOptErr) {
         await connection.rollback();
-        return res.status(400).json({ message: `상품 재고가 부족합니다. (재고: ${productCheck[0].stock}개, 장바구니: ${matchedQuantity}개)` });
+        return res.status(400).json({ message: noOptErr });
       }
 
       if (matchedId) {
@@ -209,9 +209,10 @@ exports.updateQuantity = async (req, res) => {
       'SELECT stock FROM products WHERE id = ? FOR UPDATE',
       [cartRows[0].product_id]
     );
-    if (productRows[0].stock < quantity) {
+    const prodStockErr = checkItemsStock([{ stock: productRows[0].stock, quantity }]);
+    if (prodStockErr) {
       await connection.rollback();
-      return res.status(400).json({ message: '상품 재고가 부족합니다.' });
+      return res.status(400).json({ message: prodStockErr });
     }
 
     // 옵션 행도 잠금 후 재고 확인
@@ -221,11 +222,10 @@ exports.updateQuantity = async (req, res) => {
        WHERE cio.cart_item_id = ? FOR UPDATE`,
       [id]
     );
-    for (const opt of cartOpts) {
-      if (opt.stock < quantity) {
-        await connection.rollback();
-        return res.status(400).json({ message: '옵션 재고가 부족합니다.' });
-      }
+    const optStockErr = checkOptionsStock(cartOpts.map(opt => ({ stock: opt.stock, quantity })));
+    if (optStockErr) {
+      await connection.rollback();
+      return res.status(400).json({ message: optStockErr });
     }
 
     await connection.execute(
@@ -267,10 +267,13 @@ exports.removeFromCart = async (req, res) => {
 exports.toggleSelect = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.execute(
+    const [result] = await db.execute(
       'UPDATE cart_items SET is_selected = NOT is_selected WHERE id = ? AND user_id = ?',
       [id, req.user.userId]
     );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '장바구니 항목을 찾을 수 없습니다.' });
+    }
     res.json({ message: '선택 상태가 변경되었습니다.' });
   } catch (error) {
     console.error('Toggle select error:', error);

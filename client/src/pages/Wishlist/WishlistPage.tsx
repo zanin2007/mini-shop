@@ -49,7 +49,7 @@ function WishlistPage() {
     if (!(await showConfirm('찜 목록에서 삭제하시겠습니까?'))) return;
     try {
       await api.delete(`/wishlist/${productId}`);
-      setItems(items.filter(item => item.product_id !== productId));
+      setItems(prev => prev.filter(item => item.product_id !== productId));
       showAlert('찜 목록에서 삭제되었습니다.', 'success');
     } catch {
       showAlert('삭제에 실패했습니다.', 'error');

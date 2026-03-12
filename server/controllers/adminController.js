@@ -1,6 +1,14 @@
 const db = require('../config/db');
 const { restoreOrderStock } = require('../utils/stockHelper');
 
+// 페이지네이션 헬퍼 — page/limit 쿼리 파라미터 파싱
+function parsePagination(query) {
+  const page = Math.max(1, parseInt(query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
+  const offset = (page - 1) * limit;
+  return { page, limit, offset, enabled: query.page != null };
+}
+
 /**
  * 관리자 컨트롤러
  * - 주문 관리: 전체 주문 조회, 상태 변경 (환불 상태 변경 차단)
@@ -12,15 +20,27 @@ const { restoreOrderStock } = require('../utils/stockHelper');
  * - 회원 관리: 활동 유저 조회, 제재 이력, 경고/정지 부여 (3회 경고 시 자동 7일 정지), 해제
  */
 
-// 전체 주문 목록 조회 — 유저 정보 + 주문 상품 포함
+// 전체 주문 목록 조회 — 유저 정보 + 주문 상품 포함 (페이지네이션 지원)
 exports.getAllOrders = async (req, res) => {
   try {
-    const [orders] = await db.execute(
-      `SELECT o.*, u.nickname, u.email
-       FROM orders o
-       JOIN users u ON o.user_id = u.id
-       ORDER BY o.created_at DESC`
-    );
+    const pg = parsePagination(req.query);
+    let orders;
+    if (pg.enabled) {
+      const [[{ total }]] = await db.execute('SELECT COUNT(*) AS total FROM orders');
+      [orders] = await db.execute(
+        `SELECT o.*, u.nickname, u.email
+         FROM orders o JOIN users u ON o.user_id = u.id
+         ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
+        [pg.limit, pg.offset]
+      );
+      res.set('X-Total-Count', String(total));
+    } else {
+      [orders] = await db.execute(
+        `SELECT o.*, u.nickname, u.email
+         FROM orders o JOIN users u ON o.user_id = u.id
+         ORDER BY o.created_at DESC`
+      );
+    }
 
     if (orders.length > 0) {
       const orderIds = orders.map(o => o.id);
@@ -93,15 +113,27 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// 전체 상품 목록 조회
+// 전체 상품 목록 조회 (페이지네이션 지원)
 exports.getAllProducts = async (req, res) => {
   try {
-    const [products] = await db.execute(
-      `SELECT p.*, u.nickname AS seller_nickname
-       FROM products p
-       LEFT JOIN users u ON p.user_id = u.id
-       ORDER BY p.created_at DESC`
-    );
+    const pg = parsePagination(req.query);
+    let products;
+    if (pg.enabled) {
+      const [[{ total }]] = await db.execute('SELECT COUNT(*) AS total FROM products');
+      [products] = await db.execute(
+        `SELECT p.*, u.nickname AS seller_nickname
+         FROM products p LEFT JOIN users u ON p.user_id = u.id
+         ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
+        [pg.limit, pg.offset]
+      );
+      res.set('X-Total-Count', String(total));
+    } else {
+      [products] = await db.execute(
+        `SELECT p.*, u.nickname AS seller_nickname
+         FROM products p LEFT JOIN users u ON p.user_id = u.id
+         ORDER BY p.created_at DESC`
+      );
+    }
     res.json(products);
   } catch (error) {
     console.error('Admin get products error:', error);
@@ -176,10 +208,18 @@ exports.createCoupon = async (req, res) => {
   }
 };
 
-// 쿠폰 목록 조회
+// 쿠폰 목록 조회 (페이지네이션 지원)
 exports.getAllCoupons = async (req, res) => {
   try {
-    const [coupons] = await db.execute('SELECT * FROM coupons ORDER BY created_at DESC');
+    const pg = parsePagination(req.query);
+    let coupons;
+    if (pg.enabled) {
+      const [[{ total }]] = await db.execute('SELECT COUNT(*) AS total FROM coupons');
+      [coupons] = await db.execute('SELECT * FROM coupons ORDER BY created_at DESC LIMIT ? OFFSET ?', [pg.limit, pg.offset]);
+      res.set('X-Total-Count', String(total));
+    } else {
+      [coupons] = await db.execute('SELECT * FROM coupons ORDER BY created_at DESC');
+    }
     res.json(coupons);
   } catch (error) {
     console.error('Admin get coupons error:', error);
@@ -276,64 +316,88 @@ exports.distributeCoupon = async (req, res) => {
 
 // ===== 공지사항 =====
 
-// 공지 작성 — 상단 고정 공지 최대 3개 제한, 전체 유저 알림 발송
+// 공지 작성 — 트랜잭션으로 고정 카운트 동시성 방지 + 알림 100명씩 분할 처리
 exports.createAnnouncement = async (req, res) => {
-  try {
-    const { title, content, is_pinned } = req.body;
-    if (!title || !content) {
-      return res.status(400).json({ message: '제목과 내용을 입력해주세요.' });
-    }
-    if (title.length > 255) {
-      return res.status(400).json({ message: '제목은 255자 이내로 입력해주세요.' });
-    }
-    if (content.length > 5000) {
-      return res.status(400).json({ message: '내용은 5000자 이내로 입력해주세요.' });
-    }
+  const { title, content, is_pinned } = req.body;
+  if (!title || !content) {
+    return res.status(400).json({ message: '제목과 내용을 입력해주세요.' });
+  }
+  if (title.length > 255) {
+    return res.status(400).json({ message: '제목은 255자 이내로 입력해주세요.' });
+  }
+  if (content.length > 5000) {
+    return res.status(400).json({ message: '내용은 5000자 이내로 입력해주세요.' });
+  }
 
-    // 상단 고정 공지 최대 3개 제한
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 상단 고정 공지 최대 3개 제한 (FOR UPDATE로 동시 생성 방지)
     if (is_pinned) {
-      const [pinnedRows] = await db.execute(
-        'SELECT COUNT(*) as cnt FROM announcements WHERE is_pinned = true'
+      const [pinnedRows] = await connection.execute(
+        'SELECT COUNT(*) as cnt FROM announcements WHERE is_pinned = true FOR UPDATE'
       );
       if (pinnedRows[0].cnt >= 3) {
+        await connection.rollback();
         return res.status(400).json({ message: '상단 고정 공지는 최대 3개까지만 등록할 수 있습니다. 기존 상단 공지를 삭제 후 다시 시도해주세요.' });
       }
     }
 
-    const [annResult] = await db.execute(
+    const [annResult] = await connection.execute(
       'INSERT INTO announcements (admin_id, title, content, is_pinned) VALUES (?, ?, ?, ?)',
       [req.user.userId, title, content, is_pinned || false]
     );
     const announcementId = annResult.insertId;
 
-    // 전체 유저에게 알림 — 배치 INSERT (상단 고정이면 is_pinned=true → 유저가 삭제 불가)
-    const [users] = await db.execute('SELECT id FROM users');
+    // 전체 유저에게 알림 — 100명씩 나눠서 배치 INSERT (대량 유저 시 SQL 크기 제한 방지)
+    const [users] = await connection.execute('SELECT id FROM users');
     if (users.length > 0) {
       const notifTitle = `📢 ${title}`;
       const notifContent = content.substring(0, 100);
       const isPinned = is_pinned ? true : false;
       const link = is_pinned ? `pinned:${Number(announcementId)}` : null;
-      const ph = users.map(() => '(?, ?, ?, ?, ?, ?)').join(',');
-      const vals = users.flatMap(u => [u.id, 'system', notifTitle, notifContent, isPinned, link]);
-      await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content, is_pinned, link) VALUES ${ph}`,
-        vals
-      );
+
+      const CHUNK = 100;
+      for (let i = 0; i < users.length; i += CHUNK) {
+        const chunk = users.slice(i, i + CHUNK);
+        const ph = chunk.map(() => '(?, ?, ?, ?, ?, ?)').join(',');
+        const vals = chunk.flatMap(u => [u.id, 'system', notifTitle, notifContent, isPinned, link]);
+        await connection.execute(
+          `INSERT INTO notifications (user_id, type, title, content, is_pinned, link) VALUES ${ph}`,
+          vals
+        );
+      }
     }
 
-    res.status(201).json({ message: '공지가 등록되었습니다.' });
+    await connection.commit();
   } catch (error) {
+    await connection.rollback();
     console.error('Admin create announcement error:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
+  res.status(201).json({ message: '공지가 등록되었습니다.' });
 };
 
-// 공지 목록
+// 공지 목록 (페이지네이션 지원)
 exports.getAllAnnouncements = async (req, res) => {
   try {
-    const [announcements] = await db.execute(
-      'SELECT * FROM announcements ORDER BY is_pinned DESC, created_at DESC'
-    );
+    const pg = parsePagination(req.query);
+    let announcements;
+    if (pg.enabled) {
+      const [[{ total }]] = await db.execute('SELECT COUNT(*) AS total FROM announcements');
+      [announcements] = await db.execute(
+        'SELECT * FROM announcements ORDER BY is_pinned DESC, created_at DESC LIMIT ? OFFSET ?',
+        [pg.limit, pg.offset]
+      );
+      res.set('X-Total-Count', String(total));
+    } else {
+      [announcements] = await db.execute(
+        'SELECT * FROM announcements ORDER BY is_pinned DESC, created_at DESC'
+      );
+    }
     res.json(announcements);
   } catch (error) {
     console.error('Admin get announcements error:', error);
@@ -368,77 +432,107 @@ exports.deleteAnnouncement = async (req, res) => {
 
 // ===== 이벤트 =====
 
-// 이벤트 생성 — 쿠폰/포인트 보상 검증, 전체 유저 알림 (link에 이벤트 ID 저장)
+// 이벤트 생성 — 트랜잭션으로 이벤트 INSERT + 알림 100명씩 분할 처리
 exports.createEvent = async (req, res) => {
+  const { title, description, type, reward_type, reward_id, reward_amount, max_participants, start_date, end_date } = req.body;
+  if (!title || !start_date || !end_date) {
+    return res.status(400).json({ message: '제목과 기간은 필수입니다.' });
+  }
+
+  // DB 타임존 기준으로 날짜 비교 (JS Date와 DB UTC 불일치 방지)
+  const [[{ invalid_range }]] = await db.execute('SELECT ? >= ? AS invalid_range', [start_date, end_date]);
+  if (invalid_range) {
+    return res.status(400).json({ message: '시작일은 종료일보다 이전이어야 합니다.' });
+  }
+
+  if (reward_amount != null && reward_amount < 1000) {
+    return res.status(400).json({ message: '보상 금액은 1,000 이상이어야 합니다.' });
+  }
+
+  // 쿠폰 보상인 경우 쿠폰 ID 필수 검증
+  if (reward_type === 'coupon') {
+    if (!reward_id) {
+      return res.status(400).json({ message: '쿠폰 보상에는 쿠폰 ID가 필요합니다.' });
+    }
+    const [couponCheck] = await db.execute('SELECT id FROM coupons WHERE id = ?', [reward_id]);
+    if (couponCheck.length === 0) {
+      return res.status(400).json({ message: '존재하지 않는 쿠폰 ID입니다.' });
+    }
+  }
+
+  // 포인트 보상인 경우 금액 필수 + 양수 검증
+  if (reward_type === 'point') {
+    if (reward_amount == null || reward_amount < 1000) {
+      return res.status(400).json({ message: '포인트 보상에는 1,000 이상의 금액이 필요합니다.' });
+    }
+  }
+
+  const connection = await db.getConnection();
   try {
-    const { title, description, type, reward_type, reward_id, reward_amount, max_participants, start_date, end_date } = req.body;
-    if (!title || !start_date || !end_date) {
-      return res.status(400).json({ message: '제목과 기간은 필수입니다.' });
-    }
+    await connection.beginTransaction();
 
-    // DB 타임존 기준으로 날짜 비교 (JS Date와 DB UTC 불일치 방지)
-    const [[{ invalid_range }]] = await db.execute('SELECT ? >= ? AS invalid_range', [start_date, end_date]);
-    if (invalid_range) {
-      return res.status(400).json({ message: '시작일은 종료일보다 이전이어야 합니다.' });
-    }
-
-    if (reward_amount != null && reward_amount < 1000) {
-      return res.status(400).json({ message: '보상 금액은 1,000 이상이어야 합니다.' });
-    }
-
-    // 쿠폰 보상인 경우 쿠폰 ID 필수 검증
-    if (reward_type === 'coupon') {
-      if (!reward_id) {
-        return res.status(400).json({ message: '쿠폰 보상에는 쿠폰 ID가 필요합니다.' });
-      }
-      const [couponCheck] = await db.execute('SELECT id FROM coupons WHERE id = ?', [reward_id]);
-      if (couponCheck.length === 0) {
-        return res.status(400).json({ message: '존재하지 않는 쿠폰 ID입니다.' });
-      }
-    }
-
-    // 포인트 보상인 경우 금액 필수 + 양수 검증
-    if (reward_type === 'point') {
-      if (reward_amount == null || reward_amount < 1000) {
-        return res.status(400).json({ message: '포인트 보상에는 1,000 이상의 금액이 필요합니다.' });
-      }
-    }
-
-    const [result] = await db.execute(
+    const [result] = await connection.execute(
       `INSERT INTO events (title, description, type, reward_type, reward_id, reward_amount, max_participants, start_date, end_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [title, description || null, type || 'fcfs', reward_type || null, reward_id || null, reward_amount || null, (max_participants != null && max_participants > 0) ? max_participants : null, start_date, end_date]
     );
     const eventId = result.insertId;
 
-    // 전체 유저에게 알림 — 배치 INSERT (link에 이벤트 ID 저장)
-    const [users] = await db.execute('SELECT id FROM users');
+    // 전체 유저에게 알림 — 100명씩 나눠서 배치 INSERT (대량 유저 시 SQL 크기 제한 방지)
+    const [users] = await connection.execute('SELECT id FROM users');
     if (users.length > 0) {
       const notifTitle = `🎉 새 이벤트: ${title}`;
       const notifContent = description ? description.substring(0, 100) : '새로운 이벤트가 시작되었습니다!';
       const link = `event:${eventId}`;
-      const ph = users.map(() => '(?, ?, ?, ?, ?)').join(',');
-      const vals = users.flatMap(u => [u.id, 'system', notifTitle, notifContent, link]);
-      await db.execute(
-        `INSERT INTO notifications (user_id, type, title, content, link) VALUES ${ph}`,
-        vals
-      );
+
+      const CHUNK = 100;
+      for (let i = 0; i < users.length; i += CHUNK) {
+        const chunk = users.slice(i, i + CHUNK);
+        const ph = chunk.map(() => '(?, ?, ?, ?, ?)').join(',');
+        const vals = chunk.flatMap(u => [u.id, 'system', notifTitle, notifContent, link]);
+        await connection.execute(
+          `INSERT INTO notifications (user_id, type, title, content, link) VALUES ${ph}`,
+          vals
+        );
+      }
     }
 
-    res.status(201).json({ message: '이벤트가 생성되었습니다.' });
+    await connection.commit();
   } catch (error) {
+    await connection.rollback();
     console.error('Admin create event error:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
+  res.status(201).json({ message: '이벤트가 생성되었습니다.' });
 };
 
-// 이벤트 목록 (관리자)
+// 이벤트 목록 (관리자, 페이지네이션 지원)
 exports.getAllEvents = async (req, res) => {
   try {
-    const [events] = await db.execute(
-      `SELECT e.*, (SELECT COUNT(*) FROM event_participants WHERE event_id = e.id) AS current_participants
-       FROM events e ORDER BY e.created_at DESC`
-    );
+    const pg = parsePagination(req.query);
+    let events;
+    if (pg.enabled) {
+      const [[{ total }]] = await db.execute('SELECT COUNT(*) AS total FROM events');
+      [events] = await db.execute(
+        `SELECT e.*, COUNT(ep.id) AS current_participants
+         FROM events e
+         LEFT JOIN event_participants ep ON ep.event_id = e.id
+         GROUP BY e.id
+         ORDER BY e.created_at DESC LIMIT ? OFFSET ?`,
+        [pg.limit, pg.offset]
+      );
+      res.set('X-Total-Count', String(total));
+    } else {
+      [events] = await db.execute(
+        `SELECT e.*, COUNT(ep.id) AS current_participants
+         FROM events e
+         LEFT JOIN event_participants ep ON ep.event_id = e.id
+         GROUP BY e.id
+         ORDER BY e.created_at DESC`
+      );
+    }
     res.json(events);
   } catch (error) {
     console.error('Admin get events error:', error);
@@ -537,17 +631,29 @@ exports.drawEventWinners = async (req, res) => {
   }
 };
 
-// 전체 환불 요청 조회 — 유저/주문 정보 + 주문 상품 포함
+// 전체 환불 요청 조회 — 유저/주문 정보 + 주문 상품 포함 (페이지네이션 지원)
 exports.getAllRefunds = async (req, res) => {
   try {
-    const [refunds] = await db.execute(
-      `SELECT r.*, u.nickname, u.email,
-              o.total_amount, o.discount_amount, o.final_amount, o.created_at AS order_date
-       FROM refunds r
-       JOIN users u ON r.user_id = u.id
-       JOIN orders o ON r.order_id = o.id
-       ORDER BY r.created_at DESC`
-    );
+    const pg = parsePagination(req.query);
+    let refunds;
+    if (pg.enabled) {
+      const [[{ total }]] = await db.execute('SELECT COUNT(*) AS total FROM refunds');
+      [refunds] = await db.execute(
+        `SELECT r.*, u.nickname, u.email,
+                o.total_amount, o.discount_amount, o.final_amount, o.created_at AS order_date
+         FROM refunds r JOIN users u ON r.user_id = u.id JOIN orders o ON r.order_id = o.id
+         ORDER BY r.created_at DESC LIMIT ? OFFSET ?`,
+        [pg.limit, pg.offset]
+      );
+      res.set('X-Total-Count', String(total));
+    } else {
+      [refunds] = await db.execute(
+        `SELECT r.*, u.nickname, u.email,
+                o.total_amount, o.discount_amount, o.final_amount, o.created_at AS order_date
+         FROM refunds r JOIN users u ON r.user_id = u.id JOIN orders o ON r.order_id = o.id
+         ORDER BY r.created_at DESC`
+      );
+    }
 
     if (refunds.length > 0) {
       const orderIds = refunds.map(r => r.order_id);
@@ -633,62 +739,75 @@ exports.getUserPenalties = async (req, res) => {
   }
 };
 
-// 경고/정지 부여 — 경고 3회 누적 시 자동 7일 정지, 알림 발송
+// 경고/정지 부여 — 트랜잭션으로 경고 카운트 + 자동 정지 원자적 처리
 exports.issuePenalty = async (req, res) => {
+  const { userId } = req.params;
+  const { type, reason } = req.body;
+
+  if (!['warning', '7day', '30day', 'permanent'].includes(type)) {
+    return res.status(400).json({ message: '유효하지 않은 제재 유형입니다.' });
+  }
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ message: '사유를 입력해주세요.' });
+  }
+
+  const typeLabel = { warning: '경고', '7day': '7일 정지', '30day': '30일 정지', permanent: '영구 정지' };
+  let responseMessage = `${typeLabel[type]}가 부여되었습니다.`;
+
+  const connection = await db.getConnection();
   try {
-    const { userId } = req.params;
-    const { type, reason } = req.body;
+    await connection.beginTransaction();
 
-    if (!['warning', '7day', '30day', 'permanent'].includes(type)) {
-      return res.status(400).json({ message: '유효하지 않은 제재 유형입니다.' });
-    }
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ message: '사유를 입력해주세요.' });
-    }
-
-    // 대상 사용자 확인
-    const [users] = await db.execute('SELECT id, nickname FROM users WHERE id = ? AND role != ?', [userId, 'admin']);
+    // 대상 사용자 확인 + 행 잠금 (동시 제재 방지)
+    const [users] = await connection.execute(
+      'SELECT id, nickname FROM users WHERE id = ? AND role != ? FOR UPDATE',
+      [userId, 'admin']
+    );
     if (users.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
     }
 
     // 정지 기간은 DB NOW() 기준으로 계산 (타임존 일관성)
-    await db.execute(
+    await connection.execute(
       `INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, CASE ? WHEN '7day' THEN DATE_ADD(NOW(), INTERVAL 7 DAY) WHEN '30day' THEN DATE_ADD(NOW(), INTERVAL 30 DAY) ELSE NULL END)`,
       [userId, type, reason.trim(), req.user.userId, type]
     );
 
     // 알림 발송
-    const typeLabel = { warning: '경고', '7day': '7일 정지', '30day': '30일 정지', permanent: '영구 정지' };
-    await db.execute(
+    await connection.execute(
       `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'system', ?, ?)`,
       [userId, `${typeLabel[type]}를 받았습니다`, `사유: ${reason.trim()}`]
     );
 
     // 경고인 경우 누적 3회 이상 시 자동 7일 정지
     if (type === 'warning') {
-      const [warnings] = await db.execute(
+      const [warnings] = await connection.execute(
         'SELECT COUNT(*) AS cnt FROM user_penalties WHERE user_id = ? AND type = ? AND is_active = true',
         [userId, 'warning']
       );
       if (warnings[0].cnt >= 3) {
-        await db.execute(
+        await connection.execute(
           'INSERT INTO user_penalties (user_id, type, reason, admin_id, suspended_until) VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))',
           [userId, '7day', '경고 3회 누적으로 인한 자동 정지', req.user.userId]
         );
-        await db.execute(
+        await connection.execute(
           `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'system', ?, ?)`,
           [userId, '경고 누적으로 7일 정지 처리되었습니다', '경고 3회 이상 누적으로 자동 7일 이용 정지되었습니다.']
         );
-        return res.json({ message: `경고가 부여되었습니다. (누적 ${warnings[0].cnt}회 - 자동 7일 정지 적용)` });
+        responseMessage = `경고가 부여되었습니다. (누적 ${warnings[0].cnt}회 - 자동 7일 정지 적용)`;
       }
     }
 
-    res.json({ message: `${typeLabel[type]}가 부여되었습니다.` });
+    await connection.commit();
   } catch (error) {
+    await connection.rollback();
     console.error('Admin issue penalty error:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
+  res.json({ message: responseMessage });
 };
 
 // 제재 해제 — is_active를 false로 변경 + 알림 발송

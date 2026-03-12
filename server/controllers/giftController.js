@@ -215,42 +215,61 @@ exports.rejectGift = async (req, res) => {
   }
 };
 
-// 선물 수령완료 (받는 사람이 확인)
+// 선물 수령완료 (받는 사람이 확인) — 트랜잭션 + FOR UPDATE로 이중 완료 방지
 exports.confirmGift = async (req, res) => {
+  const connection = await db.getConnection();
+  let senderId = null;
   try {
-    const [gifts] = await db.execute(
-      `SELECT g.*, o.status as order_status FROM gifts g
+    await connection.beginTransaction();
+
+    const [gifts] = await connection.execute(
+      `SELECT g.id, g.order_id, g.sender_id, g.status, o.status as order_status
+       FROM gifts g
        JOIN orders o ON g.order_id = o.id
-       WHERE g.id = ? AND g.receiver_id = ?`,
+       WHERE g.id = ? AND g.receiver_id = ?
+       FOR UPDATE`,
       [req.params.id, req.user.userId]
     );
 
     if (gifts.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: '선물을 찾을 수 없습니다.' });
     }
 
     if (gifts[0].status !== 'accepted') {
+      await connection.rollback();
       return res.status(400).json({ message: '수락된 선물만 수령완료할 수 있습니다.' });
     }
 
     if (gifts[0].order_status !== 'delivered') {
+      await connection.rollback();
       return res.status(400).json({ message: '배송 완료된 선물만 수령완료할 수 있습니다.' });
     }
 
-    await db.execute(
+    await connection.execute(
       'UPDATE orders SET status = ?, completed_at = NOW() WHERE id = ?',
       ['completed', gifts[0].order_id]
     );
 
-    // 보낸 사람에게 알림
+    await connection.commit();
+    senderId = gifts[0].sender_id;
+  } catch (error) {
+    await connection.rollback();
+    console.error('Confirm gift error:', error);
+    return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
+  }
+
+  // 보낸 사람에게 알림 (best-effort — 실패해도 수령완료는 유지)
+  try {
     await db.execute(
       `INSERT INTO notifications (user_id, type, title, content) VALUES (?, 'gift', ?, ?)`,
-      [gifts[0].sender_id, '선물이 수령완료되었습니다', '보내신 선물을 상대방이 수령완료했습니다.']
+      [senderId, '선물이 수령완료되었습니다', '보내신 선물을 상대방이 수령완료했습니다.']
     );
-
-    res.json({ message: '수령이 완료되었습니다.' });
-  } catch (error) {
-    console.error('Confirm gift error:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } catch (notifError) {
+    console.error('Confirm gift notification error:', notifError);
   }
+
+  res.json({ message: '수령이 완료되었습니다.' });
 };

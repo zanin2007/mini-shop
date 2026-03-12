@@ -149,7 +149,10 @@ function MailboxPage() {
               <div
                 key={mail.id}
                 className={`mail-card ${!mail.is_read ? 'unread' : ''} ${mail.is_claimed ? 'claimed' : ''} ${isExpired(mail) ? 'expired' : ''}`}
+                role={!mail.is_read ? 'button' : undefined}
+                tabIndex={!mail.is_read ? 0 : undefined}
                 onClick={() => !mail.is_read && handleRead(mail.id)}
+                onKeyDown={(e) => { if (!mail.is_read && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleRead(mail.id); } }}
               >
                 <div className={`mail-status ${mail.is_claimed ? 'claimed' : isExpired(mail) ? 'expired' : !mail.is_read ? 'unread' : 'read'}`} />
                 <div className="mail-body">

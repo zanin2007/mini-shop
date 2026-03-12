@@ -20,6 +20,13 @@ interface ConfirmState {
   resolve: ((value: boolean) => void) | null;
 }
 
+const iconMap: Record<AlertType, string> = {
+  success: '✓',
+  error: '✕',
+  info: 'i',
+  warning: '!',
+};
+
 export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [confirm, setConfirm] = useState<ConfirmState>({ show: false, message: '', resolve: null });
@@ -69,13 +76,6 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [confirm.show, handleConfirm]);
-
-  const iconMap = {
-    success: '✓',
-    error: '✕',
-    info: 'i',
-    warning: '!',
-  };
 
   return (
     <AlertContext.Provider value={{ showAlert, showConfirm }}>

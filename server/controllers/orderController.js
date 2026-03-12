@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { checkItemsStock, checkOptionsStock, deductOrderStock } = require('../utils/stockHelper');
 
 /**
  * 주문 컨트롤러
@@ -10,6 +11,28 @@ const db = require('../config/db');
 
 // 주문 생성 — 장바구니 선택 상품을 주문으로 전환 (트랜잭션)
 exports.createOrder = async (req, res) => {
+  // 입력값 조기 검증 (트랜잭션/DB 접근 전에 빠르게 차단)
+  const { couponId: requestedCouponId, pointsToUse: requestedPoints, delivery_address, receiver_name, receiver_phone, isGift, receiverId, giftMessage } = req.body || {};
+
+  if (giftMessage && giftMessage.length > 500) {
+    return res.status(400).json({ message: '선물 메시지는 500자 이하여야 합니다.' });
+  }
+  if (!isGift && (!delivery_address || !delivery_address.trim())) {
+    return res.status(400).json({ message: '배송 주소를 입력해주세요.' });
+  }
+  if (delivery_address && delivery_address.length > 200) {
+    return res.status(400).json({ message: '배송 주소는 200자 이내로 입력해주세요.' });
+  }
+  if (receiver_name && receiver_name.length > 50) {
+    return res.status(400).json({ message: '수령인 이름은 50자 이내로 입력해주세요.' });
+  }
+  if (receiver_phone && receiver_phone.length > 20) {
+    return res.status(400).json({ message: '연락처는 20자 이내로 입력해주세요.' });
+  }
+  if (requestedPoints != null && requestedPoints > 0 && !Number.isInteger(requestedPoints)) {
+    return res.status(400).json({ message: '포인트는 정수만 사용할 수 있습니다.' });
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -30,16 +53,13 @@ exports.createOrder = async (req, res) => {
     }
 
     // 재고 검증
-    for (const item of cartItems) {
-      if (item.stock < item.quantity) {
-        await connection.rollback();
-        return res.status(400).json({
-          message: `'${item.name}' 상품의 재고가 부족합니다. (재고: ${item.stock}개, 요청: ${item.quantity}개)`
-        });
-      }
+    const stockErr = checkItemsStock(cartItems);
+    if (stockErr) {
+      await connection.rollback();
+      return res.status(400).json({ message: stockErr });
     }
 
-    // 배치 쿼리: 모든 장바구니 아이템의 옵션 추가금액 + 재고를 한 번에 조회
+    // 배치 쿼리: 모든 장바구니 아이템의 옵션 추가금액 + 재고를 한 번에 조회 (FOR UPDATE로 옵션 재고도 잠금)
     const cartIds = cartItems.map(item => item.id);
     const [allCartOpts] = await connection.execute(
       `SELECT cio.cart_item_id, pov.extra_price, pov.stock as option_stock, pov.value as option_value,
@@ -47,7 +67,8 @@ exports.createOrder = async (req, res) => {
        FROM cart_item_options cio
        JOIN product_option_values pov ON cio.option_value_id = pov.id
        JOIN product_options po ON pov.option_id = po.id
-       WHERE cio.cart_item_id IN (${cartIds.map(() => '?').join(',')})`,
+       WHERE cio.cart_item_id IN (${cartIds.map(() => '?').join(',')})
+       FOR UPDATE`,
       cartIds
     );
     const extraPriceMap = new Map();
@@ -59,16 +80,19 @@ exports.createOrder = async (req, res) => {
     }
 
     // 옵션 재고 검증
-    for (const opt of allCartOpts) {
-      if (opt.option_stock != null) {
-        const cartItem = cartItems.find(ci => ci.id === opt.cart_item_id);
-        if (cartItem && opt.option_stock < cartItem.quantity) {
-          await connection.rollback();
-          return res.status(400).json({
-            message: `'${cartItem.name}' 상품의 옵션(${opt.option_name}: ${opt.option_value}) 재고가 부족합니다. (재고: ${opt.option_stock}개)`
-          });
-        }
-      }
+    const optStockErr = checkOptionsStock(allCartOpts.map(opt => {
+      const cartItem = cartItems.find(ci => ci.id === opt.cart_item_id);
+      return {
+        stock: opt.option_stock,
+        quantity: cartItem ? cartItem.quantity : 0,
+        productName: cartItem ? cartItem.name : '',
+        optionName: opt.option_name,
+        optionValue: opt.option_value,
+      };
+    }));
+    if (optStockErr) {
+      await connection.rollback();
+      return res.status(400).json({ message: optStockErr });
     }
 
     // 총 금액 계산 (옵션 추가금액 포함)
@@ -77,13 +101,6 @@ exports.createOrder = async (req, res) => {
     // 쿠폰 적용 — 유효성 확인 후 할인율/정액 중 큰 값 적용, 사용처리
     let discountAmount = 0;
     let couponId = null;
-    const { couponId: requestedCouponId, pointsToUse: requestedPoints, delivery_address, receiver_name, receiver_phone, isGift, receiverId, giftMessage } = req.body || {};
-
-    // 선물 메시지 길이 검증 (재고/쿠폰 처리 전 조기 검증)
-    if (giftMessage && giftMessage.length > 500) {
-      await connection.rollback();
-      return res.status(400).json({ message: '선물 메시지는 500자 이하여야 합니다.' });
-    }
 
     // 선물 수신자 검증
     if (isGift) {
@@ -141,7 +158,7 @@ exports.createOrder = async (req, res) => {
 
     // 포인트 적용 — 보유 포인트 검증 후 결제금액에서 차감
     let pointsUsed = 0;
-    if (requestedPoints && requestedPoints > 0) {
+    if (requestedPoints != null && requestedPoints > 0) {
       const [userRows] = await connection.execute(
         'SELECT points FROM users WHERE id = ?',
         [req.user.userId]
@@ -213,36 +230,16 @@ exports.createOrder = async (req, res) => {
         );
       }
 
-      // 재고 감소 (WHERE stock >= ? 조건으로 초과 판매 방지)
-      for (const item of cartItems) {
-        const [result] = await connection.execute(
-          'UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?',
-          [item.quantity, item.product_id, item.quantity]
-        );
-        if (result.affectedRows === 0) {
-          await connection.rollback();
-          return res.status(400).json({ message: `'${item.name}' 상품의 재고가 부족합니다.` });
-        }
-      }
-
-      // 옵션 재고 감소
+      // 재고 감소 (상품 + 옵션 atomic UPDATE)
       const optValuesByCart = new Map();
       for (const opt of allOptsForCopy) {
         if (!optValuesByCart.has(opt.cart_item_id)) optValuesByCart.set(opt.cart_item_id, []);
         optValuesByCart.get(opt.cart_item_id).push(opt.option_value_id);
       }
-      for (const item of cartItems) {
-        const ovIds = optValuesByCart.get(item.id) || [];
-        for (const ovId of ovIds) {
-          const [optResult] = await connection.execute(
-            'UPDATE product_option_values SET stock = stock - ? WHERE id = ? AND stock >= ?',
-            [item.quantity, ovId, item.quantity]
-          );
-          if (optResult.affectedRows === 0) {
-            await connection.rollback();
-            return res.status(400).json({ message: `'${item.name}' 상품의 옵션 재고가 부족합니다.` });
-          }
-        }
+      const deductErr = await deductOrderStock(connection, cartItems, optValuesByCart);
+      if (deductErr) {
+        await connection.rollback();
+        return res.status(400).json({ message: deductErr });
       }
     }
 
@@ -279,32 +276,50 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// 구매 확정 — 배송완료(delivered) 상태의 주문을 수령완료(completed)로 변경
+// 구매 확정 — 배송완료(delivered) 상태의 주문을 수령완료(completed)로 변경 (선물 주문 차단, FOR UPDATE)
 exports.confirmOrder = async (req, res) => {
+  const connection = await db.getConnection();
   try {
-    const [orders] = await db.execute(
-      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+    await connection.beginTransaction();
+
+    const [orders] = await connection.execute(
+      'SELECT id, status FROM orders WHERE id = ? AND user_id = ? FOR UPDATE',
       [req.params.id, req.user.userId]
     );
 
     if (orders.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: '주문을 찾을 수 없습니다.' });
     }
 
+    // 선물 주문은 수신자만 confirmGift로 수령완료 가능
+    const [giftRows] = await connection.execute(
+      'SELECT id FROM gifts WHERE order_id = ?', [req.params.id]
+    );
+    if (giftRows.length > 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: '선물 주문은 수신자만 수령 확인할 수 있습니다.' });
+    }
+
     if (orders[0].status !== 'delivered') {
+      await connection.rollback();
       return res.status(400).json({ message: '배송 완료된 주문만 구매확정할 수 있습니다.' });
     }
 
-    await db.execute(
+    await connection.execute(
       'UPDATE orders SET status = ?, completed_at = NOW() WHERE id = ?',
       ['completed', req.params.id]
     );
 
-    res.json({ message: '구매가 확정되었습니다.' });
+    await connection.commit();
   } catch (error) {
+    await connection.rollback();
     console.error('Confirm order error:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
+  res.json({ message: '구매가 확정되었습니다.' });
 };
 
 // [테스트용] 주문 상태 다음 단계로 변경

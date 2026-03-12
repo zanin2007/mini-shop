@@ -20,56 +20,69 @@ exports.getUserCoupons = async (req, res) => {
   }
 };
 
-// 쿠폰 코드로 쿠폰 등록
+// 쿠폰 코드로 쿠폰 등록 (트랜잭션으로 current_uses 증가 + INSERT 원자성 보장)
 exports.claimCoupon = async (req, res) => {
-  try {
-    const { code } = req.body;
-    if (!code) {
-      return res.status(400).json({ message: '쿠폰 코드를 입력해주세요.' });
-    }
+  const { code } = req.body;
+  if (!code) {
+    return res.status(400).json({ message: '쿠폰 코드를 입력해주세요.' });
+  }
 
-    // 쿠폰 존재 + 만료 확인 (DB NOW()로 타임존 일관성 보장)
-    const [coupons] = await db.execute(
-      'SELECT * FROM coupons WHERE code = ? AND is_active = true AND expiry_date > NOW()',
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 쿠폰 존재 + 만료 확인 (FOR UPDATE로 동시 등록 방지)
+    const [coupons] = await connection.execute(
+      'SELECT * FROM coupons WHERE code = ? AND is_active = true AND expiry_date > NOW() FOR UPDATE',
       [code]
     );
 
     if (coupons.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: '유효하지 않거나 만료된 쿠폰입니다.' });
     }
 
     const coupon = coupons[0];
 
     // 이미 보유 확인
-    const [existing] = await db.execute(
+    const [existing] = await connection.execute(
       'SELECT id FROM user_coupons WHERE user_id = ? AND coupon_id = ?',
       [req.user.userId, coupon.id]
     );
 
     if (existing.length > 0) {
+      await connection.rollback();
       return res.status(400).json({ message: '이미 보유한 쿠폰입니다.' });
     }
 
-    // 원자적 사용 횟수 증가 (Race Condition 방지)
-    const [updateResult] = await db.execute(
+    // 원자적 사용 횟수 증가 (max_uses 조건 포함)
+    const [updateResult] = await connection.execute(
       'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ? AND (max_uses IS NULL OR current_uses < max_uses)',
       [coupon.id]
     );
     if (updateResult.affectedRows === 0) {
+      await connection.rollback();
       return res.status(400).json({ message: '쿠폰이 모두 소진되었습니다.' });
     }
 
     // 쿠폰 등록
-    await db.execute(
+    await connection.execute(
       'INSERT INTO user_coupons (user_id, coupon_id) VALUES (?, ?)',
       [req.user.userId, coupon.id]
     );
 
-    res.status(201).json({ message: '쿠폰이 등록되었습니다.' });
+    await connection.commit();
   } catch (error) {
+    await connection.rollback();
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: '이미 보유한 쿠폰입니다.' });
+    }
     console.error('Claim coupon error:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+  } finally {
+    connection.release();
   }
+  res.status(201).json({ message: '쿠폰이 등록되었습니다.' });
 };
 
 // 사용 가능한 쿠폰 목록 (주문 시 적용 가능)

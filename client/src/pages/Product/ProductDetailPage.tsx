@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Spinner } from '../../components/ui/spinner';
 import QuantityInput from '../../components/QuantityInput';
 import type { Product, Review } from '../../types';
+import { getStoredUser } from '../../utils/storage';
 import ReviewSection from './ReviewSection';
 import RecommendedProducts from './RecommendedProducts';
 import './ProductDetailPage.css';
@@ -130,12 +131,7 @@ function ProductDetailPage() {
     }
   };
 
-  const [currentUser] = useState(() => {
-    try {
-      const data = localStorage.getItem('user');
-      return data ? JSON.parse(data) : null;
-    } catch { return null; }
-  });
+  const [currentUser] = useState(() => getStoredUser());
 
   const isOwner = currentUser && product?.user_id === currentUser.id;
 

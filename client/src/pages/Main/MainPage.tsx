@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
@@ -19,43 +19,37 @@ function MainPage() {
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const wishlistProcessing = useRef(new Set<number>());
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const initialLoadDone = useRef(false);
 
-  useEffect(() => {
-    void Promise.all([fetchCategories(), fetchProducts(), fetchWishlistIds()]);
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const response = await api.get('/products/categories');
       setCategories(response.data);
     } catch (error) {
       console.error('카테고리 조회 실패:', error);
     }
-  };
+  }, []);
 
-  const fetchProducts = async (searchValue = '', category = '') => {
+  const fetchProducts = useCallback(async (searchValue = '', category = '', signal?: AbortSignal) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchValue) params.append('search', searchValue);
       if (category) params.append('category', category);
       const query = params.toString() ? `?${params.toString()}` : '';
-      const response = await api.get(`/products${query}`);
+      const response = await api.get(`/products${query}`, { signal });
       setProducts(response.data);
     } catch (error) {
+      if (signal?.aborted) return;
       console.error('상품 조회 실패:', error);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchProducts(search, selectedCategory);
-  };
-
-  const fetchWishlistIds = async () => {
+  const fetchWishlistIds = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
@@ -64,6 +58,43 @@ function MainPage() {
     } catch {
       setWishlistIds([]);
     }
+  }, []);
+
+  // debounce 취소 + 즉시 검색 실행 헬퍼
+  const searchNow = useCallback((searchValue: string, category: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setCurrentPage(1);
+    fetchProducts(searchValue, category, controller.signal);
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    void Promise.all([fetchCategories(), fetchProducts(), fetchWishlistIds()])
+      .then(() => { initialLoadDone.current = true; });
+  }, [fetchCategories, fetchProducts, fetchWishlistIds]);
+
+  // 검색어 변경 시 300ms debounce 자동검색
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
+
+    debounceRef.current = setTimeout(() => {
+      searchNow(search, selectedCategory);
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [search, selectedCategory, searchNow]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    searchNow(search, selectedCategory);
   };
 
   const handleToggleWishlist = async (e: React.MouseEvent, productId: number) => {
@@ -106,8 +137,7 @@ function MainPage() {
 
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
-    setCurrentPage(1);
-    fetchProducts(search, category);
+    searchNow(search, category);
   };
 
   const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);

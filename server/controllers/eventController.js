@@ -11,30 +11,21 @@ const db = require('../config/db');
 exports.getActiveEvents = async (req, res) => {
   try {
     const userId = req.user ? req.user.userId : null;
-    if (userId) {
-      const [events] = await db.execute(
-        `SELECT e.*,
-                (SELECT COUNT(*) FROM event_participants WHERE event_id = e.id) AS current_participants,
-                (ep.id IS NOT NULL) AS is_participated
-         FROM events e
-         LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.user_id = ?
-         WHERE e.is_active = true AND e.start_date <= NOW() AND e.end_date >= NOW()
-         ORDER BY e.created_at DESC`,
-        [userId]
-      );
-      for (const event of events) {
-        event.is_participated = !!event.is_participated;
-      }
-      res.json(events);
-    } else {
-      const [events] = await db.execute(
-        `SELECT e.*, (SELECT COUNT(*) FROM event_participants WHERE event_id = e.id) AS current_participants
-         FROM events e
-         WHERE e.is_active = true AND e.start_date <= NOW() AND e.end_date >= NOW()
-         ORDER BY e.created_at DESC`
-      );
-      res.json(events);
+    const [events] = await db.execute(
+      `SELECT e.*, COUNT(ep_all.id) AS current_participants,
+              ${userId ? 'MAX(ep_my.id IS NOT NULL) AS is_participated' : '0 AS is_participated'}
+       FROM events e
+       LEFT JOIN event_participants ep_all ON ep_all.event_id = e.id
+       ${userId ? 'LEFT JOIN event_participants ep_my ON ep_my.event_id = e.id AND ep_my.user_id = ?' : ''}
+       WHERE e.is_active = true AND e.start_date <= NOW() AND e.end_date >= NOW()
+       GROUP BY e.id
+       ORDER BY e.created_at DESC`,
+      userId ? [userId] : []
+    );
+    for (const event of events) {
+      event.is_participated = !!event.is_participated;
     }
+    res.json(events);
   } catch (error) {
     console.error('Get active events error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });

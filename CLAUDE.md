@@ -182,6 +182,7 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 | `/explain` | `.claude/commands/explain.md` | 파일 코드 상세 설명 |
 | `/optimize` | `.claude/commands/optimize.md` | 성능 최적화 분석 |
 | `/test-api` | `.claude/commands/test-api.md` | API 테스트 시나리오 작성 |
+| `/suggest` | `.claude/commands/suggest.md` | 프로젝트 분석 후 다음 작업 우선순위 추천 |
 
 ## Known Issues
 
@@ -213,3 +214,6 @@ Both servers must run simultaneously. Backend requires `server/.env` with DB_HOS
 | `idx_orders_status` | orders | 상태별 주문 조회 |
 | `idx_notifications_user_read` | notifications | 유저별 알림 조회 |
 | `idx_event_participants_event_winner` | event_participants | 이벤트별 당첨자 조회 |
+| `idx_cart_items_user_selected` | cart_items | 장바구니 선택 상품 조회 |
+| `idx_order_items_product` | order_items | 상품별 주문 내역 조회 |
+| `idx_coupons_expiry_active` | coupons | 사용 가능한 쿠폰 필터링 |

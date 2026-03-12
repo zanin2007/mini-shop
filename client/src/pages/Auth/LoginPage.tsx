@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
+import { APP_EVENTS } from '../../constants/events';
 import { Button } from '../../components/ui/button';
 import { Spinner } from '../../components/ui/spinner';
 import { FieldError } from '../../components/ui/field-error';
@@ -53,7 +54,7 @@ function LoginPage() {
       localStorage.setItem('user', JSON.stringify(response.data.user));
 
       showAlert('로그인 성공!', 'success');
-      window.dispatchEvent(new Event('userUpdated'));
+      window.dispatchEvent(new Event(APP_EVENTS.USER_UPDATED));
       const params = new URLSearchParams(location.search);
       const redirect = params.get('redirect') || '/';
       const safeRedirect = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/';

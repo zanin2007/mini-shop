@@ -4,6 +4,7 @@ import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import QuantityInput from '../../components/QuantityInput';
+import { APP_EVENTS } from '../../constants/events';
 import type { CartPageItem } from '../../types';
 import './CartPage.css';
 
@@ -68,7 +69,7 @@ function CartPage() {
     try {
       await api.put('/cart/select-all', { is_selected: !allSelected });
       setCartPageItems(prev => prev.map(item => ({ ...item, is_selected: !allSelected })));
-      window.dispatchEvent(new Event('cartUpdated'));
+      window.dispatchEvent(new Event(APP_EVENTS.CART_UPDATED));
     } catch (error) {
       console.error('전체 선택 변경 실패:', error);
     }
@@ -107,7 +108,7 @@ function CartPage() {
     try {
       await api.delete(`/cart/${id}`);
       setCartPageItems(prev => prev.filter(item => item.id !== id));
-      window.dispatchEvent(new Event('cartUpdated'));
+      window.dispatchEvent(new Event(APP_EVENTS.CART_UPDATED));
     } catch (error) {
       console.error('삭제 실패:', error);
     }

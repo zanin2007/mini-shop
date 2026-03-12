@@ -2,6 +2,8 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../api/instance';
 import { useAlert } from './useAlert';
+import { APP_EVENTS } from '../constants/events';
+import { getStoredUser } from '../utils/storage';
 import type { User } from '../types';
 import './Layout.css';
 
@@ -9,12 +11,7 @@ function Layout() {
   const [user, setUser] = useState<User | null>(() => {
     const token = localStorage.getItem('token');
     if (!token) return null;
-    try {
-      const userData = localStorage.getItem('user');
-      return userData ? JSON.parse(userData) : null;
-    } catch {
-      return null;
-    }
+    return getStoredUser();
   });
   const [cartCount, setCartCount] = useState(0);
   const [mailboxCount, setMailboxCount] = useState(0);
@@ -64,15 +61,15 @@ function Layout() {
     const interval = setInterval(fetchCounts, 30000);
 
     const handleCountsUpdate = () => { fetchCounts(); };
-    window.addEventListener('cartUpdated', handleCountsUpdate);
-    window.addEventListener('notificationUpdated', handleCountsUpdate);
-    window.addEventListener('mailboxUpdated', handleCountsUpdate);
+    window.addEventListener(APP_EVENTS.CART_UPDATED, handleCountsUpdate);
+    window.addEventListener(APP_EVENTS.NOTIFICATION_UPDATED, handleCountsUpdate);
+    window.addEventListener(APP_EVENTS.MAILBOX_UPDATED, handleCountsUpdate);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('cartUpdated', handleCountsUpdate);
-      window.removeEventListener('notificationUpdated', handleCountsUpdate);
-      window.removeEventListener('mailboxUpdated', handleCountsUpdate);
+      window.removeEventListener(APP_EVENTS.CART_UPDATED, handleCountsUpdate);
+      window.removeEventListener(APP_EVENTS.NOTIFICATION_UPDATED, handleCountsUpdate);
+      window.removeEventListener(APP_EVENTS.MAILBOX_UPDATED, handleCountsUpdate);
     };
   }, [fetchCounts]);
 
@@ -80,24 +77,14 @@ function Layout() {
   useEffect(() => {
     const loadUser = () => {
       const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const userData = localStorage.getItem('user');
-          if (userData) setUser(JSON.parse(userData));
-        } catch {
-          localStorage.removeItem('user');
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
+      setUser(token ? getStoredUser() : null);
     };
 
     window.addEventListener('storage', loadUser);
-    window.addEventListener('userUpdated', loadUser);
+    window.addEventListener(APP_EVENTS.USER_UPDATED, loadUser);
     return () => {
       window.removeEventListener('storage', loadUser);
-      window.removeEventListener('userUpdated', loadUser);
+      window.removeEventListener(APP_EVENTS.USER_UPDATED, loadUser);
     };
   }, []);
 

@@ -11,6 +11,8 @@ import { useAlert } from '../../components/useAlert';
 import { useTabIndicator } from '../../hooks/useTabIndicator';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import api from '../../api/instance';
+import { APP_EVENTS } from '../../constants/events';
+import { getStoredUser } from '../../utils/storage';
 import type { User } from '../../types';
 import OrdersTab from './OrdersTab';
 import PurchasesTab from './PurchasesTab';
@@ -36,12 +38,7 @@ function MyPage() {
   const { showConfirm } = useAlert();
 
   // localStorage 캐시로 즉시 렌더 — 캐시 없으면 스피너
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const cached = localStorage.getItem('user');
-      return cached ? JSON.parse(cached) as User : null;
-    } catch { return null; }
-  });
+  const [user, setUser] = useState<User | null>(() => getStoredUser());
   const [loading, setLoading] = useState(() => !user || !localStorage.getItem('token'));
   const [activeTab, setActiveTab] = useState<MyTab>('orders');
   const [mountedTabs, setMountedTabs] = useState<Set<MyTab>>(new Set(['orders']));
@@ -84,7 +81,7 @@ function MyPage() {
   const handleUserUpdate = useCallback((updatedUser: User) => {
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
-    window.dispatchEvent(new Event('userUpdated'));
+    window.dispatchEvent(new Event(APP_EVENTS.USER_UPDATED));
   }, []);
 
   const handleOrderCountReady = useCallback((active: number, completed: number) => {

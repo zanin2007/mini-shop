@@ -53,6 +53,7 @@ function QuantityInput({ value, min = 1, max, onChange }: Props) {
     <div className="qty-input">
       <button
         className="qty-btn"
+        aria-label="수량 감소"
         disabled={value <= min}
         onMouseDown={() => { if (value > min) startHold(-1); }}
         onMouseUp={clearTimers}
@@ -90,6 +91,7 @@ function QuantityInput({ value, min = 1, max, onChange }: Props) {
 
       <button
         className="qty-btn"
+        aria-label="수량 증가"
         disabled={value >= max}
         onMouseDown={() => { if (value < max) startHold(1); }}
         onMouseUp={clearTimers}

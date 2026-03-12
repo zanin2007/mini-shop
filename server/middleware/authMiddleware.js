@@ -32,8 +32,9 @@ exports.authenticateToken = (req, res, next) => {
           const until = new Date(penalty.suspended_until).toLocaleDateString('ko-KR');
           return res.status(403).json({ message: `${until}까지 이용 정지된 계정입니다. 사유: ${penalty.reason}` });
         }
-      } catch {
-        // DB 오류 시 인증은 통과 (가용성 우선)
+      } catch (penaltyError) {
+        // DB 오류 시 인증은 통과 (가용성 우선) — 에러 로깅은 유지
+        console.error('제재 확인 DB 오류:', penaltyError);
       }
     }
 

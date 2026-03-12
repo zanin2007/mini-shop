@@ -9,16 +9,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/instance';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import type { Order, CartItemOption, Refund } from '../../types';
-
-const statusMap: Record<string, { label: string; className: string }> = {
-  checking: { label: '상품확인중', className: 'status-checking' },
-  pending: { label: '준비중', className: 'status-pending' },
-  shipped: { label: '배송중', className: 'status-shipped' },
-  delivered: { label: '배송완료', className: 'status-delivered' },
-  completed: { label: '수령완료', className: 'status-completed' },
-  refund_requested: { label: '환불신청', className: 'status-refund-requested' },
-  refunded: { label: '환불완료', className: 'status-refunded' },
-};
+import { statusMap } from './orderConstants';
 
 const refundStatusMap: Record<string, { label: string; className: string }> = {
   requested: { label: '환불 심사중', className: 'refund-status-requested' },

@@ -12,6 +12,7 @@ import { useAlert } from '../../components/useAlert';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { Button } from '../../components/ui/button';
 import { Spinner } from '../../components/ui/spinner';
+import { APP_EVENTS } from '../../constants/events';
 import type { Coupon, CartPageItem, SearchedUser } from '../../types';
 import DeliveryForm from './DeliveryForm';
 import CouponSection from './CouponSection';
@@ -144,7 +145,7 @@ function CheckoutPage() {
       try {
         const authRes = await api.get('/auth/check');
         localStorage.setItem('user', JSON.stringify(authRes.data.user));
-        window.dispatchEvent(new Event('userUpdated'));
+        window.dispatchEvent(new Event(APP_EVENTS.USER_UPDATED));
       } catch { /* ignore */ }
       showAlert(isGift ? '선물 주문이 완료되었습니다!' : '주문이 완료되었습니다!', 'success');
       navigate('/mypage');

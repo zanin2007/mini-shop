@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { APP_EVENTS } from '../constants/events';
 
 const instance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -29,7 +30,7 @@ instance.interceptors.response.use(
     if (error.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.dispatchEvent(new Event('userUpdated'));
+      window.dispatchEvent(new Event(APP_EVENTS.USER_UPDATED));
       window.location.assign('/login');
     }
     return Promise.reject(error);

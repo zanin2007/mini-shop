@@ -328,6 +328,16 @@ async function initializeDatabase() {
   await safeCreateIndex('CREATE INDEX idx_event_participants_user ON event_participants(user_id)');
   // 공지 삭제 시 연결된 고정 알림 정리
   await safeCreateIndex('CREATE INDEX idx_notifications_link ON notifications(link, is_pinned)');
+  // 상품별 리뷰 조회 (UNIQUE(user_id, product_id)는 product_id 단독 검색 불가)
+  await safeCreateIndex('CREATE INDEX idx_reviews_product ON reviews(product_id)');
+  // 주문별 선물 조회
+  await safeCreateIndex('CREATE INDEX idx_gifts_order ON gifts(order_id)');
+  // 장바구니 선택 상품 조회 (체크아웃 시 user_id + is_selected 조합)
+  await safeCreateIndex('CREATE INDEX idx_cart_items_user_selected ON cart_items(user_id, is_selected)');
+  // 상품별 주문 내역 조회 (환불/재고 복원 시 product_id 검색)
+  await safeCreateIndex('CREATE INDEX idx_order_items_product ON order_items(product_id)');
+  // 사용 가능한 쿠폰 필터링 (만료일 + 활성 상태)
+  await safeCreateIndex('CREATE INDEX idx_coupons_expiry_active ON coupons(expiry_date, is_active)');
 
   await safeAddColumn('orders', 'completed_at', 'DATETIME DEFAULT NULL');
   await safeAddColumn('users', 'points', 'INT NOT NULL DEFAULT 0');

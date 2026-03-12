@@ -69,6 +69,9 @@ exports.signup = async (req, res) => {
 
     res.status(201).json({ message: '회원가입이 완료되었습니다.' });
   } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: '이미 사용 중인 이메일 또는 닉네임입니다.' });
+    }
     console.error('Signup error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
@@ -154,8 +157,16 @@ exports.searchUser = async (req, res) => {
       return res.json([]);
     }
     const escaped = q.replace(/[%_\\]/g, '\\$&');
+    // 정지된 유저 제외
     const [users] = await db.execute(
-      `SELECT id, nickname FROM users WHERE id != ? AND nickname LIKE ? LIMIT 10`,
+      `SELECT u.id, u.nickname FROM users u
+       WHERE u.id != ? AND u.nickname LIKE ?
+       AND NOT EXISTS (
+         SELECT 1 FROM user_penalties up
+         WHERE up.user_id = u.id AND up.is_active = true AND up.type != 'warning'
+         AND (up.suspended_until IS NULL OR up.suspended_until > NOW())
+       )
+       LIMIT 10`,
       [req.user.userId, `%${escaped}%`]
     );
     res.json(users);
@@ -185,6 +196,9 @@ exports.changeNickname = async (req, res) => {
     await db.execute('UPDATE users SET nickname = ? WHERE id = ?', [nickname, req.user.userId]);
     res.json({ message: '닉네임이 변경되었습니다.', nickname });
   } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: '이미 사용 중인 닉네임입니다.' });
+    }
     console.error('Change nickname error:', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
@@ -248,6 +262,15 @@ exports.deleteAccount = async (req, res) => {
     );
     if (activeOrders.length > 0) {
       return res.status(400).json({ message: '진행중인 주문이 있어 탈퇴할 수 없습니다.' });
+    }
+
+    // 대기중인 선물이 있으면 탈퇴 차단
+    const [pendingGifts] = await db.execute(
+      "SELECT id FROM gifts WHERE (sender_id = ? OR receiver_id = ?) AND status = 'pending'",
+      [req.user.userId, req.user.userId]
+    );
+    if (pendingGifts.length > 0) {
+      return res.status(400).json({ message: '대기중인 선물이 있어 탈퇴할 수 없습니다.' });
     }
 
     await db.execute('DELETE FROM users WHERE id = ?', [req.user.userId]);
