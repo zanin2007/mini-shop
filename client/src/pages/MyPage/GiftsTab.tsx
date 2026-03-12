@@ -170,7 +170,7 @@ function GiftsTab({ onCountReady }: Props) {
                     {!['refund_requested', 'refunded'].includes(gift.order_status) && (
                       <div className="delivery-progress">
                         {deliverySteps.map((step, idx) => {
-                          const currentIdx = deliverySteps.indexOf(gift.order_status ?? '');
+                          const currentIdx = gift.order_status ? deliverySteps.indexOf(gift.order_status) : -1;
                           const isActive = idx <= currentIdx;
                           return (
                             <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>
@@ -241,7 +241,7 @@ function GiftsTab({ onCountReady }: Props) {
                     {!['refund_requested', 'refunded'].includes(gift.order_status) && (
                       <div className="delivery-progress">
                         {deliverySteps.map((step, idx) => {
-                          const currentIdx = deliverySteps.indexOf(gift.order_status ?? '');
+                          const currentIdx = gift.order_status ? deliverySteps.indexOf(gift.order_status) : -1;
                           const isActive = idx <= currentIdx;
                           return (
                             <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>

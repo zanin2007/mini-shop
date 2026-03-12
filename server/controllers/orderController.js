@@ -146,7 +146,7 @@ exports.createOrder = async (req, res) => {
         'SELECT points FROM users WHERE id = ?',
         [req.user.userId]
       );
-      const userPoints = userRows[0]?.points || 0;
+      const userPoints = userRows[0]?.points ?? 0;
       if (requestedPoints > userPoints) {
         await connection.rollback();
         return res.status(400).json({ message: '보유 포인트가 부족합니다.' });

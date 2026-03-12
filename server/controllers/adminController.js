@@ -74,8 +74,8 @@ exports.updateOrderStatus = async (req, res) => {
     }
 
     // 정방향 전이만 허용
-    const statusOrder = { checking: 0, pending: 1, shipped: 2, delivered: 3, completed: 4 };
-    if (statusOrder[status] <= statusOrder[currentStatus]) {
+    const STATUS_ORDER = { checking: 0, pending: 1, shipped: 2, delivered: 3, completed: 4 };
+    if (STATUS_ORDER[status] <= STATUS_ORDER[currentStatus]) {
       return res.status(400).json({ message: '현재 상태보다 이전 단계로 변경할 수 없습니다.' });
     }
 
@@ -283,6 +283,12 @@ exports.createAnnouncement = async (req, res) => {
     if (!title || !content) {
       return res.status(400).json({ message: '제목과 내용을 입력해주세요.' });
     }
+    if (title.length > 255) {
+      return res.status(400).json({ message: '제목은 255자 이내로 입력해주세요.' });
+    }
+    if (content.length > 5000) {
+      return res.status(400).json({ message: '내용은 5000자 이내로 입력해주세요.' });
+    }
 
     // 상단 고정 공지 최대 3개 제한
     if (is_pinned) {
@@ -306,7 +312,7 @@ exports.createAnnouncement = async (req, res) => {
       const notifTitle = `📢 ${title}`;
       const notifContent = content.substring(0, 100);
       const isPinned = is_pinned ? true : false;
-      const link = is_pinned ? `pinned:${announcementId}` : null;
+      const link = is_pinned ? `pinned:${Number(announcementId)}` : null;
       const ph = users.map(() => '(?, ?, ?, ?, ?, ?)').join(',');
       const vals = users.flatMap(u => [u.id, 'system', notifTitle, notifContent, isPinned, link]);
       await db.execute(
@@ -348,7 +354,7 @@ exports.deleteAnnouncement = async (req, res) => {
       return res.status(404).json({ message: '공지를 찾을 수 없습니다.' });
     }
     // 상단 고정 공지의 알림도 삭제 (link = 'pinned:{id}')
-    await connection.execute('DELETE FROM notifications WHERE link = ? AND is_pinned = true', [`pinned:${id}`]);
+    await connection.execute('DELETE FROM notifications WHERE link = ? AND is_pinned = true', [`pinned:${Number(id)}`]);
     await connection.commit();
     res.json({ message: '공지가 삭제되었습니다.' });
   } catch (error) {
@@ -370,7 +376,9 @@ exports.createEvent = async (req, res) => {
       return res.status(400).json({ message: '제목과 기간은 필수입니다.' });
     }
 
-    if (new Date(start_date) >= new Date(end_date)) {
+    // DB 타임존 기준으로 날짜 비교 (JS Date와 DB UTC 불일치 방지)
+    const [[{ invalid_range }]] = await db.execute('SELECT ? >= ? AS invalid_range', [start_date, end_date]);
+    if (invalid_range) {
       return res.status(400).json({ message: '시작일은 종료일보다 이전이어야 합니다.' });
     }
 
@@ -475,10 +483,9 @@ exports.drawEventWinners = async (req, res) => {
     try {
       await connection.beginTransaction();
 
-      // NOTE: LIMIT에는 파라미터 바인딩 불가, parseInt로 검증 완료
       const [participants] = await connection.execute(
-        `SELECT * FROM event_participants WHERE event_id = ? AND is_winner = false ORDER BY RAND() LIMIT ${limit} FOR UPDATE`,
-        [id]
+        `SELECT * FROM event_participants WHERE event_id = ? AND is_winner = false ORDER BY RAND() LIMIT ? FOR UPDATE`,
+        [id, limit]
       );
 
       if (participants.length === 0) {
@@ -760,7 +767,7 @@ exports.processRefund = async (req, res) => {
       const order = orderRows[0];
 
       // 포인트 환불
-      const pointsUsed = order?.points_used || 0;
+      const pointsUsed = order?.points_used ?? 0;
       if (pointsUsed > 0) {
         await connection.execute(
           'UPDATE users SET points = LEAST(points + ?, 9999999) WHERE id = ?',

@@ -4,11 +4,12 @@
  * - 쿠폰 목록: 할인 정보, 사용/만료 상태 표시
  * - 전체 유저 배포 / 개별 삭제
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import { FieldError } from '../../components/ui/field-error';
+import DateTimePicker from '../../components/ui/date-time-picker';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminCoupon {
@@ -34,11 +35,7 @@ function AdminCouponsTab() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
-
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       const res = await api.get('/admin/coupons');
       setCoupons(res.data);
@@ -47,7 +44,9 @@ function AdminCouponsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchCoupons(); }, [fetchCoupons]);
 
   const validate = (): Record<string, string> => {
     const errs: Record<string, string> = {};
@@ -170,11 +169,11 @@ function AdminCouponsTab() {
             onChange={e => setCouponForm({ ...couponForm, min_price: e.target.value })}
           />
           <div className="coupon-field">
-            <input
-              type="datetime-local"
+            <DateTimePicker
               className={errors.expiry_date ? 'has-error' : ''}
               value={couponForm.expiry_date}
-              onChange={e => setCouponForm({ ...couponForm, expiry_date: e.target.value })}
+              onChange={v => setCouponForm({ ...couponForm, expiry_date: v })}
+              placeholder="만료일 선택"
             />
             <FieldError>{errors.expiry_date}</FieldError>
           </div>
@@ -203,7 +202,9 @@ function AdminCouponsTab() {
               </tr>
             </thead>
             <tbody>
-              {coupons.map(coupon => (
+              {coupons.map(coupon => {
+                const isExpired = new Date(coupon.expiry_date) < new Date();
+                return (
                 <tr key={coupon.id}>
                   <td><code>{coupon.code}</code></td>
                   <td>
@@ -215,8 +216,8 @@ function AdminCouponsTab() {
                   <td>{new Date(coupon.expiry_date).toLocaleDateString('ko-KR')}</td>
                   <td>{coupon.current_uses}{coupon.max_uses ? `/${coupon.max_uses}` : ''}</td>
                   <td>
-                    <span className={`coupon-status ${new Date(coupon.expiry_date) < new Date() ? 'expired' : 'active'}`}>
-                      {new Date(coupon.expiry_date) < new Date() ? '만료' : '활성'}
+                    <span className={`coupon-status ${isExpired ? 'expired' : 'active'}`}>
+                      {isExpired ? '만료' : '활성'}
                     </span>
                   </td>
                   <td>
@@ -230,7 +231,8 @@ function AdminCouponsTab() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

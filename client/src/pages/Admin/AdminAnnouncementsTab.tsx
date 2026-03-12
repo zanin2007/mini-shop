@@ -4,7 +4,7 @@
  * - 공지 목록: 고정(📌)/일반 구분, 등록일 표시
  * - 삭제: 상단 고정 공지 삭제 시 고정 슬롯 해제
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
@@ -28,11 +28,7 @@ function AdminAnnouncementsTab() {
   const [form, setForm] = useState({ title: '', content: '', is_pinned: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
-
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = useCallback(async () => {
     try {
       const res = await api.get('/admin/announcements');
       setAnnouncements(res.data);
@@ -41,7 +37,9 @@ function AdminAnnouncementsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchAnnouncements(); }, [fetchAnnouncements]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +72,7 @@ function AdminAnnouncementsTab() {
     }
   };
 
-  const pinnedCount = announcements.filter(a => a.is_pinned).length;
+  const pinnedCount = useMemo(() => announcements.filter(a => a.is_pinned).length, [announcements]);
 
   if (loading) return <LoadingSpinner text="불러오는 중..." />;
 

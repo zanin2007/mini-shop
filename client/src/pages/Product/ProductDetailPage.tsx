@@ -105,7 +105,7 @@ function ProductDetailPage() {
   }, [id, fetchProduct, fetchReviews, checkCanReview, checkWishlisted]);
 
   const handleToggleWishlist = async () => {
-    if (wishlistProcessing) return;
+    if (wishlistProcessing || !product?.id) return;
     const token = localStorage.getItem('token');
     if (!token) {
       const ok = await showConfirm('로그인 권한이 필요합니다. 로그인하시겠습니까?');

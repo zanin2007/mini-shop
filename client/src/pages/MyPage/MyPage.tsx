@@ -19,6 +19,8 @@ import GiftsTab from './GiftsTab';
 import SettingsTab from './SettingsTab';
 import './MyPage.css';
 
+const getInitials = (nickname: string) => nickname.slice(0, 2);
+
 type MyTab = 'orders' | 'purchases' | 'coupons' | 'gifts' | 'settings';
 const TABS: MyTab[] = ['orders', 'purchases', 'coupons', 'gifts', 'settings'];
 const tabLabels: Record<MyTab, string> = {
@@ -84,10 +86,6 @@ function MyPage() {
     localStorage.setItem('user', JSON.stringify(updatedUser));
     window.dispatchEvent(new Event('userUpdated'));
   }, []);
-
-  const getInitials = (nickname: string) => {
-    return nickname.slice(0, 2);
-  };
 
   const handleOrderCountReady = useCallback((active: number, completed: number) => {
     setActiveOrdersCount(active);

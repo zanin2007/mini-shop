@@ -322,6 +322,12 @@ async function initializeDatabase() {
   // 선물 조회 성능 개선
   await safeCreateIndex('CREATE INDEX idx_gifts_sender ON gifts(sender_id)');
   await safeCreateIndex('CREATE INDEX idx_gifts_receiver ON gifts(receiver_id)');
+  // 쿠폰 배포 시 coupon_id 단독 조회 (UNIQUE(user_id, coupon_id)는 coupon_id 단독 검색 불가)
+  await safeCreateIndex('CREATE INDEX idx_user_coupons_coupon ON user_coupons(coupon_id)');
+  // 유저별 이벤트 참여 조회 (UNIQUE(event_id, user_id)는 user_id 단독 검색 불가)
+  await safeCreateIndex('CREATE INDEX idx_event_participants_user ON event_participants(user_id)');
+  // 공지 삭제 시 연결된 고정 알림 정리
+  await safeCreateIndex('CREATE INDEX idx_notifications_link ON notifications(link, is_pinned)');
 
   await safeAddColumn('orders', 'completed_at', 'DATETIME DEFAULT NULL');
   await safeAddColumn('users', 'points', 'INT NOT NULL DEFAULT 0');

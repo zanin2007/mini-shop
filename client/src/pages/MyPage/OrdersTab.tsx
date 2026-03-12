@@ -25,6 +25,8 @@ const statusMap: Record<string, { label: string; className: string }> = {
   refunded: { label: '환불완료', className: 'status-refunded' },
 };
 
+const deliverySteps = ['checking', 'pending', 'shipped', 'delivered'];
+
 interface Props {
   onCountReady: (activeCount: number, completedCount: number) => void;
 }
@@ -105,9 +107,8 @@ function OrdersTab({ onCountReady }: Props) {
             </ul>
           )}
           <div className="delivery-progress">
-            {['checking', 'pending', 'shipped', 'delivered'].map((step, idx) => {
-              const steps = ['checking', 'pending', 'shipped', 'delivered'];
-              const currentIdx = steps.indexOf(order.status);
+            {deliverySteps.map((step, idx) => {
+              const currentIdx = deliverySteps.indexOf(order.status);
               const isActive = idx <= currentIdx;
               return (
                 <div key={step} className={`progress-step ${isActive ? 'active' : ''}`}>

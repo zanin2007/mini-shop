@@ -4,7 +4,7 @@
  * - 카테고리 필터 + 검색
  * - 관리자 권한으로 상품 삭제
  */
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import api from '../../api/instance';
@@ -43,11 +43,7 @@ function AdminProductsTab() {
   const [productCategory, setProductCategory] = useState('');
   const [productSort, setProductSort] = useState('newest');
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const res = await api.get('/admin/products');
       setProducts(res.data);
@@ -56,7 +52,9 @@ function AdminProductsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   const handleDelete = async (id: number) => {
     if (!(await showConfirm('정말 이 상품을 삭제하시겠습니까?'))) return;

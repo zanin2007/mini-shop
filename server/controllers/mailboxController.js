@@ -112,7 +112,7 @@ exports.claimReward = async (req, res) => {
         );
       }
     } else if (mail.reward_type === 'point') {
-      if (!mail.reward_amount || mail.reward_amount <= 0) {
+      if (mail.reward_amount == null || mail.reward_amount < 0) {
         await connection.rollback();
         return res.status(400).json({ message: '포인트 정보가 누락되어 수령할 수 없습니다.' });
       }

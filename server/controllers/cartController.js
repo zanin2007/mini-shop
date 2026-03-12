@@ -105,7 +105,7 @@ exports.addToCart = async (req, res) => {
       let matchedQuantity = 0;
       for (const cart of existing) {
         const existingIds = (optsMap.get(cart.id) || []).sort((a, b) => a - b);
-        if (JSON.stringify(existingIds) === JSON.stringify(newIds)) {
+        if (existingIds.length === newIds.length && existingIds.every((id, i) => id === newIds[i])) {
           matchedCartId = cart.id;
           matchedQuantity = cart.quantity;
           break;
@@ -189,26 +189,32 @@ exports.updateQuantity = async (req, res) => {
     const { id } = req.params;
     const { quantity } = req.body;
 
-    if (!Number.isInteger(quantity) || quantity < 1) {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
       await connection.rollback();
-      return res.status(400).json({ message: '수량은 1 이상의 정수여야 합니다.' });
+      return res.status(400).json({ message: '수량은 1~999 사이의 정수여야 합니다.' });
     }
 
-    // 상품 재고 확인 (FOR UPDATE)
-    const [cartProduct] = await connection.execute(
-      `SELECT p.stock FROM cart_items c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.user_id = ? FOR UPDATE`,
+    // 장바구니 → 상품 ID 조회
+    const [cartRows] = await connection.execute(
+      'SELECT product_id FROM cart_items WHERE id = ? AND user_id = ? FOR UPDATE',
       [id, req.user.userId]
     );
-    if (cartProduct.length === 0) {
+    if (cartRows.length === 0) {
       await connection.rollback();
       return res.status(404).json({ message: '장바구니 상품을 찾을 수 없습니다.' });
     }
-    if (cartProduct[0].stock < quantity) {
+
+    // 상품 행을 먼저 잠금 (동시 수량 변경 시 재고 초과 방지)
+    const [productRows] = await connection.execute(
+      'SELECT stock FROM products WHERE id = ? FOR UPDATE',
+      [cartRows[0].product_id]
+    );
+    if (productRows[0].stock < quantity) {
       await connection.rollback();
       return res.status(400).json({ message: '상품 재고가 부족합니다.' });
     }
 
-    // 옵션 재고 확인 (FOR UPDATE)
+    // 옵션 행도 잠금 후 재고 확인
     const [cartOpts] = await connection.execute(
       `SELECT pov.id, pov.stock FROM cart_item_options cio
        JOIN product_option_values pov ON cio.option_value_id = pov.id

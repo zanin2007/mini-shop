@@ -20,10 +20,14 @@ exports.requestRefund = async (req, res) => {
       await connection.rollback();
       return res.status(400).json({ message: '환불 사유를 입력해주세요.' });
     }
+    if (reason.length > 500) {
+      await connection.rollback();
+      return res.status(400).json({ message: '환불 사유는 500자 이내로 입력해주세요.' });
+    }
 
-    // 주문 확인
+    // 주문 확인 (FOR UPDATE로 동시 환불 요청 방지)
     const [orders] = await connection.execute(
-      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+      'SELECT * FROM orders WHERE id = ? AND user_id = ? FOR UPDATE',
       [orderId, userId]
     );
 

@@ -4,11 +4,12 @@
  * - 이벤트 목록: 참여자 수, 기간, 추첨 기능 (draw 타입만)
  * - 삭제
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AxiosError } from 'axios';
 import api from '../../api/instance';
 import { useAlert } from '../../components/useAlert';
 import { FieldError } from '../../components/ui/field-error';
+import DateTimePicker from '../../components/ui/date-time-picker';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface AdminEvent {
@@ -49,12 +50,7 @@ function AdminEventsTab() {
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetchEvents();
-    fetchCoupons();
-  }, []);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const res = await api.get('/admin/events');
       setEvents(res.data);
@@ -63,16 +59,21 @@ function AdminEventsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       const res = await api.get('/admin/coupons');
       setCoupons(res.data);
     } catch (error) {
       console.error('쿠폰 목록 조회 실패:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchEvents();
+    fetchCoupons();
+  }, [fetchEvents, fetchCoupons]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +135,11 @@ function AdminEventsTab() {
     }
   };
 
+  const activeCoupons = useMemo(() => {
+    const now = Date.now();
+    return coupons.filter(c => c.is_active && new Date(c.expiry_date).getTime() > now);
+  }, [coupons]);
+
   if (loading) return <LoadingSpinner text="불러오는 중..." />;
 
   return (
@@ -175,9 +181,7 @@ function AdminEventsTab() {
                 onChange={e => setEventForm({ ...eventForm, reward_id: e.target.value })}
               >
                 <option value="">쿠폰 선택</option>
-                {coupons
-                  .filter(c => c.is_active && new Date(c.expiry_date) > new Date())
-                  .map(c => (
+                {activeCoupons.map(c => (
                     <option key={c.id} value={c.id}>
                       {c.code} ({c.discount_percentage ? `${c.discount_percentage}%` : `${c.discount_amount.toLocaleString()}원`} 할인)
                     </option>
@@ -201,20 +205,20 @@ function AdminEventsTab() {
             onChange={e => setEventForm({ ...eventForm, max_participants: e.target.value })}
           />
           <div className="coupon-field">
-            <input
-              type="datetime-local"
+            <DateTimePicker
               className={errors.start_date ? 'has-error' : ''}
               value={eventForm.start_date}
-              onChange={e => setEventForm({ ...eventForm, start_date: e.target.value })}
+              onChange={v => setEventForm({ ...eventForm, start_date: v })}
+              placeholder="시작일 선택"
             />
             <FieldError>{errors.start_date}</FieldError>
           </div>
           <div className="coupon-field">
-            <input
-              type="datetime-local"
+            <DateTimePicker
               className={errors.end_date ? 'has-error' : ''}
               value={eventForm.end_date}
-              onChange={e => setEventForm({ ...eventForm, end_date: e.target.value })}
+              onChange={v => setEventForm({ ...eventForm, end_date: v })}
+              placeholder="종료일 선택"
             />
             <FieldError>{errors.end_date}</FieldError>
           </div>
@@ -267,7 +271,7 @@ function AdminEventsTab() {
                             min="1"
                             placeholder="인원"
                             value={drawCount[ev.id] || ''}
-                            onChange={e => setDrawCount({ ...drawCount, [ev.id]: e.target.value })}
+                            onChange={e => { const v = e.target.value; setDrawCount(prev => ({ ...prev, [ev.id]: v })); }}
                             className="draw-input"
                           />
                           <button className="admin-draw-btn" onClick={() => handleDraw(ev.id, Number(drawCount[ev.id]) || 1, ev.current_participants ?? 0)}>

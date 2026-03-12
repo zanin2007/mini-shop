@@ -83,7 +83,7 @@ function LoginPage() {
               className={fieldErrors.email ? 'has-error' : ''}
               value={formData.email}
               onChange={handleChange}
-              placeholder="example@email.com"
+              placeholder="admin@shop.com"
             />
             <FieldError>{fieldErrors.email}</FieldError>
           </div>
@@ -96,7 +96,7 @@ function LoginPage() {
               className={fieldErrors.password ? 'has-error' : ''}
               value={formData.password}
               onChange={handleChange}
-              placeholder="비밀번호"
+              placeholder="admin1234"
             />
             <FieldError>{fieldErrors.password}</FieldError>
           </div>

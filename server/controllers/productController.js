@@ -13,6 +13,9 @@ const db = require('../config/db');
 exports.getAllProducts = async (req, res) => {
   try {
     const { search, category } = req.query;
+    if (search && search.length > 100) {
+      return res.status(400).json({ message: '검색어는 100자 이내로 입력해주세요.' });
+    }
     let sql = 'SELECT * FROM products WHERE is_active = true';
     const params = [];
 

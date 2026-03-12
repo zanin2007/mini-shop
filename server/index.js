@@ -40,9 +40,11 @@ app.use(cookieParser());
 // Rate Limiting
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { message: '너무 많은 요청입니다. 15분 후 다시 시도해주세요.' } });
-app.use('/api', apiLimiter);
-app.use('/api/auth/login', authLimiter);
+const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, message: { message: '관리자 요청이 너무 많습니다. 15분 후 다시 시도해주세요.' } });
+app.use('/api', apiLimiter); // 전체 API: 15분당 300회
+app.use('/api/auth/login', authLimiter); // 로그인: 15분당 20회 (apiLimiter와 중복 적용)
 app.use('/api/auth/signup', authLimiter);
+app.use('/api/admin', adminLimiter); // 관리자: 15분당 50회 (apiLimiter와 중복 적용)
 
 // 라우트
 app.use('/api/auth', authRoutes);

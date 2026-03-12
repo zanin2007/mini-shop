@@ -52,10 +52,23 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const handleConfirm = (result: boolean) => {
-    confirm.resolve?.(result);
+  const confirmResolveRef = useRef<((value: boolean) => void) | null>(null);
+  confirmResolveRef.current = confirm.resolve;
+
+  const handleConfirm = useCallback((result: boolean) => {
+    confirmResolveRef.current?.(result);
     setConfirm({ show: false, message: '', resolve: null });
-  };
+  }, []);
+
+  // ESC 키로 확인 모달 닫기
+  useEffect(() => {
+    if (!confirm.show) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleConfirm(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [confirm.show, handleConfirm]);
 
   const iconMap = {
     success: '✓',

@@ -26,7 +26,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<'nickname' | 'password' | 'delete' | null>(null);
 
   const handleChangeNickname = async () => {
     const trimmed = newNickname.trim();
@@ -38,7 +38,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
       showAlert('닉네임은 2~20자로 입력해주세요.', 'warning');
       return;
     }
-    setLoading(true);
+    setLoading('nickname');
     try {
       const res = await api.put('/auth/nickname', { nickname: trimmed });
       showAlert(res.data.message, 'success');
@@ -51,7 +51,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
         showAlert(error.response?.data?.message || '닉네임 변경에 실패했습니다.', 'error');
       }
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
@@ -68,7 +68,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
       showAlert('새 비밀번호가 일치하지 않습니다.', 'warning');
       return;
     }
-    setLoading(true);
+    setLoading('password');
     try {
       const res = await api.put('/auth/password', { currentPassword, newPassword });
       showAlert(res.data.message, 'success');
@@ -80,7 +80,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
         showAlert(error.response?.data?.message || '비밀번호 변경에 실패했습니다.', 'error');
       }
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
@@ -90,7 +90,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
       return;
     }
     if (!(await showConfirm('정말로 탈퇴하시겠습니까?\n모든 데이터가 삭제되며 복구할 수 없습니다.'))) return;
-    setLoading(true);
+    setLoading('delete');
     try {
       await api.delete('/auth/account', { data: { password: deletePassword.trim() } });
       showAlert('회원탈퇴가 완료되었습니다.', 'success');
@@ -102,7 +102,7 @@ function SettingsTab({ user, onUserUpdate }: Props) {
         showAlert(error.response?.data?.message || '회원탈퇴에 실패했습니다.', 'error');
       }
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
@@ -118,9 +118,9 @@ function SettingsTab({ user, onUserUpdate }: Props) {
             onChange={(e) => setNewNickname(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleChangeNickname()}
           />
-          <Button onClick={handleChangeNickname} disabled={loading}>
-            {loading && <Spinner className="size-4" />}
-            {loading ? '변경 중' : '변경'}
+          <Button onClick={handleChangeNickname} disabled={loading !== null}>
+            {loading === 'nickname' && <Spinner className="size-4" />}
+            {loading === 'nickname' ? '변경 중' : '변경'}
           </Button>
         </div>
       </div>
@@ -147,9 +147,9 @@ function SettingsTab({ user, onUserUpdate }: Props) {
             onChange={(e) => setConfirmPassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
           />
-          <Button onClick={handleChangePassword} disabled={loading}>
-            {loading && <Spinner className="size-4" />}
-            {loading ? '변경 중' : '비밀번호 변경'}
+          <Button onClick={handleChangePassword} disabled={loading !== null}>
+            {loading === 'password' && <Spinner className="size-4" />}
+            {loading === 'password' ? '변경 중' : '비밀번호 변경'}
           </Button>
         </div>
       </div>
@@ -165,9 +165,9 @@ function SettingsTab({ user, onUserUpdate }: Props) {
             onChange={(e) => setDeletePassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleDeleteAccount()}
           />
-          <Button className="danger-btn" variant="destructive" onClick={handleDeleteAccount} disabled={loading}>
-            {loading && <Spinner className="size-4" />}
-            {loading ? '처리 중' : '회원탈퇴'}
+          <Button className="danger-btn" variant="destructive" onClick={handleDeleteAccount} disabled={loading !== null}>
+            {loading === 'delete' && <Spinner className="size-4" />}
+            {loading === 'delete' ? '처리 중' : '회원탈퇴'}
           </Button>
         </div>
       </div>
